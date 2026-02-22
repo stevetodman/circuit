@@ -32,6 +32,7 @@ interface UIState {
   showHelp: boolean;
   showDesignators: boolean;
   zoomToFit: boolean;
+  arduinoTabRequested: number;
   zoomInRequested: number;
   zoomOutRequested: number;
   arduinoTabRequested: number;
@@ -72,6 +73,7 @@ interface UIState {
   openWireMenu:       (wireId: string, x: number, y: number) => void;
   closeWireMenu:      () => void;
   requestZoomToFit:    () => void;
+  requestArduinoTab:   () => void;
   clearZoomToFit:      () => void;
   requestZoomIn:       () => void;
   requestZoomOut:      () => void;
@@ -111,6 +113,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showHelp:      false,
   showDesignators: true,
   zoomToFit:     false,
+  arduinoTabRequested: 0,
   zoomInRequested: 0,
   zoomOutRequested: 0,
   arduinoTabRequested: 0,
@@ -150,6 +153,7 @@ export const useUIStore = create<UIState>()((set) => ({
   openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
   closeWireMenu: () => set({ wireMenu: null }),
   requestZoomToFit:    () => set({ zoomToFit: true }),
+  requestArduinoTab:   () => set((s) => ({ arduinoTabRequested: s.arduinoTabRequested + 1 })),
   clearZoomToFit:      () => set({ zoomToFit: false }),
   requestZoomIn:       () => set((s) => ({ zoomInRequested: s.zoomInRequested + 1 })),
   requestZoomOut:      () => set((s) => ({ zoomOutRequested: s.zoomOutRequested + 1 })),

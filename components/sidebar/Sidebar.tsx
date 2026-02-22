@@ -234,11 +234,18 @@ export default function Sidebar() {
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
   const newCircuit = useCircuitStore((s) => s.newCircuit);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
+  const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const arduinoTabRequested = useUIStore((state) => state.arduinoTabRequested);
+
+  useEffect(() => {
+    if (arduinoTabRequested > 0) {
+      setTab('arduino');
+    }
+  }, [arduinoTabRequested]);
 
   useEffect(() => {
     if (arduinoTabRequested > 0) {
