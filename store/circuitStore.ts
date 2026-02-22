@@ -64,7 +64,6 @@ interface CircuitState extends TopologyState {
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
   setProperty(componentId: string, key: string, value: number | string): void;
-  rotateComponent: (componentId: string) => void;
   selectNode(id: string | null): void;
   selectComponent(id: string | null): void;
   rotateComponent(id: string): void;
@@ -162,17 +161,6 @@ export const useCircuitStore = create<CircuitState>()(
         set({ selectedComponentId: id });
       },
 
-      rotateComponent(id) {
-        set((state) => ({
-          components: {
-            ...state.components,
-            [id]: {
-              ...state.components[id],
-              rotationY: ((state.components[id]?.rotationY ?? 0) + 90) % 360,
-            },
-          },
-        }));
-      },
 
       loadCircuit(components, wires) {
         set((state) => {

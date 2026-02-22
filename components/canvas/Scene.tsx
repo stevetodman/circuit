@@ -86,8 +86,8 @@ function applyZoomToFit(
   const size = bounds.getSize(new THREE.Vector3());
 
   const maxSize = Math.max(size.x, size.z, 0.4);
-  const fitHeight = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-  const fitWidth = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) * aspect / 2);
+  const fitHeight = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  const fitWidth = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) * aspect / 2));
   const distance = Math.max(8, Math.max(fitHeight, fitWidth)) * 1.35;
 
   const direction = new THREE.Vector3()
