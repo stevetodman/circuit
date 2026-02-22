@@ -103,6 +103,7 @@ export default function Home() {
   const schematicOpen = useSchematicStore((state) => state.open);
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
+  const circuitName = useCircuitStore((state) => state.circuitName);
   const activeModuleId = useModuleStore((state) => state.activeModuleId);
 
   useEffect(() => {
@@ -135,6 +136,12 @@ export default function Home() {
     window.localStorage.setItem(VISITED_KEY, '1');
     setShowWelcomeOverlay(true);
   }, [loadFromJSON]);
+
+  useEffect(() => {
+    document.title = circuitName.trim()
+      ? `${circuitName.trim()} — Circuit Sandbox`
+      : 'Circuit Sandbox';
+  }, [circuitName]);
 
   return (
     <div
