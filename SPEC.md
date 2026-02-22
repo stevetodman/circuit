@@ -1,104 +1,57 @@
-# SPEC: Polarity Labels on Diode + Capacitor Fix
+# SPEC: Breadboard Row/Column Labels
 
-Extends wave-4 polarity work. Two small additions:
-1. `Diode.tsx` — missing +/− labels entirely
-2. `Capacitor.tsx` — already has `+` only; add the `−` label too
+Add floating 3D text labels to the breadboard so beginners can orient themselves.
+This is the first thing tutorial instructions reference ("place in row e, col 5").
 
 ## Read First
-- `components/canvas/parts/Diode.tsx` — current diode (no polarity labels)
-- `components/canvas/parts/Capacitor.tsx` — already has `+`, needs `−`
-- `components/canvas/parts/LED.tsx` — reference for polarity label pattern
-- `store/uiStore.ts` — `showPolarityLabels` boolean is already there
+- `components/canvas/Breadboard.tsx` — breadboard geometry; understand board dimensions
+- `components/canvas/Scene.tsx` — see how Breadboard is rendered + what's imported
+- `constants/breadboard.ts` — PITCH, COLS, ROWS, BOARD_TOP_Y constants
 
-## Part 1: Diode.tsx polarity labels
+## What to build
 
-The Diode has:
-- Anode pin at `pinOffsets[0]` (default `[-0.254, 0, 0]`) — this is `+`
-- Cathode pin at `pinOffsets[1]` (default `[0.254, 0, 0]`) — this is `−`
+Create a new file `components/canvas/BreadboardLabels.tsx` that renders:
+1. **Row letters** (a–j) floating to the LEFT of the board, one per row in the main grid
+2. **Column numbers** (1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) floating BELOW the board
 
-Add imports:
-```tsx
-import { Text } from '@react-three/drei';
-import { useUIStore } from '@/store/uiStore';
-```
+Use `<Text>` from `@react-three/drei`. Import constants from `@/constants/breadboard.ts`:
+- `PITCH = 0.254` (spacing between holes)
+- `COLS = 63` (number of columns)
+- `ROWS = 10` (a=0 through j=9 in the main grid)
+- `BOARD_TOP_Y` is the Z-offset to the start of the board grid rows
 
-In the component body:
-```tsx
-const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
-const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
-const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
-```
+### Coordinate system
+- 1 Three.js unit = 10mm
+- Columns run along the X axis; rows run along the Z axis
+- The breadboard has a gap in the middle between rows e (index 4) and f (index 5)
+- Read Breadboard.tsx to get the exact X/Z origins for hole [0,0] (col 1, row a)
 
-Inside the JSX `<group>`, before the pin legs:
-```tsx
-{showPolarityLabels && (
-  <>
-    <Text
-      position={[anodeX, 0.12, pinOffsets[0] ? pinOffsets[0][2] : 0]}
-      fontSize={0.08}
-      color="#ff6b6b"
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={10}
-    >
-      +
-    </Text>
-    <Text
-      position={[cathodeX, 0.12, pinOffsets[1] ? pinOffsets[1][2] : 0]}
-      fontSize={0.08}
-      color="#6b9fff"
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={10}
-    >
-      −
-    </Text>
-  </>
-)}
-```
+### Row label positions
+- For row index r (0=a, 1=b, ..., 9=j), place a Text label at:
+  - X: left edge of the board minus a small offset (~ -0.15 units to the left of col 1)
+  - Z: the Z position of that row's holes
+  - Y: same Y as the board surface (use 0.02 so it floats just above)
+- Text content: the letter ('a','b',...,'j')
+- fontSize: 0.09
+- color: '#555577'
+- anchorX: 'right'
 
-## Part 2: Capacitor.tsx — add `−` label
+### Column number positions
+- For column indices [0, 4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59] (cols 1,5,10,...)
+  - Place text at: X = col X position, Z = bottom edge of board + 0.15 offset, Y = 0.02
+- Text content: the column number as string ('1','5','10',...)
+- fontSize: 0.08
+- color: '#555577'
+- anchorX: 'center'
 
-Read `Capacitor.tsx`. It has `showPolarityLabels` and shows `+` on `positivePin` (pinOffsets[1]).
-Add a `negativePin` variable and a `−` label:
+### Rendering the component
+In `components/canvas/Scene.tsx`:
+- Import `BreadboardLabels` from `./BreadboardLabels`
+- Add `<BreadboardLabels />` inside the R3F Canvas scene, next to `<Breadboard />`
 
-```tsx
-const negativePin = pinOffsets[0] ?? DEFAULT_PIN_OFFSETS[0];
-```
-
-Replace the existing `{showPolarityLabels && <Text...>+</Text>}` block with:
-```tsx
-{showPolarityLabels && (
-  <>
-    <Text
-      position={[positivePin[0], 0.12, positivePin[2]]}
-      fontSize={0.08}
-      color="#ff6b6b"
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={10}
-    >
-      +
-    </Text>
-    <Text
-      position={[negativePin[0], 0.12, negativePin[2]]}
-      fontSize={0.08}
-      color="#6b9fff"
-      anchorX="center"
-      anchorY="middle"
-      renderOrder={10}
-    >
-      −
-    </Text>
-  </>
-)}
-```
-
-## Important notes
-- `Capacitor.tsx` already imports `Text` and `useUIStore` — don't add duplicates
-- `Diode.tsx` does NOT have these imports — add them
-- Follow LED.tsx exactly for consistency
-- Colors: `#ff6b6b` for `+`, `#6b9fff` for `−`
-- Do NOT touch uiStore.ts, Toolbar.tsx, or KeyboardShortcuts.tsx — showPolarityLabels already exists
-
-Run `pnpm build` — must pass with zero errors.
+## Important
+- Use `<Text>` from `@react-three/drei` only — no HTML/CSS (this is inside the R3F canvas)
+- No new store fields needed — this is purely visual/static
+- Do NOT import Three.js directly; use R3F primitives only
+- Read Breadboard.tsx carefully to get exact hole positions before placing labels
+- Run `pnpm build` — must pass with zero TypeScript errors
