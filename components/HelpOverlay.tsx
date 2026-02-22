@@ -24,6 +24,8 @@ const SECTIONS = [
       ['S', 'Toggle schematic view'],
       ['L', 'Toggle designator labels'],
       ['I', 'Toggle wire current labels'],
+      ['P', 'Toggle polarity labels (+/−)'],
+      ['V', 'Toggle wire voltage colours'],
       ['F', 'Zoom to fit'],
       ['1 / 2', 'Camera (perspective / top)'],
     ],
