@@ -6,6 +6,7 @@ const SHORTCUTS = [
   ['O', 'Toggle oscilloscope'],
   ['S', 'Toggle schematic view'],
   ['R', 'Rotate selected / dragged component'],
+  ['L', 'Toggle designator labels'],
   ['F', 'Zoom to fit'],
   ['1 / 2', 'Camera preset (perspective / top)'],
   ['Delete / Backspace', 'Delete selected'],

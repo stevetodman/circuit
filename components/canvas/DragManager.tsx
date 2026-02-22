@@ -84,6 +84,8 @@ export default function DragManager() {
 
   return (
     <ComponentRenderer
+      componentId={`preview:${type}`}
+      designator=""
       type={type}
       anchorPos={position}
       rotationY={rotationY}

@@ -1,7 +1,7 @@
 'use client';
 
-import { Component, type ReactNode, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Component, type ReactNode, useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
@@ -13,12 +13,14 @@ import DragManager from './DragManager';
 import ComponentRenderer from './parts/ComponentRenderer';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
+import { useDragStore } from '@/store/dragStore';
 import { PIN_TEMPLATES, type Vec3 } from '@/types/circuit';
 
 const CANVAS_BG = 'linear-gradient(155deg, #f9f7ff 0%, #ede8f8 55%, #e8ecf8 100%)';
 const DEFAULT_CAMERA_POSITION: Vec3 = [0, 13, 11];
 const TOP_DOWN_CAMERA_POSITION: Vec3 = [0, 25, 0];
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
+const BOX_SELECT_LINE_SIZE = 3;
 
 interface PlacedComponentView {
   id: string;
@@ -26,6 +28,13 @@ interface PlacedComponentView {
   anchorPos: Vec3;
   rotationY: number;
   pins: Array<{ name: string; nodeId: string }>;
+}
+
+interface BoxSelectState {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
 }
 
 // Error boundary catches silent Three.js / R3F init failures
@@ -47,6 +56,22 @@ class SceneErrorBoundary extends Component<
     }
     return this.props.children;
   }
+}
+
+function getComponentIdFromObject(object: THREE.Object3D | null): string | null {
+  let current: THREE.Object3D | null = object;
+  while (current) {
+    const componentId = (current as THREE.Object3D & { userData?: { componentId?: string } }).userData?.componentId;
+    if (typeof componentId === 'string') return componentId;
+    current = current.parent;
+  }
+  return null;
+}
+
+function rectFromState(rect: BoxSelectState): DOMRect {
+  const left = Math.min(rect.startX, rect.endX);
+  const top = Math.min(rect.startY, rect.endY);
+  return new DOMRect(left, top, Math.abs(rect.endX - rect.startX), Math.abs(rect.endY - rect.startY));
 }
 
 function applyCameraPreset(
@@ -104,10 +129,141 @@ function applyZoomToFit(
   controls.update();
 }
 
+function BoxSelectOverlay() {
+  const boxSelectRect = useUIStore((state) => state.boxSelectRect);
+  if (!boxSelectRect) return null;
+
+  const width = Math.max(boxSelectRect.width, BOX_SELECT_LINE_SIZE);
+  const height = Math.max(boxSelectRect.height, BOX_SELECT_LINE_SIZE);
+
+  return (
+    <div
+      className="fixed pointer-events-none z-20"
+      style={{
+        left: `${boxSelectRect.left}px`,
+        top: `${boxSelectRect.top}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+        border: '1px dashed rgba(90, 150, 255, 0.85)',
+        background: 'rgba(90, 150, 255, 0.15)',
+      }}
+    />
+  );
+}
+
+function SceneInteractions() {
+  const { scene, camera, gl } = useThree();
+  const startBoxSelect = useUIStore((state) => state.startBoxSelect);
+  const updateBoxSelect = useUIStore((state) => state.updateBoxSelect);
+  const clearBoxSelect = useUIStore((state) => state.clearBoxSelect);
+  const setSelectedComponentIds = useCircuitStore((state) => state.setSelectedComponentIds);
+
+  useEffect(() => {
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const point = new THREE.Vector3();
+
+    const projectPointer = (clientX: number, clientY: number) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      pointer.set(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1,
+      );
+    };
+
+    const findComponentAtPointer = (clientX: number, clientY: number): string | null => {
+      projectPointer(clientX, clientY);
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(scene.children, true);
+      for (const hit of hits) {
+        const componentId = getComponentIdFromObject(hit.object);
+        if (componentId) return componentId;
+      }
+      return null;
+    };
+
+    const screenContains = (worldPosition: Vec3, bounds: DOMRect, selectionRect: DOMRect): boolean => {
+      point.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(camera);
+      if (point.z < -1 || point.z > 1) return false;
+      const x = (point.x * 0.5 + 0.5) * bounds.width + bounds.left;
+      const y = (-point.y * 0.5 + 0.5) * bounds.height + bounds.top;
+      return x >= selectionRect.left
+        && x <= selectionRect.right
+        && y >= selectionRect.top
+        && y <= selectionRect.bottom;
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      if (useDragStore.getState().dragging) return;
+      if (useCircuitStore.getState().wiringMode) return;
+      if (event.target !== gl.domElement) return;
+      if (findComponentAtPointer(event.clientX, event.clientY)) return;
+
+      startBoxSelect(event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!useUIStore.getState().boxSelect) return;
+      updateBoxSelect(event.clientX, event.clientY);
+      event.preventDefault();
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      const active = useUIStore.getState().boxSelect;
+      if (!active) return;
+
+      updateBoxSelect(event.clientX, event.clientY);
+      const rect = rectFromState({ ...active, endX: event.clientX, endY: event.clientY });
+      const canvasRect = gl.domElement.getBoundingClientRect();
+      const candidates = useCircuitStore.getState().components;
+      const selected: string[] = [];
+
+      for (const [id, component] of Object.entries(candidates)) {
+        if (!screenContains(component.anchorPos, canvasRect, rect)) continue;
+        if (rect.width < BOX_SELECT_LINE_SIZE && rect.height < BOX_SELECT_LINE_SIZE) continue;
+        selected.push(id);
+      }
+
+      // "screen-space bounding check" for marquee select
+      if (selected.length > 0) {
+        setSelectedComponentIds(selected);
+      } else {
+        setSelectedComponentIds([]);
+      }
+      clearBoxSelect();
+    };
+
+    gl.domElement.addEventListener('pointerdown', onPointerDown, true);
+    gl.domElement.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointermove', onPointerMove);
+    gl.domElement.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointerup', onPointerUp);
+    gl.domElement.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    return () => {
+      gl.domElement.removeEventListener('pointerdown', onPointerDown, true);
+      gl.domElement.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointermove', onPointerMove);
+      gl.domElement.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointerup', onPointerUp);
+      gl.domElement.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setSelectedComponentIds]);
+
+  return null;
+}
+
 export default function Scene() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
-  const selectComponent      = useCircuitStore((s) => s.selectComponent);
+  const getDesignator       = useCircuitStore((s) => s.getDesignator);
+  const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const openContextMenu     = useUIStore((s) => s.openContextMenu);
   const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
   const components           = useCircuitStore((s) => Object.values(s.components) as PlacedComponentView[]);
   const nodes               = useCircuitStore((s) => s.nodes);
@@ -145,68 +301,83 @@ export default function Scene() {
 
   return (
     <SceneErrorBoundary>
-      <Canvas
-        camera={{ position: DEFAULT_CAMERA_POSITION, fov: 38, near: 0.1, far: 200 }}
-        gl={{ antialias: true, alpha: false }}
-        style={{ width: '100%', height: '100%', background: CANVAS_BG }}
+      <div
+        className="relative h-full w-full"
+        onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Three-point studio lighting */}
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[10, 16, 8]} intensity={1.8} />
-        <directionalLight position={[-8, 10, -5]} intensity={0.5} color="#c0d0ff" />
-        <directionalLight position={[0, 5, -12]} intensity={0.3} color="#ffe8c0" />
+        <Canvas
+          camera={{ position: DEFAULT_CAMERA_POSITION, fov: 38, near: 0.1, far: 200 }}
+          gl={{ antialias: true, alpha: false }}
+          style={{ width: '100%', height: '100%', background: CANVAS_BG }}
+        >
+          <SceneInteractions />
 
-        {/* Scene geometry */}
-        <Breadboard />
-        <WireLayer />
-        <WirePreview />
-        <PinGrid />
-        <DragManager />
+          {/* Three-point studio lighting */}
+          <ambientLight intensity={1.2} />
+          <directionalLight position={[10, 16, 8]} intensity={1.8} />
+          <directionalLight position={[-8, 10, -5]} intensity={0.5} color="#c0d0ff" />
+          <directionalLight position={[0, 5, -12]} intensity={0.3} color="#ffe8c0" />
 
-        {/* Placed components */}
-        {components.map((component) => {
-          // Resolve pin netIds for simulation-driven visuals (LED glow, etc.)
-          const pinNet = (name: string): number | null => {
-            const pin = component.pins.find((p) => p.name === name);
-            if (!pin) return null;
-            return nodes[pin.nodeId]?.netId ?? null;
-          };
-          return (
-            <ComponentRenderer
-              key={component.id}
-              type={component.type}
-              anchorPos={component.anchorPos}
-              rotationY={component.rotationY}
-              pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
-              selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
-              anodeNetId={pinNet('anode')}
-              cathodeNetId={pinNet('cathode')}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (event.shiftKey) {
-                  toggleSelectedComponent(component.id);
-                  return;
-                }
-                selectComponent(selectedComponentId === component.id ? null : component.id);
-              }}
-            />
-          );
-        })}
+          {/* Scene geometry */}
+          <Breadboard />
+          <WireLayer />
+          <WirePreview />
+          <PinGrid />
+          <DragManager />
 
-        {/* Orbit camera */}
-        <OrbitControls
-          ref={controlsRef}
-          enablePan
-          enableZoom
-          enableRotate
-          minDistance={3}
-          maxDistance={35}
-          maxPolarAngle={Math.PI / 2.05}
-          target={[0, 0, 0]}
-          dampingFactor={0.08}
-          enableDamping
-        />
-      </Canvas>
+          {/* Placed components */}
+          {components.map((component) => {
+            const pinNet = (name: string): number | null => {
+              const pin = component.pins.find((p) => p.name === name);
+              if (!pin) return null;
+              return nodes[pin.nodeId]?.netId ?? null;
+            };
+            return (
+              <ComponentRenderer
+                key={component.id}
+                componentId={component.id}
+                designator={getDesignator(component.id)}
+                type={component.type}
+                anchorPos={component.anchorPos}
+                rotationY={component.rotationY}
+                pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
+                selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
+                anodeNetId={pinNet('anode')}
+                cathodeNetId={pinNet('cathode')}
+                onContextMenu={(event) => {
+                  event.stopPropagation();
+                  event.nativeEvent.preventDefault();
+                  event.nativeEvent.stopImmediatePropagation();
+                  openContextMenu(component.id, event.nativeEvent.clientX, event.nativeEvent.clientY);
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (event.shiftKey) {
+                    toggleSelectedComponent(component.id);
+                    return;
+                  }
+                  selectComponent(selectedComponentId === component.id ? null : component.id);
+                }}
+              />
+            );
+          })}
+
+          {/* Orbit camera */}
+          <OrbitControls
+            ref={controlsRef}
+            enablePan
+            enableZoom
+            enableRotate
+            minDistance={3}
+            maxDistance={35}
+            maxPolarAngle={Math.PI / 2.05}
+            target={[0, 0, 0]}
+            dampingFactor={0.08}
+            enableDamping
+          />
+        </Canvas>
+        <BoxSelectOverlay />
+      </div>
     </SceneErrorBoundary>
   );
 }
