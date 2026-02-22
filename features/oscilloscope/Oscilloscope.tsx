@@ -24,6 +24,33 @@ const H_DIVISIONS = 10;
 const V_DIVISIONS = 8;
 const MARGIN = { left: 34, right: 8, top: 24, bottom: 18 };
 
+type ChannelStats = {
+  vmin: number;
+  vmax: number;
+  vpp: number;
+  freqHz: number | null;
+};
+
+function computeStats(samples: Float32Array, sampleRateHz = 1000): ChannelStats {
+  if (samples.length === 0) return { vmin: 0, vmax: 0, vpp: 0, freqHz: null };
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < samples.length; i++) {
+    if (samples[i] < min) min = samples[i];
+    if (samples[i] > max) max = samples[i];
+  }
+
+  const mid = (min + max) / 2;
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if ((samples[i - 1] < mid) !== (samples[i] < mid)) crossings++;
+  }
+
+  const freqHz = crossings > 1 ? (crossings / 2) * (sampleRateHz / samples.length) : null;
+  return { vmin: min, vmax: max, vpp: max - min, freqHz };
+}
+
 function drawGrid(
   ctx: CanvasRenderingContext2D,
   plot: { left: number; top: number; width: number; height: number }
@@ -74,6 +101,7 @@ export default function Oscilloscope({
     x: number; // CSS pixel x within the panel
     readings: { netId: number; color: string; voltage: number }[];
   } | null>(null);
+  const [statsMap, setStatsMap] = useState<Record<number, ChannelStats>>({});
 
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const clearChannels = useScopeStore((s) => s.clearChannels);
@@ -194,6 +222,19 @@ export default function Oscilloscope({
 
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next: typeof statsMap = {};
+      for (const ch of channels) {
+        const s = getSamples(ch.netId);
+        next[ch.netId] = computeStats(s);
+      }
+      setStatsMap(next);
+    }, 500);
+
+    return () => clearInterval(id);
+  }, [channels]);
 
   useEffect(() => {
     if (!open) return;
@@ -359,24 +400,36 @@ export default function Oscilloscope({
         {channels.map((channel, i) => {
           const label = channel.label ? channel.label : `Net ${channel.netId}`;
           const liveVoltage = liveV[i];
+          const stats = statsMap[channel.netId];
           return (
-            <div key={channel.netId} className="flex items-center gap-1">
-              <span
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm"
-                style={{ color: channel.color, background: `${channel.color}22` }}
-              >
-                {label}
-              </span>
-              <span className="text-[9px] font-mono text-white/65 tabular-nums">
-                {liveVoltage !== undefined ? `${liveVoltage.toFixed(2)}V` : ''}
-              </span>
-              <button
-                onClick={() => onRemoveChannel(channel.netId)}
-                className="text-[10px] text-white/55 hover:text-white/90 border border-white/15 rounded-sm w-4 h-4"
-                aria-label={`Remove channel ${label}`}
-              >
-                ×
-              </button>
+            <div key={channel.netId} className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1">
+                <span
+                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm"
+                  style={{ color: channel.color, background: `${channel.color}22` }}
+                >
+                  {label}
+                </span>
+                <span className="text-[9px] font-mono text-white/65 tabular-nums">
+                  {liveVoltage !== undefined ? `${liveVoltage.toFixed(2)}V` : ''}
+                </span>
+                <button
+                  onClick={() => onRemoveChannel(channel.netId)}
+                  className="text-[10px] text-white/55 hover:text-white/90 border border-white/15 rounded-sm w-4 h-4"
+                  aria-label={`Remove channel ${label}`}
+                >
+                  ×
+                </button>
+              </div>
+              {stats && stats.vpp > 0.01 && (
+                <span className="text-[8px] font-mono text-white/35 ml-1">
+                  {stats.vpp.toFixed(2)}Vpp
+                  {stats.freqHz != null &&
+                    ` ${stats.freqHz >= 1000
+                      ? `${(stats.freqHz / 1000).toFixed(1)}kHz`
+                      : `${stats.freqHz.toFixed(0)}Hz`}`}
+                </span>
+              )}
             </div>
           );
         })}
