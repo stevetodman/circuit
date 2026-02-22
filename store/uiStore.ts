@@ -24,6 +24,7 @@ interface UIState {
   overloadIds: string[];
   showCurrentLabels: boolean;
   showPolarityLabels: boolean;
+  showWireVoltageColors: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showDesignators: boolean;
@@ -48,6 +49,7 @@ interface UIState {
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
+  toggleWireVoltageColors: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
   toggleDesignators:   () => void;
@@ -82,6 +84,7 @@ export const useUIStore = create<UIState>()((set) => ({
   overloadIds:   [],
   showCurrentLabels: false,
   showPolarityLabels: true,
+  showWireVoltageColors: true,
   sab:           null,
   showHelp:      false,
   showDesignators: true,
@@ -109,6 +112,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setOverloadIds: (ids) => set({ overloadIds: ids }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setShowPolarityLabels: (showPolarityLabels) => set({ showPolarityLabels }),
+  toggleWireVoltageColors: () => set((state) => ({ showWireVoltageColors: !state.showWireVoltageColors })),
   setSAB:         (sab) => set({ sab }),
   toggleHelp:     () => set((state) => ({ showHelp: !state.showHelp })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),

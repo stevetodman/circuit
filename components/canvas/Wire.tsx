@@ -8,7 +8,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3, Wire as WireModel } from '@/types/circuit';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
-import { branchCurrents } from '@/simulation/SimBridge';
+import { branchCurrents, voltages } from '@/simulation/SimBridge';
 
 const WIRE_TUBES = {
   segments: 24,
@@ -46,7 +46,9 @@ function formatCurrent(amps: number): string {
 export default function Wire({ wire, branchIndex }: WireProps) {
   const removeWire = useCircuitStore((s) => s.removeWire);
   const showCurrentLabels = useUIStore((s) => s.showCurrentLabels);
+  const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
   const overloadIds = useUIStore((s) => s.overloadIds);
+  const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
   const fromPos = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.worldPos);
   const toPos = useCircuitStore((s) => s.nodes[wire.toNodeId]?.worldPos);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -116,8 +118,18 @@ export default function Wire({ wire, branchIndex }: WireProps) {
       return;
     }
 
-    matRef.current.color.set(wire.color);
-    matRef.current.emissive.set(wire.color);
+    let wireColor = wire.color;
+    if (showWireVoltageColors && fromNetId >= 0) {
+      const v = voltages[fromNetId] ?? 0;
+      if (v > 2.5) {
+        wireColor = '#cc2200';
+      } else if (v < 0.3) {
+        wireColor = '#333344';
+      }
+    }
+
+    matRef.current.color.set(wireColor);
+    matRef.current.emissive.set(wireColor);
     matRef.current.emissiveIntensity = 0.06 + 0.14 * pulse;
   });
 

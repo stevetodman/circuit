@@ -61,7 +61,16 @@ export default function Toolbar() {
     }))
   );
 
-  const { showDesignators, toggleDesignators, showCurrentLabels, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels } = useUIStore(
+  const {
+    showDesignators,
+    toggleDesignators,
+    showCurrentLabels,
+    toggleCurrentLabels,
+    showPolarityLabels,
+    setShowPolarityLabels,
+    showWireVoltageColors,
+    toggleWireVoltageColors,
+  } = useUIStore(
     useShallow((s) => ({
       showDesignators: s.showDesignators,
       toggleDesignators: s.toggleDesignators,
@@ -69,6 +78,8 @@ export default function Toolbar() {
       toggleCurrentLabels: s.toggleCurrentLabels,
       showPolarityLabels: s.showPolarityLabels,
       setShowPolarityLabels: s.setShowPolarityLabels,
+      showWireVoltageColors: s.showWireVoltageColors,
+      toggleWireVoltageColors: s.toggleWireVoltageColors,
     }))
   );
 
@@ -146,6 +157,13 @@ export default function Toolbar() {
         active={showPolarityLabels}
       >
         P Polarity
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleWireVoltageColors}
+        title="Toggle wire voltage colors (V)"
+        active={showWireVoltageColors}
+      >
+        V Voltage
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleSchematic}
