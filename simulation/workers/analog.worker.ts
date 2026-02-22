@@ -39,8 +39,9 @@ interface Timer555Model {
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let currentNetlist: Netlist | null = null;
-let netlistHasCapacitor = false;
+let netlistNeedsTransientLoop = false;
 let prevVoltages: Float32Array | null = null;
+let prevInductorCurrents: Record<string, number> = {};
 let timer555Components: Timer555Model[] = [];
 // P1-12: cumulative sim time — avoids wall-clock drift under CPU load
 let simTimeMs = 0;
@@ -125,10 +126,16 @@ function tick(): void {
   // P1-12: advance cumulative sim time rather than using wall clock
   simTimeMs += DT_MS;
 
-  if (netlistHasCapacitor) {
-    const result = solveDC(currentNetlist, DT_MS / 1000, prevVoltages ?? undefined);
+  if (netlistNeedsTransientLoop) {
+    const result = solveDC(
+      currentNetlist,
+      DT_MS / 1000,
+      prevVoltages ?? undefined,
+      prevInductorCurrents,
+    );
     if (!result) return;
     prevVoltages = result.voltages;
+    prevInductorCurrents = result.inductorCurrents ?? {};
     writeVoltages(result.voltages);
     writeBranchCurrents(result.branchCurrents);
   } else if (prevVoltages) {
@@ -153,7 +160,7 @@ function stopLoop() {
 }
 
 self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
-  const msg = e.data;
+    const msg = e.data;
   if (msg.type !== 'UPDATE_NETLIST') return;
 
   if (!voltageView || voltageView.buffer !== msg.sab) {
@@ -165,11 +172,14 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
   try {
     simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
-    netlistHasCapacitor   = currentNetlist.elements.some((el) => el.kind === 'capacitor');
+    netlistNeedsTransientLoop = currentNetlist.elements.some((el) =>
+      el.kind === 'capacitor' || el.kind === 'inductor',
+    );
     timer555Components    = loadTimerModels(msg.nodes, msg.components);
 
-    const result  = solveDC(currentNetlist);
+    const result  = solveDC(currentNetlist, undefined, undefined, undefined);
     prevVoltages  = result ? result.voltages : null;
+    prevInductorCurrents = result?.inductorCurrents ?? {};
 
     if (result) {
       writeVoltages(result.voltages);
@@ -184,7 +194,7 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
 
     applyTimerOutputs(simTimeMs);
 
-    if (netlistHasCapacitor || timer555Components.length > 0) {
+    if (netlistNeedsTransientLoop || timer555Components.length > 0) {
       startLoop();
       tick();
     } else {

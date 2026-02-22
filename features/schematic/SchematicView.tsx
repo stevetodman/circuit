@@ -14,6 +14,11 @@ import {
   GenericSymbol,
   LEDSymbol,
   ResistorSymbol,
+  DiodeSymbol,
+  MOSFETSymbol,
+  OpAmpSymbol,
+  InductorSymbol,
+  PotentiometerSymbol,
   getSymbolSize,
   getSymbolTerminalOffset,
   hasSymbolTerminalOffset,
@@ -93,8 +98,18 @@ function symbolNode(
       return <BatterySymbol x={x} y={y} selected={selected} />;
     case 'capacitor':
       return <CapacitorSymbol x={x} y={y} selected={selected} />;
+    case 'diode':
+      return <DiodeSymbol x={x} y={y} selected={selected} />;
     case 'bjt':
       return <BJTSymbol x={x} y={y} selected={selected} />;
+    case 'mosfet':
+      return <MOSFETSymbol x={x} y={y} selected={selected} />;
+    case 'opamp':
+      return <OpAmpSymbol x={x} y={y} selected={selected} />;
+    case 'inductor':
+      return <InductorSymbol x={x} y={y} selected={selected} />;
+    case 'potentiometer':
+      return <PotentiometerSymbol x={x} y={y} selected={selected} />;
     case 'timer555':
       return (
         <Timer555Symbol

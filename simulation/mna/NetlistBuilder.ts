@@ -8,7 +8,11 @@
  *   led         → Shockley diode (NR-linearised)
  *   capacitor   → transient companion (Backward Euler)
  *   bjt         → simplified Ebers-Moll
+ *   diode       → plain diode (Shockley model)
  *   motor       → winding resistance
+ *   mosfet      → voltage-controlled switch (rdsOn / Roff)
+ *   opamp       → behavioral gain clamp
+ *   inductor    → DC short, transient companion
  *   555 / arduino / tactileSwitch → skipped (future milestones)
  */
 import type { CircuitNode, PlacedComponent, Wire } from '@/types/circuit';
@@ -70,17 +74,105 @@ export function buildNetlist(
         break;
       }
 
-      case 'led': {
-        const netA = pinNet(comp, 'anode');
-        const netB = pinNet(comp, 'cathode');
-        if (netA == null || netB == null || netA === netB) break;
-        const Vf = typeof props.forwardVoltage === 'number' ? props.forwardVoltage : 2.0;
-        elements.push({ id: comp.id, kind: 'diode', netA, netB, value: Vf });
-        break;
-      }
+    case 'led': {
+      const netA = pinNet(comp, 'anode');
+      const netB = pinNet(comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) break;
+      const Vf = typeof props.forwardVoltage === 'number' ? props.forwardVoltage : 2.0;
+      elements.push({ id: comp.id, kind: 'diode', netA, netB, value: Vf });
+      break;
+    }
 
-      case 'capacitor':
-        // Backward-Euler model handled in transient solver
+    case 'diode': {
+      const netA = pinNet(comp, 'anode');
+      const netB = pinNet(comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) break;
+      const Vf = typeof (props as { forwardVoltage?: number }).forwardVoltage === 'number'
+        ? (props as { forwardVoltage?: number }).forwardVoltage
+        : 0.7;
+      const element = { id: comp.id, kind: 'diode', netA, netB, value: Vf };
+      elements.push(element);
+      branchElements.push(element);
+      break;
+    }
+
+    case 'mosfet': {
+      const netGate = pinNet(comp, 'gate');
+      const netD = pinNet(comp, 'drain');
+      const netS = pinNet(comp, 'source');
+      if (netGate == null || netD == null || netS == null || netD === netS) break;
+      const rdsOn = typeof (props as { rdsOn?: number }).rdsOn === 'number'
+        ? (props as { rdsOn?: number }).rdsOn
+        : 0.1;
+      elements.push({
+        id: comp.id,
+        kind: 'mosfet',
+        netA: netD,
+        netB: netS,
+        netC: netGate,
+        value: Math.max(1e-9, rdsOn),
+      });
+      break;
+    }
+
+    case 'opamp': {
+      const netInP = pinNet(comp, 'in+');
+      const netInN = pinNet(comp, 'in-');
+      const netOut = pinNet(comp, 'out');
+      const netVcc = pinNet(comp, 'vcc');
+      const netGnd = pinNet(comp, 'gnd');
+      if (netInP == null || netInN == null || netOut == null || netVcc == null || netGnd == null) break;
+      elements.push({
+        id: comp.id,
+        kind: 'opamp',
+        netA: netOut,
+        netB: netInP,
+        netC: netInN,
+        netD: netVcc,
+        netE: netGnd,
+        value: 100000,
+      });
+      break;
+    }
+
+    case 'inductor': {
+      const netA = pinNet(comp, 'a');
+      const netB = pinNet(comp, 'b');
+      if (netA == null || netB == null || netA === netB) break;
+      const inductance = typeof (props as { inductance?: number }).inductance === 'number'
+        ? (props as { inductance?: number }).inductance
+        : 0.001;
+      elements.push({
+        id: comp.id,
+        kind: 'inductor',
+        netA,
+        netB,
+        value: Math.max(1e-9, inductance),
+      });
+      break;
+    }
+
+    case 'potentiometer': {
+      const netA = pinNet(comp, 'a');
+      const netW = pinNet(comp, 'wiper');
+      const netB = pinNet(comp, 'b');
+      if (netA == null || netW == null || netB == null || netA === netB) break;
+      const resistance = typeof (props as { resistance?: number }).resistance === 'number'
+        ? (props as { resistance?: number }).resistance
+        : 10_000;
+      const rawWiper = typeof (props as { wiper?: number }).wiper === 'number'
+        ? (props as { wiper?: number }).wiper
+        : 0.5;
+      const wiper = Math.max(0, Math.min(1, rawWiper));
+      const rA = Math.max(1e-9, resistance * wiper);
+      const rB = Math.max(1e-9, resistance * (1 - wiper));
+      elements.push({ id: `${comp.id}-a`, kind: 'resistor', netA, netB: netW, value: rA });
+      elements.push({ id: `${comp.id}-b`, kind: 'resistor', netA: netW, netB, value: rB });
+      break;
+    }
+
+    case 'capacitor':
+      // Backward-Euler model handled in transient solver
       {
         const netA = pinNet(comp, 'p1') ?? pinNet(comp, 'pos');
         const netB = pinNet(comp, 'p2') ?? pinNet(comp, 'neg');

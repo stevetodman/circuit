@@ -20,15 +20,33 @@ interface ColorField {
   label: string;
   default: string;
 }
-type PropField = NumericField | ColorField;
 
-const PROP_DEFS: Partial<Record<ComponentType, PropField[]>> = {
+interface LogNumberField {
+  kind: 'log-number';
+  key: string;
+  label: string;
+  default: number;
+  min: number;
+  max: number;
+  unit?: string;
+}
+
+type PropField = NumericField | ColorField;
+type PropOrLogField = PropField | LogNumberField;
+
+const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
     { kind: 'number', key: 'resistance', label: 'Resistance', default: 1000, min: 1, max: 10_000_000, unit: 'Ω' },
   ],
   led: [
     { kind: 'color',  key: 'color',          label: 'Color',           default: '#ff2020' },
     { kind: 'number', key: 'forwardVoltage',  label: 'Forward voltage', default: 2.0, min: 1.5, max: 4.0, step: 0.1, unit: 'V' },
+  ],
+  diode: [
+    { kind: 'number', key: 'forwardVoltage', label: 'Forward voltage', default: 0.7, min: 0.5, max: 1.5, step: 0.05, unit: 'V' },
+  ],
+  mosfet: [
+    { kind: 'log-number', key: 'rdsOn', label: 'Rds(on)', default: 0.1, min: 0.01, max: 10, unit: 'Ω' },
   ],
   battery: [
     { kind: 'number', key: 'voltage', label: 'Voltage', default: 9, min: 1, max: 30, step: 0.5, unit: 'V' },
@@ -38,6 +56,13 @@ const PROP_DEFS: Partial<Record<ComponentType, PropField[]>> = {
   ],
   bjt: [
     { kind: 'number', key: 'hFE', label: 'Current gain (β)', default: 100, min: 10, max: 1000 },
+  ],
+  inductor: [
+    { kind: 'number', key: 'inductance', label: 'Inductance', default: 1e-3, min: 1e-7, max: 1, step: 1e-4, unit: 'H' },
+  ],
+  potentiometer: [
+    { kind: 'number', key: 'resistance', label: 'Resistance', default: 10_000, min: 10, max: 1_000_000, step: 10, unit: 'Ω' },
+    { kind: 'number', key: 'wiper', label: 'Wiper', default: 0.5, min: 0, max: 1, step: 0.01 },
   ],
   timer555: [
     { kind: 'number', key: 'r1', label: 'R1 (timing)', default: 1000, min: 100, max: 1e6, step: 100, unit: 'Ω' },
@@ -76,6 +101,11 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   arduino:      'Arduino Uno',
   motor:        'DC Motor',
   tactileSwitch:'Tactile Switch',
+  diode:        'Diode',
+  mosfet:       'MOSFET',
+  opamp:        'Op-Amp',
+  inductor:     'Inductor',
+  potentiometer:'Potentiometer',
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -122,6 +152,45 @@ function NumberInput({
   );
 }
 
+function LogNumberInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: LogNumberField;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const minLog = Math.log10(field.min);
+  const maxLog = Math.log10(field.max);
+  const range = maxLog - minLog;
+  const clamped = Math.min(field.max, Math.max(field.min, value));
+  const sliderValue = range <= 0 ? 0 : ((Math.log10(clamped) - minLog) / range) * 100;
+
+  return (
+    <div className="space-y-1.5">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={0.1}
+        value={sliderValue}
+        onChange={(e) => {
+          const t = parseFloat(e.target.value);
+          if (Number.isNaN(t)) return;
+          const next = Math.pow(10, minLog + (t / 100) * range);
+          onChange(Math.max(field.min, Math.min(field.max, next)));
+        }}
+        className="w-full accent-[#7c6fff]"
+      />
+      <div className="flex justify-between text-[10px] text-white/50">
+        <span>{field.min}{field.unit ? `${field.unit}` : ''}</span>
+        <span>{field.max}{field.unit ? `${field.unit}` : ''}</span>
+      </div>
+    </div>
+  );
+}
+
 function ColorInput({
   field,
   value,
@@ -152,7 +221,7 @@ function Inspector({ component }: { component: PlacedComponent }) {
   const fields = PROP_DEFS[component.type] ?? [];
   const typeLabel = TYPE_LABELS[component.type] ?? component.type;
 
-  function getValue(field: PropField): string | number {
+  function getValue(field: PropOrLogField): string | number {
     const stored = component.props[field.key];
     if (stored !== undefined) return stored;
     return field.default;
@@ -203,6 +272,12 @@ function Inspector({ component }: { component: PlacedComponent }) {
                     </div>
                   )}
                 </>
+              ) : field.kind === 'log-number' ? (
+                <LogNumberInput
+                  field={field}
+                  value={getValue(field) as number}
+                  onChange={(v) => setProperty(component.id, field.key, v)}
+                />
               ) : (
                 <>
                   <ColorInput
@@ -227,6 +302,19 @@ function Inspector({ component }: { component: PlacedComponent }) {
                       ))}
                     </div>
                   )}
+                </>
+              )}
+              {field.kind === 'number' && component.type === 'potentiometer' && field.key === 'wiper' && (
+                <>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={Math.max(0, Math.min(1, getValue(field) as number))}
+                    onChange={(e) => setProperty(component.id, field.key, parseFloat(e.target.value))}
+                    className="w-full accent-[#7c6fff]"
+                  />
                 </>
               )}
             </div>

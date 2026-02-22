@@ -27,6 +27,11 @@ export const SYMBOL_SIZES: Record<ComponentType, SchematicSymbolSize> = {
   motor: { width: 130, height: 70 },
   timer555: { width: 170, height: 90 },
   tactileSwitch: { width: 140, height: 60 },
+  diode: { width: 130, height: 80 },
+  mosfet: { width: 180, height: 110 },
+  opamp: { width: 190, height: 110 },
+  inductor: { width: 160, height: 70 },
+  potentiometer: { width: 150, height: 90 },
 };
 
 const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> = {
@@ -66,6 +71,31 @@ const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> 
     p1: [-60, 0],
     p2: [60, 0],
   },
+  diode: {
+    anode: [-64, 0],
+    cathode: [64, 0],
+  },
+  mosfet: {
+    gate: [-86, 0],
+    drain: [86, -24],
+    source: [86, 24],
+  },
+  opamp: {
+    'in+': [-86, -22],
+    'in-': [-86, 22],
+    out: [86, 0],
+    vcc: [-10, -56],
+    gnd: [-10, 56],
+  },
+  inductor: {
+    a: [-72, 0],
+    b: [72, 0],
+  },
+  potentiometer: {
+    a: [-72, 0],
+    wiper: [0, -30],
+    b: [72, 0],
+  },
 };
 
 export function getSymbolSize(type: ComponentType): SchematicSymbolSize {
@@ -92,6 +122,16 @@ export function symbolForTypeName(type: ComponentType): string {
       return 'Motor';
     case 'tactileSwitch':
       return 'Switch';
+    case 'diode':
+      return 'D';
+    case 'mosfet':
+      return 'MOSFET';
+    case 'opamp':
+      return 'OpAmp';
+    case 'inductor':
+      return 'L';
+    case 'potentiometer':
+      return 'POT';
     case 'resistor':
       return 'R';
     case 'capacitor':
@@ -180,6 +220,30 @@ export function LEDSymbol({
   );
 }
 
+export function DiodeSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-64" y1="0" x2="-20" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <path d="M -20 -14 L -20 14 L 16 0 Z" fill="#3a4a6a" stroke="#a98b4e" strokeWidth="2.6" />
+      <line x1="16" y1="0" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="16" y1="-18" x2="16" y2="18" stroke={glow.stroke} strokeWidth="3" />
+      <circle cx="-64" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="64" cy="0" r="4" fill={glow.stroke} />
+      {selected && <rect x="-70" y="-24" width="140" height="48" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
 export function BatterySymbol({
   x,
   y,
@@ -228,6 +292,127 @@ export function CapacitorSymbol({
       <circle cx="-68" cy="0" r="4" fill={glow.stroke} />
       <circle cx="68" cy="0" r="4" fill={glow.stroke} />
       {selected && <rect x="-72" y="-26" width="144" height="52" rx="9" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function MOSFETSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-84" y1="0" x2="-38" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="-38" y1="0" x2="-24" y2="0" stroke="#8a8a8a" strokeWidth="2.6" />
+      <line x1="38" y1="-24" x2="84" y2="-24" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="38" y1="24" x2="84" y2="24" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="38" y1="-24" x2="38" y2="24" stroke="#7a7a7a" strokeWidth="2" />
+      <line x1="22" y1="-12" x2="38" y2="0" stroke={glow.stroke} strokeWidth="2.1" />
+      <line x1="22" y1="12" x2="38" y2="0" stroke={glow.stroke} strokeWidth="2.1" />
+      <line x1="-24" y1="0" x2="-24" y2="-26" stroke="#999" strokeWidth="2" />
+      <line x1="-24" y1="0" x2="-24" y2="26" stroke="#999" strokeWidth="2" />
+      <polyline points="-24,-4 -14,-16 -4,-4" fill="none" stroke="#999" strokeWidth="2" />
+      <polygon points="-4,-16 -8,-7 -12,-18" fill="#999" />
+      <circle cx="-24" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="-84" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="84" cy="-24" r="4" fill={glow.stroke} />
+      <circle cx="84" cy="24" r="4" fill={glow.stroke} />
+      {selected && <rect x="-90" y="-40" width="180" height="80" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function OpAmpSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-94" y1="-50" x2="-94" y2="50" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="-94" y1="-22" x2="-86" y2="-22" stroke={glow.stroke} strokeWidth="2.2" />
+      <line x1="-94" y1="22" x2="-86" y2="22" stroke={glow.stroke} strokeWidth="2.2" />
+      <line x1="-94" y1="0" x2="-40" y2="-10" stroke={glow.stroke} strokeWidth="2" />
+      <line x1="-94" y1="0" x2="-40" y2="10" stroke={glow.stroke} strokeWidth="2" />
+      <polyline points="-60,-26 -28,-26 -28,26 -60,26" fill="none" stroke="#7a7a7a" strokeWidth="2.4" />
+      <line x1="-60" y1="0" x2="-44" y2="0" stroke="#9d9d9d" strokeWidth="2.6" />
+      <line x1="-56" y1="-20" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
+      <line x1="-56" y1="20" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
+      <line x1="64" y1="0" x2="86" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="-20" y1="-56" x2="6" y2="-56" stroke={glow.stroke} strokeWidth="2" />
+      <line x1="-20" y1="56" x2="6" y2="56" stroke={glow.stroke} strokeWidth="2" />
+      <circle cx="64" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="-94" cy="-22" r="4" fill={glow.stroke} />
+      <circle cx="-94" cy="22" r="4" fill={glow.stroke} />
+      <circle cx="-94" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="-20" cy="-56" r="3.5" fill={glow.stroke} />
+      <circle cx="-20" cy="56" r="3.5" fill={glow.stroke} />
+      {selected && <rect x="-94" y="-64" width="180" height="128" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function InductorSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-72" y1="0" x2="-42" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
+      <path d="M -42,-10 C -32,10 -22,-10 -12,10 C -2,-10 8,10 18,-10 C 28,10 38,-10 48,10" stroke={glow.stroke} strokeWidth="3.4" fill="none" />
+      <line x1="48" y1="0" x2="72" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
+      <circle cx="-72" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="72" cy="0" r="4" fill={glow.stroke} />
+      {selected && <rect x="-78" y="-24" width="156" height="48" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function PotentiometerSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <rect x="-46" y="-16" width="82" height="30" rx="6" fill="#3c3c45" stroke={glow.stroke} strokeWidth="2.2" />
+      <line x1="-46" y1="0" x2="36" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
+      <line x1="36" y1="0" x2="72" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
+      <line x1="0" y1="-16" x2="0" y2="-34" stroke="#aaa" strokeWidth="2" />
+      <line x1="-2" y1="-34" x2="2" y2="-34" stroke="#aaa" strokeWidth="3" />
+      <line x1="-2" y1="-34" x2="-2" y2="-24" stroke="#555" strokeWidth="2" />
+      <line x1="2" y1="-34" x2="2" y2="-24" stroke="#555" strokeWidth="2" />
+      <circle cx="-72" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="72" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="0" cy="-34" r="4" fill={glow.stroke} />
+      <polygon points="-2,-26 2,-26 0,-16" fill={glow.stroke} />
+      {selected && <rect x="-80" y="-46" width="160" height="66" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
     </g>
   );
 }

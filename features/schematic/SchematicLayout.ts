@@ -21,6 +21,11 @@ const COMPONENT_SIZES: Record<string, { w: number; h: number }> = {
   motor: { w: 130, h: 70 },
   timer555: { w: 170, h: 90 },
   tactileSwitch: { w: 140, h: 60 },
+  diode: { w: 130, h: 80 },
+  mosfet: { w: 180, h: 110 },
+  opamp: { w: 190, h: 110 },
+  inductor: { w: 160, h: 70 },
+  potentiometer: { w: 150, h: 90 },
 };
 
 function getComponentSize(type: PlacedComponent['type']) {

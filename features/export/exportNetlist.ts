@@ -30,6 +30,11 @@ export function exportSPICE(
   let timer555Index = 1;
   let motorIndex = 1;
   let switchIndex = 1;
+  let diodeSimpleIndex = 1;
+  let mosfetIndex = 1;
+  let opampIndex = 1;
+  let inductorIndex = 1;
+  let potentiometerIndex = 1;
 
   for (const comp of Object.values(components)) {
     if (comp.type === 'resistor') {
@@ -63,6 +68,14 @@ export function exportSPICE(
       continue;
     }
 
+    if (comp.type === 'diode') {
+      const netA = pinNet(nodes, comp, 'anode');
+      const netB = pinNet(nodes, comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) continue;
+      lines.push(`D${diodeSimpleIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} DIODE_1N4148`);
+      continue;
+    }
+
     if (comp.type === 'capacitor') {
       const netA = pinNet(nodes, comp, 'pos');
       const netB = pinNet(nodes, comp, 'neg');
@@ -80,6 +93,53 @@ export function exportSPICE(
       const netE = pinNet(nodes, comp, 'emitter');
       if (netC == null || netB == null || netE == null) continue;
       lines.push(`Q${bjtIndex++} ${toSPICENet(netC)} ${toSPICENet(netB)} ${toSPICENet(netE)} NPN_GENERIC`);
+      continue;
+    }
+
+    if (comp.type === 'mosfet') {
+      const netD = pinNet(nodes, comp, 'drain');
+      const netG = pinNet(nodes, comp, 'gate');
+      const netS = pinNet(nodes, comp, 'source');
+      if (netD == null || netG == null || netS == null) continue;
+      lines.push(`M${mosfetIndex++} ${toSPICENet(netD)} ${toSPICENet(netG)} ${toSPICENet(netS)} ${toSPICENet(netS)} NMOS_SIMPLE`);
+      continue;
+    }
+
+    if (comp.type === 'opamp') {
+      const netInP = pinNet(nodes, comp, 'in+');
+      const netInN = pinNet(nodes, comp, 'in-');
+      const netOut = pinNet(nodes, comp, 'out');
+      const netVcc = pinNet(nodes, comp, 'vcc');
+      const netGnd = pinNet(nodes, comp, 'gnd');
+      if (netInP == null || netInN == null || netOut == null || netVcc == null || netGnd == null) continue;
+      lines.push(`X${opampIndex++} ${toSPICENet(netInP)} ${toSPICENet(netInN)} ${toSPICENet(netOut)} ${toSPICENet(netVcc)} ${toSPICENet(netGnd)} LM741`);
+      continue;
+    }
+
+    if (comp.type === 'inductor') {
+      const netA = pinNet(nodes, comp, 'a');
+      const netB = pinNet(nodes, comp, 'b');
+      if (netA == null || netB == null || netA === netB) continue;
+      const valueRaw = comp.props.inductance;
+      const inductance = typeof valueRaw === 'number' ? valueRaw : 0.001;
+      lines.push(`L${inductorIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} ${inductance}H`);
+      continue;
+    }
+
+    if (comp.type === 'potentiometer') {
+      const netA = pinNet(nodes, comp, 'a');
+      const netW = pinNet(nodes, comp, 'wiper');
+      const netB = pinNet(nodes, comp, 'b');
+      if (netA == null || netW == null || netB == null) continue;
+      const resRaw = comp.props.resistance;
+      const resistance = typeof resRaw === 'number' ? resRaw : 10_000;
+      const rawWiper = comp.props.wiper;
+      const wiper = typeof rawWiper === 'number' ? Math.max(0, Math.min(1, rawWiper)) : 0.5;
+      const rA = Math.max(1e-9, resistance * wiper);
+      const rB = Math.max(1e-9, resistance * (1 - wiper));
+      lines.push(`R${potentiometerIndex}a ${toSPICENet(netA)} ${toSPICENet(netW)} ${rA}`);
+      lines.push(`R${potentiometerIndex}b ${toSPICENet(netW)} ${toSPICENet(netB)} ${rB}`);
+      potentiometerIndex += 1;
       continue;
     }
 
@@ -113,6 +173,8 @@ export function exportSPICE(
 
   lines.push('.tran 0.1m 10m');
   lines.push('.model DLED D(Is=1e-14 N=1.5)');
+  lines.push('.model DIODE_1N4148 D(Is=1e-14 N=1.5)');
+  lines.push('.model NMOS_SIMPLE NMOS(Level=1 VTO=2.0 Beta=1e-3 L=1u W=1u)');
   lines.push('.model NPN_GENERIC NPN(Is=1e-14 Bf=100)');
   lines.push('.model MYSW SW(Ron=0.01 Roff=1e9 Vt=0.5 Vh=0)');
   lines.push('.end');

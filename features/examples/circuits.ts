@@ -43,6 +43,9 @@ const ledNode4 = topNodeId(CENTER_COL - 4, 0);
 const divNode1 = topNodeId(CENTER_COL - 2, 0);
 const divNode2 = topNodeId(CENTER_COL + 2, 0);
 const divNode3 = topNodeId(CENTER_COL + 6, 0);
+const rectNodePos = topNodeId(CENTER_COL + 10, 0);
+const rectNodeNeg = topNodeId(CENTER_COL + 12, 0);
+const rectNodeBridge = topNodeId(CENTER_COL + 14, 0);
 
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
@@ -89,6 +92,46 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
       { id: 'example-led-w3', fromNodeId: ledNode3, toNodeId: ledNode4, color: '#aa0000' },
       { id: 'example-led-w4', fromNodeId: ledNode4, toNodeId: ledNode1, color: '#333333' },
     ],
+  },
+  {
+    name: 'Half-wave Rectifier',
+    description: 'Battery, diode, and resistor path',
+    components: [
+      {
+        id: 'example-rect-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(10, 0), topNodePos(12, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: rectNodePos },
+          { name: 'neg', nodeId: rectNodeNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-rect-diode',
+        type: 'diode',
+        anchorPos: midpoint(topNodePos(12, 0), topNodePos(14, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: rectNodePos },
+          { name: 'cathode', nodeId: rectNodeBridge },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-rect-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(14, 0), topNodePos(12, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: rectNodeBridge },
+          { name: 'p2', nodeId: rectNodeNeg },
+        ],
+        props: { resistance: 4700 },
+      },
+    ],
+    wires: [],
   },
   {
     name: 'Voltage Divider',

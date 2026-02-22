@@ -5,6 +5,11 @@ import type { ComponentType, Vec3 } from '@/types/circuit';
 import LED from './LED';
 import Resistor from './Resistor';
 import Battery from './Battery';
+import Diode from './Diode';
+import MOSFET from './MOSFET';
+import OpAmp from './OpAmp';
+import Inductor from './Inductor';
+import Potentiometer from './Potentiometer';
 
 interface ComponentRendererProps {
   type:          ComponentType;
@@ -97,6 +102,61 @@ export default function ComponentRenderer({
     case 'battery':
       inner = (
         <Battery
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'diode':
+      inner = (
+        <Diode
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'mosfet':
+      inner = (
+        <MOSFET
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'opamp':
+      inner = (
+        <OpAmp
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'inductor':
+      inner = (
+        <Inductor
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'potentiometer':
+      inner = (
+        <Potentiometer
           anchorPos={ZERO}
           selected={selected}
           transparent={transparent}

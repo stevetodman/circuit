@@ -84,6 +84,57 @@ function Timer555() {
     </svg>
   );
 }
+function Diode() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="2" y1="10" x2="6.5" y2="10" stroke="#f0d080" strokeWidth="1.8" />
+      <polygon points="6.5,6 6.5,14 12,10" fill="#888" />
+      <line x1="12" y1="10" x2="18" y2="10" stroke="#f0d080" strokeWidth="1.8" />
+      <line x1="12" y1="7" x2="12" y2="13" stroke="#f0d080" strokeWidth="1.8" />
+    </svg>
+  );
+}
+function MOSFET() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="1" y1="10" x2="5" y2="10" stroke="#8a9fff" strokeWidth="1.4" />
+      <rect x="5" y="4" width="8" height="12" fill="#1f1f1f" />
+      <line x1="13" y1="7" x2="18" y2="6" stroke="#8a9fff" strokeWidth="1.4" />
+      <line x1="13" y1="10" x2="18" y2="10" stroke="#8a9fff" strokeWidth="1.4" />
+      <line x1="13" y1="13" x2="18" y2="14" stroke="#8a9fff" strokeWidth="1.4" />
+    </svg>
+  );
+}
+function OpAmp() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="1" y1="4" x2="7" y2="9" stroke="#9f9" strokeWidth="1.3" />
+      <line x1="1" y1="16" x2="7" y2="11" stroke="#9f9" strokeWidth="1.3" />
+      <polygon points="7,4 7,16 16,10" fill="#5f7fbf" />
+      <line x1="16" y1="10" x2="19" y2="10" stroke="#9f9" strokeWidth="1.3" />
+    </svg>
+  );
+}
+function Inductor() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="2" y1="10" x2="4" y2="10" stroke="#ddd" strokeWidth="1.4" />
+      <path d="M4 10 C6 6 6 14 8 10 C10 6 10 14 12 10 C14 6 14 14 16 10" stroke="#ddd" strokeWidth="1.6" fill="none" />
+      <line x1="16" y1="10" x2="18" y2="10" stroke="#ddd" strokeWidth="1.4" />
+    </svg>
+  );
+}
+function Potentiometer() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="2" y1="10" x2="8" y2="10" stroke="#ccc" strokeWidth="1.4" />
+      <rect x="8" y="4" width="5" height="12" fill="#666" />
+      <line x1="13" y1="10" x2="18" y2="10" stroke="#ccc" strokeWidth="1.4" />
+      <line x1="10" y1="6" x2="10" y2="2" stroke="#ccc" strokeWidth="1.4" />
+      <line x1="10" y1="2" x2="11" y2="4" stroke="#ccc" strokeWidth="1.4" />
+    </svg>
+  );
+}
 function Battery() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -113,13 +164,18 @@ function SchematicIcon({ active }: { active: boolean }) {
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode }[] = [
   { type: 'arduino',       label: 'Arduino Uno',      icon: <Arduino /> },
   { type: 'wire',          label: 'Wire',              icon: <WireIcon /> },
+  { type: 'diode',        label: 'Diode',             icon: <Diode /> },
+  { type: 'mosfet',       label: 'MOSFET',            icon: <MOSFET /> },
+  { type: 'opamp',        label: 'Op-Amp',            icon: <OpAmp /> },
   { type: 'resistor',     label: 'Resistor',           icon: <Rect fill="#c8a060" /> },
   { type: 'led',          label: 'LED',                icon: <LED /> },
+  { type: 'inductor',     label: 'Inductor',           icon: <Inductor /> },
   { type: 'motor',        label: 'Motor',              icon: <Motor /> },
   { type: 'timer555',     label: '555 Timer',          icon: <Timer555 /> },
   { type: 'capacitor',    label: 'Capacitor',          icon: <Circle fill="#4488cc" /> },
   { type: 'bjt',          label: 'NPN Transistor',     icon: <BJT /> },
   { type: 'battery',      label: 'Battery',            icon: <Battery /> },
+  { type: 'potentiometer', label: 'Potentiometer',     icon: <Potentiometer /> },
   { type: 'tactileSwitch', label: 'Tactile Switch',    icon: <Circle fill="#666" /> },
 ];
 

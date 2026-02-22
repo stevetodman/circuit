@@ -6,7 +6,10 @@
  *   - Voltage sources (KVL extra row/column — used for batteries)
  *   - Diodes / LEDs (Shockley model, Newton-Raphson linearisation)
  *   - Capacitors (Backward-Euler companion model)
+ *   - Inductors (R_eq = L/dt, I_eq = I_prev)
  *   - BJT NPN (simplified Ebers-Moll linearised)
+ *   - MOSFET (voltage-controlled switch approximation)
+ *   - Op-amp (iterative clamp + gain control)
  *
  * Matrix form: G · x = b
  *   G  = (n + m) × (n + m) admittance/KVL matrix
@@ -20,11 +23,13 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface NetlistElement {
   id:    string;
-  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt';
+  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt' | 'mosfet' | 'opamp' | 'inductor';
   netA:  number;   // positive terminal netId
   netB:  number;   // negative terminal netId (0 = ground)
   value: number;   // R (Ω), V (V), or forward voltage Vf for diode (informational)
-  netC?: number;   // collector (for bjt)
+  netC?: number;   // collector (for bjt), gate (for mosfet), in- (for opamp)
+  netD?: number;   // vcc (for opamp)
+  netE?: number;   // gnd (for opamp)
 }
 
 export interface Netlist {
@@ -88,6 +93,7 @@ export interface SolveResult {
   voltages: Float32Array;
   branchCurrents: Float32Array;
   converged: boolean; // P1-15: false if NR did not converge within NR_ITER
+  inductorCurrents?: Record<string, number>;
 }
 
 // ── DC operating-point solver ──────────────────────────────────────────────────
@@ -95,6 +101,7 @@ export function solveDC(
   netlist: Netlist,
   dt?: number,
   prevVoltages?: Float32Array,
+  prevInductorCurrents?: Record<string, number>,
 ): SolveResult | null {
   const { elements, netCount } = netlist;
 
@@ -112,9 +119,13 @@ export function solveDC(
   const diodes   = elements.filter(e => e.kind === 'diode');
   const capacitors = elements.filter(e => e.kind === 'capacitor');
   const bjts     = elements.filter(e => e.kind === 'bjt');
+  const mosfets  = elements.filter(e => e.kind === 'mosfet');
+  const opamps   = elements.filter(e => e.kind === 'opamp');
+  const inductors = elements.filter(e => e.kind === 'inductor');
 
   const nonGroundNodeCount = netCount - 1;          // rows 0…nonGround-1  → netIds 1…
-  const n = nonGroundNodeCount + vsources.length;
+  const nonLinearSourceCount = vsources.length + opamps.length;
+  const n = nonGroundNodeCount + nonLinearSourceCount;
 
   if (n === 0) {
     return {
@@ -130,6 +141,9 @@ export function solveDC(
   // Newton-Raphson iteration (handles diodes; one pass for diode-free circuits)
   const Vd = new Float64Array(diodes.length).fill(0.65);
   const Vbe = new Float64Array(bjts.length).fill(0.65);
+  const opVNext = new Float64Array(opamps.length).fill(0);
+  const mosfetOn = new Float32Array(mosfets.length);
+  const inductorCurrentsOut: Record<string, number> = {};
   let lastX: Float64Array | null = null;
   let nrConverged = true; // P1-15: track NR convergence
 
@@ -154,6 +168,25 @@ export function solveDC(
         const prevB = prevVoltages ? prevVoltages[el.netB] ?? 0 : 0;
         const ih = geq * (prevA - prevB);
         stamp2(G, b, n, rA, rB, geq, ih, -ih);
+      }
+    }
+
+    // ── Stamp inductors (short DC; companion in transient) ──────────────────
+    if (dt !== undefined) {
+      for (const el of inductors) {
+        const rA = toRow(el.netA);
+        const rB = toRow(el.netB);
+        const L = Math.max(1e-12, el.value);
+        const geq = dt / L;
+        const iPrev = prevInductorCurrents?.[el.id] ?? 0;
+        stamp2(G, b, n, rA, rB, geq, iPrev, -iPrev);
+      }
+    } else {
+      for (const el of inductors) {
+        const rA = toRow(el.netA);
+        const rB = toRow(el.netB);
+        const geq = 1 / 0.001;
+        stamp2(G, b, n, rA, rB, geq, 0, 0);
       }
     }
 
@@ -192,6 +225,21 @@ export function solveDC(
       }
     }
 
+    // ── Stamp MOSFETs (voltage-controlled switches) ──────────────────────────
+    for (let mi = 0; mi < mosfets.length; mi++) {
+      const el = mosfets[mi];
+      const rA = toRow(el.netA);
+      const rB = toRow(el.netB);
+      const vGate = el.netC != null && el.netC > 0 ? (lastX?.[el.netC - 1] ?? 0) : 0;
+      const vSource = el.netB != null && el.netB > 0 ? (lastX?.[el.netB - 1] ?? 0) : 0;
+      const vgs = vGate - vSource;
+      const isOn = vgs > 2 ? 1 : 0;
+      const ron = Math.max(1e-6, el.value);
+      const roff = 1_000_000;
+      const g = 1 / (isOn ? ron : roff);
+      stamp2(G, b, n, rA, rB, g, 0, 0);
+    }
+
     // ── Stamp voltage sources ────────────────────────────────────────────────
     for (let vi = 0; vi < vsources.length; vi++) {
       const el    = vsources[vi];
@@ -203,6 +251,26 @@ export function solveDC(
       b[vsRow] = el.value;
     }
 
+    // ── Stamp op-amps as controlled sources (VCVS approximation) ──────────
+    for (let oi = 0; oi < opamps.length; oi++) {
+      const el    = opamps[oi];
+      const outRow = nonGroundNodeCount + vsources.length + oi;
+      const netInP = el.netB != null && el.netB > 0 ? (lastX?.[el.netB - 1] ?? 0) : 0;
+      const netInN = el.netC != null && el.netC > 0 ? (lastX?.[el.netC - 1] ?? 0) : 0;
+      const netVcc = el.netD != null && el.netD > 0 ? (lastX?.[el.netD - 1] ?? 0) : 0;
+      const netGnd = el.netE != null && el.netE > 0 ? (lastX?.[el.netE - 1] ?? 0) : 0;
+      const raw = (el.value ?? 100000) * (netInP - netInN);
+      const clamped = Math.max(netGnd, Math.min(netVcc, raw));
+      opVNext[oi] = clamped;
+
+      const rOut = el.netA > 0 ? toRow(el.netA) : -1;
+      if (rOut >= 0) {
+        G[rOut * n + outRow] += 1;
+        G[outRow * n + rOut] += 1;
+      }
+      b[outRow] = opVNext[oi];
+    }
+
     // ── Small regularisation — prevents singular matrix for floating nets ─────
     for (let i = 0; i < nonGroundNodeCount; i++) G[i * n + i] += 1e-12;
 
@@ -212,7 +280,7 @@ export function solveDC(
     lastX = x;
 
     // ── Convergence check for diodes + BJTs ──────────────────────────────────
-    if (diodes.length === 0 && bjts.length === 0) break;
+    if (diodes.length === 0 && bjts.length === 0 && mosfets.length === 0 && opamps.length === 0) break;
 
     const r = new Float32Array(netCount);
     for (let id = 1; id < netCount; id++) r[id] = x[toRow(id)];
@@ -234,6 +302,20 @@ export function solveDC(
       if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) iterConverged = false;
       Vbe[ti] = newVbe;
     }
+    for (let mi = 0; mi < mosfets.length; mi++) {
+      const el = mosfets[mi];
+      const vGate = el.netC != null && el.netC > 0 ? r[el.netC] : 0;
+      const vSource = el.netB != null && el.netB > 0 ? r[el.netB] : 0;
+      const vgs = vGate - vSource;
+      const on = vgs > 2 ? 1 : 0;
+      if (Math.abs(on - mosfetOn[mi]) > 0.000001) iterConverged = false;
+      mosfetOn[mi] = on;
+    }
+    for (let oi = 0; oi < opamps.length; oi++) {
+      const netOut = opamps[oi].netA > 0 ? r[opamps[oi].netA] : 0;
+      const target = opVNext[oi];
+      if (Math.abs(netOut - target) > 1e-6) iterConverged = false;
+    }
     if (iterConverged) break;
     // If we exhaust all iterations without converging, flag it
     if (iter === NR_ITER - 1) nrConverged = false;
@@ -246,7 +328,7 @@ export function solveDC(
     voltages[id] = lastX[toRow(id)];
   }
 
-  const branchCurrents = new Float32Array(resistors.length + vsources.length);
+  const branchCurrents = new Float32Array(resistors.length + vsources.length + opamps.length + inductors.length);
   let branchIndex = 0;
 
   for (const resistor of resistors) {
@@ -255,15 +337,40 @@ export function solveDC(
     branchCurrents[branchIndex++] = (vA - vB) / Math.max(resistor.value, 1e-9);
   }
 
+  // Vsource branch currents (MNA extra variable currents)
   for (let vi = 0; vi < vsources.length; vi++) {
     branchCurrents[branchIndex++] = lastX[nonGroundNodeCount + vi];
+  }
+
+  // Op-amp enforced-source branch currents (not physically meaningful, but stable for diagnostics)
+  for (let oi = 0; oi < opamps.length; oi++) {
+    branchCurrents[branchIndex++] = lastX[nonGroundNodeCount + vsources.length + oi];
+  }
+
+  // Inductor branch currents
+  for (const el of inductors) {
+    const vA = el.netA > 0 ? voltages[el.netA] : 0;
+    const vB = el.netB > 0 ? voltages[el.netB] : 0;
+    const geq = dt !== undefined ? Math.max(dt, 1e-12) / Math.max(el.value, 1e-12) : 1 / 0.001;
+    const iPrev = prevInductorCurrents?.[el.id] ?? 0;
+    const current = geq * (vA - vB) + iPrev;
+    branchCurrents[branchIndex++] = current;
+    inductorCurrentsOut[el.id] = current;
+  }
+
+  if (inductors.length > 0 && dt === undefined) {
+    for (const el of inductors) {
+      const vA = el.netA > 0 ? voltages[el.netA] : 0;
+      const vB = el.netB > 0 ? voltages[el.netB] : 0;
+      inductorCurrentsOut[el.id] = (vA - vB) / 0.001;
+    }
   }
 
   if (!nrConverged) {
     console.warn('[MNA] Newton-Raphson did not converge within', NR_ITER, 'iterations');
   }
 
-  return { voltages, branchCurrents, converged: nrConverged };
+  return { voltages, branchCurrents, inductorCurrents: Object.keys(inductorCurrentsOut).length ? inductorCurrentsOut : undefined, converged: nrConverged };
 }
 
 // ── Helper: stamp a 2-terminal element ────────────────────────────────────────

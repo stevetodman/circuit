@@ -9,7 +9,12 @@ export type ComponentType =
   | 'arduino'
   | 'battery'
   | 'motor'
-  | 'tactileSwitch';
+  | 'tactileSwitch'
+  | 'diode'
+  | 'mosfet'
+  | 'opamp'
+  | 'inductor'
+  | 'potentiometer';
 
 export interface CircuitNode {
   id: string;
@@ -73,6 +78,24 @@ const arduinoPins = [
   'a5',
 ];
 
+type TypedComponent<T extends ComponentType, P> = {
+  type: T;
+  properties?: P;
+};
+
+type BasePlacedComponent = {
+  id: string;
+  anchorPos: Vec3;
+  rotationY: number;
+  pins: PinConnection[];
+  props: Record<string, number | string>;
+  // For overload detection (M6: smoke effect)
+  powerRating?: number;   // watts
+  maxCurrent?: number;    // amps
+  measuredPower?: number;
+  measuredCurrent?: number;
+};
+
 export const PIN_TEMPLATES: Record<ComponentType, PinTemplate[]> = {
   led: [
     { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
@@ -113,21 +136,48 @@ export const PIN_TEMPLATES: Record<ComponentType, PinTemplate[]> = {
     { name: 'p1', offset: [-PIN_PITCH, 0, 0] },
     { name: 'p2', offset: [PIN_PITCH, 0, 0] },
   ],
+  diode: [
+    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+  ],
+  mosfet: [
+    { name: 'gate', offset: [-PIN_PITCH * 1.5, 0, 0] },
+    { name: 'drain', offset: [0, 0, 0] },
+    { name: 'source', offset: [PIN_PITCH * 1.5, 0, 0] },
+  ],
+  opamp: [
+    { name: 'in+', offset: [-PIN_PITCH * 1.5, 0, -PIN_PITCH / 2] },
+    { name: 'in-', offset: [-PIN_PITCH * 1.5, 0, PIN_PITCH / 2] },
+    { name: 'out', offset: [PIN_PITCH * 1.5, 0, 0] },
+    { name: 'vcc', offset: [0, 0, -PIN_PITCH * 1.6] },
+    { name: 'gnd', offset: [0, 0, PIN_PITCH * 1.6] },
+  ],
+  inductor: [
+    { name: 'a', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'b', offset: [PIN_PITCH, 0, 0] },
+  ],
+  potentiometer: [
+    { name: 'a', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'wiper', offset: [0, 0, 0] },
+    { name: 'b', offset: [PIN_PITCH, 0, 0] },
+  ],
 };
 
-export interface PlacedComponent {
-  id: string;
-  type: ComponentType;
-  anchorPos: Vec3;
-  rotationY: number;
-  pins: PinConnection[];
-  props: Record<string, number | string>;
-  // For overload detection (M6: smoke effect)
-  powerRating?: number;   // watts
-  maxCurrent?: number;    // amps
-  measuredPower?: number;
-  measuredCurrent?: number;
-}
+export type PlacedComponent =
+  | (BasePlacedComponent & TypedComponent<'led', { color?: string; forwardVoltage?: number }>)
+  | (BasePlacedComponent & TypedComponent<'resistor', { resistance?: number }>)
+  | (BasePlacedComponent & TypedComponent<'capacitor', { capacitance?: number }>)
+  | (BasePlacedComponent & TypedComponent<'bjt', { hFE?: number }>)
+  | (BasePlacedComponent & TypedComponent<'timer555', { r1?: number; r2?: number; capacitance?: number }>)
+  | (BasePlacedComponent & TypedComponent<'arduino', { clockMhz?: number }>)
+  | (BasePlacedComponent & TypedComponent<'battery', {}>)
+  | (BasePlacedComponent & TypedComponent<'motor', { rpm?: number; resistance?: number }>)
+  | (BasePlacedComponent & TypedComponent<'tactileSwitch', { closed?: number }>)
+  | (BasePlacedComponent & TypedComponent<'diode', {}>)
+  | (BasePlacedComponent & TypedComponent<'mosfet', { rdsOn?: number }>)
+  | (BasePlacedComponent & TypedComponent<'opamp', {}>)
+  | (BasePlacedComponent & TypedComponent<'inductor', { inductance?: number }>)
+  | (BasePlacedComponent & TypedComponent<'potentiometer', { resistance?: number; wiper?: number }>);
 
 export interface Wire {
   id: string;
