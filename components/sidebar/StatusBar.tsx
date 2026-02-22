@@ -70,7 +70,12 @@ export default function StatusBar() {
     <div className="px-3 py-2 border-t border-white/[0.06] space-y-1.5">
       {/* Mode + Sim status row */}
       <div className="flex items-center justify-between">
-        <ModeChip label={modeLabel} color={modeColor} />
+        <div className="flex items-center">
+          <ModeChip label={modeLabel} color={modeColor} />
+          {dragging && (
+            <span className="text-[9px] text-white/30 font-mono ml-1">Esc to cancel</span>
+          )}
+        </div>
         <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: dot.color }}>
           <span
             className="w-1.5 h-1.5 rounded-full inline-block"
