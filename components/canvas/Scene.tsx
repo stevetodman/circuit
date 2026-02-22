@@ -331,8 +331,12 @@ export default function Scene() {
       >
         <Canvas
           camera={{ position: DEFAULT_CAMERA_POSITION, fov: 38, near: 0.1, far: 200 }}
-          gl={{ antialias: true, alpha: false }}
+          gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
           style={{ width: '100%', height: '100%', background: CANVAS_BG }}
+          onCreated={({ gl }) => {
+            // Allow the browser to restore a lost WebGL context rather than staying blank
+            gl.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+          }}
         >
           <SceneInteractions />
           <CameraController />

@@ -34,9 +34,9 @@ function WelcomeOverlay() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !localStorage.getItem(WELCOME_KEY)) {
-      setVisible(true);
-    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('noWelcome') || params.has('autoload')) return;
+    if (!localStorage.getItem(WELCOME_KEY)) setVisible(true);
   }, []);
 
   if (!visible) return null;

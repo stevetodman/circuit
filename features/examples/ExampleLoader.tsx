@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { EXAMPLE_CIRCUITS, type ExampleCircuit } from '@/features/examples/circuits';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useScopeStore } from '@/store/scopeStore';
@@ -13,6 +13,16 @@ export default function ExampleLoader() {
   const scopeChannels = useScopeStore((state) => state.channels);
   const removeScopeChannel = useScopeStore((state) => state.removeChannel);
   const [selectedIndex, setSelectedIndex] = useState('');
+
+  // ?autoload=N — auto-load example N on mount (used for screenshots/testing)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idx = params.get('autoload');
+    if (idx === null) return;
+    const circuit = EXAMPLE_CIRCUITS[Number(idx)];
+    if (circuit) loadExample(circuit);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const index = event.target.value;
