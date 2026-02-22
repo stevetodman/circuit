@@ -29,8 +29,14 @@ function midpoint(a: Vec3, b: Vec3): Vec3 {
 }
 
 export interface ExampleCircuit {
+  id?: string;
   name: string;
   description: string;
+  circuit?: {
+    components: PlacedComponent[];
+    nodes: Record<string, unknown>;
+    wires: Wire[];
+  };
   components: PlacedComponent[];
   wires: Wire[];
 }
@@ -115,6 +121,340 @@ const potDividerRes    = topNodeId(CENTER_COL + 2, 4);
 const potDividerLedK   = topNodeId(CENTER_COL + 4, 4);
 
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
+  {
+    id: 'battery-only',
+    name: 'Battery Only',
+    description: 'Single 9V battery',
+    components: [
+      {
+        id: 'example-battery-only-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(25, 0) },
+          { name: 'neg', nodeId: topNodeId(26, 0) },
+        ],
+        props: {},
+      },
+    ],
+    wires: [],
+    circuit: {
+      components: [
+        {
+          id: 'example-battery-only-battery',
+          type: 'battery',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'pos', nodeId: topNodeId(25, 0) },
+            { name: 'neg', nodeId: topNodeId(26, 0) },
+          ],
+          props: {},
+        },
+      ],
+      nodes: {},
+      wires: [],
+    },
+  },
+  {
+    id: 'battery-resistor',
+    name: 'Battery + Resistor Loop',
+    description: '9V battery and 220Ω resistor connected in a closed loop',
+    components: [
+      {
+        id: 'example-loop-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(25, 0) },
+          { name: 'neg', nodeId: topNodeId(27, 0) },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-loop-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(25, 0) },
+          { name: 'p2', nodeId: topNodeId(27, 0) },
+        ],
+        props: { resistance: 220 },
+      },
+    ],
+    wires: [],
+    circuit: {
+      components: [
+        {
+          id: 'example-loop-battery',
+          type: 'battery',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'pos', nodeId: topNodeId(25, 0) },
+            { name: 'neg', nodeId: topNodeId(27, 0) },
+          ],
+          props: {},
+        },
+        {
+          id: 'example-loop-resistor',
+          type: 'resistor',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'p1', nodeId: topNodeId(25, 0) },
+            { name: 'p2', nodeId: topNodeId(27, 0) },
+          ],
+          props: { resistance: 220 },
+        },
+      ],
+      nodes: {},
+      wires: [],
+    },
+  },
+  {
+    id: 'battery-led-resistor',
+    name: 'Battery + 220Ω Resistor + LED',
+    description: '9V battery, 220Ω resistor, red LED (proper polarity)',
+    components: [
+      {
+        id: 'example-led-demo-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(25, 0) },
+          { name: 'neg', nodeId: topNodeId(27, 0) },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-led-demo-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(25, 0) },
+          { name: 'p2', nodeId: topNodeId(26, 0) },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-led-demo-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: topNodeId(26, 0) },
+          { name: 'cathode', nodeId: topNodeId(27, 0) },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [],
+    circuit: {
+      components: [
+        {
+          id: 'example-led-demo-battery',
+          type: 'battery',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'pos', nodeId: topNodeId(25, 0) },
+            { name: 'neg', nodeId: topNodeId(27, 0) },
+          ],
+          props: {},
+        },
+        {
+          id: 'example-led-demo-resistor',
+          type: 'resistor',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'p1', nodeId: topNodeId(25, 0) },
+            { name: 'p2', nodeId: topNodeId(26, 0) },
+          ],
+          props: { resistance: 220 },
+        },
+        {
+          id: 'example-led-demo-led',
+          type: 'led',
+          anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'anode', nodeId: topNodeId(26, 0) },
+            { name: 'cathode', nodeId: topNodeId(27, 0) },
+          ],
+          props: { color: 'red' },
+        },
+      ],
+      nodes: {},
+      wires: [],
+    },
+  },
+  {
+    id: 'ohms-law-demo',
+    name: 'Battery + Current-Limiting Resistor',
+    description: 'Same topology as the first LED circuit with a different resistor value',
+    components: [
+      {
+        id: 'example-ohms-law-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(25, 0) },
+          { name: 'neg', nodeId: topNodeId(27, 0) },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-ohms-law-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(25, 0) },
+          { name: 'p2', nodeId: topNodeId(26, 0) },
+        ],
+        props: { resistance: 470 },
+      },
+      {
+        id: 'example-ohms-law-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: topNodeId(26, 0) },
+          { name: 'cathode', nodeId: topNodeId(27, 0) },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [],
+    circuit: {
+      components: [
+        {
+          id: 'example-ohms-law-battery',
+          type: 'battery',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'pos', nodeId: topNodeId(25, 0) },
+            { name: 'neg', nodeId: topNodeId(27, 0) },
+          ],
+          props: {},
+        },
+        {
+          id: 'example-ohms-law-resistor',
+          type: 'resistor',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'p1', nodeId: topNodeId(25, 0) },
+            { name: 'p2', nodeId: topNodeId(26, 0) },
+          ],
+          props: { resistance: 470 },
+        },
+        {
+          id: 'example-ohms-law-led',
+          type: 'led',
+          anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'anode', nodeId: topNodeId(26, 0) },
+            { name: 'cathode', nodeId: topNodeId(27, 0) },
+          ],
+          props: { color: 'red' },
+        },
+      ],
+      nodes: {},
+      wires: [],
+    },
+  },
+  {
+    id: 'led-resistor',
+    name: 'Battery + Current-Limiting Resistor',
+    description: 'Same as the Ohm\'s law demo, using the current autoLoadId in module definitions',
+    components: [
+      {
+        id: 'example-led-resistor-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(25, 0) },
+          { name: 'neg', nodeId: topNodeId(27, 0) },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-led-resistor-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(25, 0) },
+          { name: 'p2', nodeId: topNodeId(26, 0) },
+        ],
+        props: { resistance: 470 },
+      },
+      {
+        id: 'example-led-resistor-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: topNodeId(26, 0) },
+          { name: 'cathode', nodeId: topNodeId(27, 0) },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [],
+    circuit: {
+      components: [
+        {
+          id: 'example-led-resistor-battery',
+          type: 'battery',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'pos', nodeId: topNodeId(25, 0) },
+            { name: 'neg', nodeId: topNodeId(27, 0) },
+          ],
+          props: {},
+        },
+        {
+          id: 'example-led-resistor-resistor',
+          type: 'resistor',
+          anchorPos: midpoint(topNodePos(25, 0), topNodePos(26, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'p1', nodeId: topNodeId(25, 0) },
+            { name: 'p2', nodeId: topNodeId(26, 0) },
+          ],
+          props: { resistance: 470 },
+        },
+        {
+          id: 'example-led-resistor-led',
+          type: 'led',
+          anchorPos: midpoint(topNodePos(26, 0), topNodePos(27, 0)),
+          rotationY: 0,
+          pins: [
+            { name: 'anode', nodeId: topNodeId(26, 0) },
+            { name: 'cathode', nodeId: topNodeId(27, 0) },
+          ],
+          props: { color: 'red' },
+        },
+      ],
+      nodes: {},
+      wires: [],
+    },
+  },
   {
     name: 'LED + Resistor',
     description: '9V battery, 470Ω resistor, red LED',
