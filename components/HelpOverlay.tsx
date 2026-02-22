@@ -29,6 +29,14 @@ const SECTIONS = [
       ['V', 'Toggle wire voltage colours'],
       ['F', 'Zoom to fit'],
       ['1 / 2', 'Camera (perspective / top)'],
+      ['Space', 'Pause / resume simulation'],
+    ],
+  },
+  {
+    heading: 'Simulation',
+    rows: [
+      ['Space', 'Pause / resume simulation'],
+      ['1× / 2× / 5× / 10×', 'Simulation speed (in status bar)'],
     ],
   },
   {
@@ -41,6 +49,7 @@ const SECTIONS = [
       ['Ctrl/Cmd+click component', 'Add to / remove from selection'],
       ['Click tactile switch', 'Toggle switch open/closed'],
       ['Escape', 'Deselect / cancel drag'],
+      ['A', 'Open Arduino panel'],
       ['?', 'Show / hide this panel'],
     ],
   },
