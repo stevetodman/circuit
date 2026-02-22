@@ -232,10 +232,12 @@ export default function Sidebar() {
   const addToast = useToastStore((state) => state.addToast);
   const circuitName = useCircuitStore((s) => s.circuitName);
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
+  const newCircuit = useCircuitStore((s) => s.newCircuit);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'parts' | 'learn'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <aside
@@ -385,6 +387,40 @@ export default function Sidebar() {
 
         {/* ── Arduino panel (shown when Arduino is selected) ── */}
         <ArduinoPanel />
+
+        {/* ── New Circuit (inline confirm) ── */}
+        <div className="px-2 pt-2 pb-1 border-t border-white/[0.06]">
+          {confirming ? (
+            <div className="flex items-center gap-2 px-1 py-1">
+              <span className="text-[11px] text-white/50 flex-1">Clear board?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  newCircuit();
+                  setConfirming(false);
+                }}
+                className="text-[11px] px-2 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/50"
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="text-[11px] px-2 py-0.5 rounded bg-white/5 text-white/50 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="w-full py-1.5 text-xs text-white/40 hover:text-white/70 hover:bg-white/5 rounded transition-colors border border-dashed border-white/10 hover:border-white/20"
+            >
+              ＋ New Circuit
+            </button>
+          )}
+        </div>
 
         {/* ── Export panel (SPICE) ── */}
         <ExportPanel

@@ -93,6 +93,7 @@ interface CircuitState extends TopologyState {
   selectAll(): void;
   saveToJSON(): string;
   loadFromJSON(data: string | ExampleCircuit): void;
+  newCircuit(): void;
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
@@ -434,6 +435,20 @@ export const useCircuitStore = create<CircuitState>()(
           selectedComponentId: null,
           selectedNodeId: null,
           selectedComponentIds: [],
+        });
+        clearUndoHistory?.();
+      },
+
+      newCircuit() {
+        set({
+          nodes: {},
+          components: {},
+          wires: {},
+          circuitName: '',
+          selectedComponentId: null,
+          selectedComponentIds: [],
+          selectedNodeId: null,
+          wiringMode: false,
         });
         clearUndoHistory?.();
       },
