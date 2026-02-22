@@ -49,6 +49,10 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
   const overloadIds = useUIStore((s) => s.overloadIds);
   const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
+  const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const hoveredNetId = useCircuitStore((s) =>
+    hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? -1) : -1,
+  );
   const fromPos = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.worldPos);
   const toPos = useCircuitStore((s) => s.nodes[wire.toNodeId]?.worldPos);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -109,6 +113,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
     const speed = Math.max(0.6, Math.min(4, Math.abs(current) * 2 + 0.6));
     const phase = direction * speed;
     const pulse = 0.5 + 0.5 * Math.sin(phase * clock.getElapsedTime());
+    const isNetHovered = hoveredNetId >= 0 && fromNetId === hoveredNetId;
 
     if (isOverloaded) {
       const overloadPulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
@@ -130,7 +135,9 @@ export default function Wire({ wire, branchIndex }: WireProps) {
 
     matRef.current.color.set(wireColor);
     matRef.current.emissive.set(wireColor);
-    matRef.current.emissiveIntensity = 0.06 + 0.14 * pulse;
+    matRef.current.emissiveIntensity = isNetHovered
+      ? 0.35 + 0.2 * pulse
+      : 0.06 + 0.14 * pulse;
   });
 
   const onContextMenu = (e: ThreeEvent<MouseEvent>) => {
