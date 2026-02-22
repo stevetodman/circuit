@@ -6,12 +6,14 @@ interface Props {
   type: ComponentType | 'wire';
   label: string;
   icon: React.ReactNode;
+  tooltip?: string;
   onAdd?: () => void;
 }
 
-export default function ComponentTile({ label, icon, onAdd }: Props) {
+export default function ComponentTile({ label, icon, tooltip, onAdd }: Props) {
   return (
     <button
+      title={tooltip ?? label}
       onClick={onAdd}
       title="Drag to place, or click to begin placement"
       draggable={false}

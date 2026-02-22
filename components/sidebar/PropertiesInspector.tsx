@@ -43,6 +43,23 @@ interface ToggleField {
 type PropField = NumericField | ColorField;
 type PropOrLogField = PropField | LogNumberField | ToggleField;
 
+function engNotation(value: number, unit: string): string {
+  const safeUnit = unit ?? '';
+  const abs = Math.abs(value);
+  const baseUnit = safeUnit.replace(/^[kMmnµ]/, '');
+
+  if (!Number.isFinite(value)) return `${value}`;
+  if (safeUnit === '') return `${value.toFixed(1)}`;
+
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M${baseUnit}`;
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}k${baseUnit}`;
+  if (safeUnit.includes('F') && abs <= 1e-9) return `${(value / 1e-9).toFixed(1)}n${baseUnit}`;
+  if (safeUnit.includes('F') && abs <= 1e-6) return `${(value / 1e-6).toFixed(1)}µ${baseUnit}`;
+  if (abs < 1e-3) return `${(value * 1_000).toFixed(1)}m${baseUnit}`;
+
+  return `${value.toFixed(1)}${baseUnit}`;
+}
+
 const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
     { kind: 'number', key: 'resistance', label: 'Resistance', default: 1000, min: 1, max: 10_000_000, unit: 'Ω' },
@@ -120,7 +137,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
 // ── Sub-components ────────────────────────────────────────────────────────────
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[11px] font-medium text-white/55 leading-none">
+    <span className="text-[10px] font-medium text-white/40 leading-none">
       {children}
     </span>
   );
@@ -136,27 +153,32 @@ function NumberInput({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        value={value}
-        min={field.min}
-        max={field.max}
-        step={field.step ?? 1}
-        onChange={(e) => {
-          const n = parseFloat(e.target.value);
-          if (!isNaN(n)) onChange(Math.max(field.min, Math.min(field.max, n)));
-        }}
-        className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
-                   rounded px-2 py-1 border border-white/[0.08]
-                   focus:outline-none focus:border-[#7c6fff]/60 focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none
-                   [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-      />
-      {field.unit && (
-        <span className="text-[10px] text-white/45 font-mono w-5 text-right flex-shrink-0">
-          {field.unit}
-        </span>
-      )}
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          value={value}
+          min={field.min}
+          max={field.max}
+          step={field.step ?? 1}
+          onChange={(e) => {
+            const n = parseFloat(e.target.value);
+            if (!isNaN(n)) onChange(Math.max(field.min, Math.min(field.max, n)));
+          }}
+          className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
+                     rounded px-2 py-1 border border-white/[0.08]
+                     focus:outline-none focus:border-[#7c6fff]/60
+                     [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        {field.unit && (
+          <span className="text-[10px] text-white/30 font-mono w-5 text-right flex-shrink-0">
+            {field.unit}
+          </span>
+        )}
+      </div>
+      {(Math.abs(value) >= 1000 || (Math.abs(value) < 0.1 && value !== 0)) ? (
+        <span className="text-[9px] text-white/30 font-mono">{engNotation(value, field.unit ?? '')}</span>
+      ) : null}
     </div>
   );
 }
@@ -215,7 +237,7 @@ function ColorInput({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-7 h-7 rounded border border-white/[0.12] bg-transparent cursor-pointer p-0.5 focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+        className="w-7 h-7 rounded border border-white/[0.12] bg-transparent cursor-pointer p-0.5"
       />
       <span className="text-[11px] font-mono text-white/40">{value}</span>
     </div>
@@ -235,7 +257,7 @@ function ToggleInput({
   return (
     <button
       onClick={() => onChange(isOn ? 0 : 1)}
-      className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-[11px] font-semibold w-full transition-colors focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:outline-none ${
+      className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-[11px] font-semibold w-full transition-colors ${
         isOn
           ? 'bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25'
           : 'bg-white/[0.05] text-white/40 border border-white/[0.1] hover:bg-white/[0.09]'
@@ -272,14 +294,14 @@ function Inspector({ component }: { component: PlacedComponent }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => { deleteSelected(); selectComponent(null); }}
-            className="text-[10px] text-red-500/40 hover:text-red-400 font-mono transition-colors leading-none focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+            className="text-[10px] text-red-500/40 hover:text-red-400 font-mono transition-colors leading-none"
             title="Delete component"
           >
             Delete
           </button>
           <button
             onClick={() => selectComponent(null)}
-            className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+            className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
             title="Deselect"
           >
             ✕
@@ -289,7 +311,7 @@ function Inspector({ component }: { component: PlacedComponent }) {
 
       {/* Property fields */}
       {fields.length === 0 ? (
-        <p className="px-4 pb-3 text-[10px] text-white/40 italic">No configurable properties</p>
+        <p className="px-4 pb-3 text-[10px] text-white/20 italic">No configurable properties</p>
       ) : (
         <div className="px-4 pb-4 space-y-3">
           {fields.map((field) => (
@@ -379,8 +401,8 @@ function Inspector({ component }: { component: PlacedComponent }) {
           <div className="mt-1.5 space-y-0.5">
             {component.pins.map((pin) => (
               <div key={pin.name} className="flex justify-between text-[10px] font-mono">
-                <span className="text-white/45">{pin.name}</span>
-                <span className="text-white/35">{pin.nodeId}</span>
+                <span className="text-white/30">{pin.name}</span>
+                <span className="text-white/20">{pin.nodeId}</span>
               </div>
             ))}
           </div>
@@ -394,8 +416,19 @@ function Inspector({ component }: { component: PlacedComponent }) {
 export default function PropertiesInspector() {
   const selectedId  = useCircuitStore((s) => s.selectedComponentId);
   const components  = useCircuitStore((s) => s.components);
+  const hasAny      = useCircuitStore((s) => Object.keys(s.components).length > 0);
 
-  if (!selectedId) return null;
+  if (!selectedId) {
+    return (
+      <div className="border-t border-white/[0.06] px-4 py-4">
+        <p className="text-[10px] text-white/20 italic leading-relaxed">
+          {hasAny
+            ? 'Click a component to inspect its properties.'
+            : 'Drag a part from the panel above onto the breadboard to get started.'}
+        </p>
+      </div>
+    );
+  }
   const component = components[selectedId];
   if (!component) return null;
 
