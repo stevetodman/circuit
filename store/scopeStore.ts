@@ -14,6 +14,7 @@ interface ScopeState {
   toggleOpen: () => void;
   addChannel: (netId: number, label?: string) => void;
   removeChannel: (netId: number) => void;
+  clearChannels: () => void;
 }
 
 const CHANNEL_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0'];
@@ -50,5 +51,13 @@ export const useScopeStore = create<ScopeState>()((set, get) => ({
   removeChannel(netId) {
     clearChannel(netId);
     set({ channels: get().channels.filter((channel) => channel.netId !== netId) });
+  },
+
+  clearChannels() {
+    const { channels } = get();
+    for (const channel of channels) {
+      clearChannel(channel.netId);
+    }
+    set({ channels: [] });
   },
 }));

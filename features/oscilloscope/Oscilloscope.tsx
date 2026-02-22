@@ -3,9 +3,10 @@
 import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { getSamples, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
-import { type Channel } from '@/store/scopeStore';
+import { useScopeStore, type Channel } from '@/store/scopeStore';
 import { useUIStore } from '@/store/uiStore';
 import { useCircuitStore } from '@/store/circuitStore';
+import { voltages } from '@/simulation/SimBridge';
 
 interface OscilloscopeProps {
   open: boolean;
@@ -63,6 +64,7 @@ export default function Oscilloscope({
   const [inputValue, setInputValue] = useState('');
   const [invalidInput, setInvalidInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [liveV, setLiveV] = useState<number[]>([]);
 
   // Cursor state — ref for the render loop, state for the readout overlay
   const cursorXRef = useRef<number | null>(null);
@@ -72,6 +74,7 @@ export default function Oscilloscope({
   } | null>(null);
 
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const clearChannels = useScopeStore((s) => s.clearChannels);
   const hoveredNetId  = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
   );
@@ -229,6 +232,13 @@ export default function Oscilloscope({
       const minV = yMin;
       const maxV = yMax;
 
+      setLiveV(
+        channelsRef.current.map((channel) => {
+          const value = voltages[channel.netId];
+          return Number.isFinite(value) ? value : NaN;
+        }),
+      );
+
       // Y-axis labels (left side)
       const labelCount = 5;
       const voltageRange = maxV - minV;
@@ -312,8 +322,9 @@ export default function Oscilloscope({
       />
 
       <div className="absolute left-2 top-1.5 z-10 flex flex-col gap-1">
-        {channels.map((channel) => {
+        {channels.map((channel, i) => {
           const label = channel.label ? channel.label : `Net ${channel.netId}`;
+          const liveVoltage = liveV[i];
           return (
             <div key={channel.netId} className="flex items-center gap-1">
               <span
@@ -321,6 +332,9 @@ export default function Oscilloscope({
                 style={{ color: channel.color, background: `${channel.color}22` }}
               >
                 {label}
+              </span>
+              <span className="text-[9px] font-mono text-white/65 tabular-nums">
+                {liveVoltage !== undefined ? `${liveVoltage.toFixed(2)}V` : ''}
               </span>
               <button
                 onClick={() => onRemoveChannel(channel.netId)}
@@ -405,6 +419,14 @@ export default function Oscilloscope({
             {hoveredNetId != null ? '+ Probe' : '+'}
           </button>
         )}
+        <button
+          onClick={clearChannels}
+          disabled={channels.length === 0}
+          className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${channels.length === 0 ? 'border-white/8 text-white/30' : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'}`}
+          title="Clear all channels"
+        >
+          ✕ all
+        </button>
         <button
           onClick={onClose}
           className="text-[10px] px-1.5 py-0.5 rounded-sm border border-white/20 text-white/80 hover:text-white hover:border-white/40"
