@@ -84,17 +84,19 @@ components/
   CanvasOverlay.tsx     Floating bottom-right overlay: zoom +/−/fit buttons + component counter
   Toolbar.tsx           Top toolbar: undo/redo, delete, copy/paste, L/I/P/V/S toggles
   sidebar/
-    Sidebar.tsx         Left panel: circuit name + part palette + inspector + panels + status
+    Sidebar.tsx         Left panel: parts/learn/arduino tabs + category filter chips + circuit name
+                        + part palette + inspector + panels + status; collapsible with B key
     ComponentTile.tsx   Draggable part button with description + pulse-ring when highlighted
     PropertiesInspector.tsx  Context-sensitive editor + E12 presets + 📊 Add to Scope buttons
     LearnPanel.tsx      Module list with progress bar, completion badges, active highlight
     ArduinoPanel.tsx    Hex upload + serial monitor + PAUSE/RESUME + cycle counter
-    ExportPanel.tsx     SPICE .cir download + New Circuit button
+    ExportPanel.tsx     SPICE .cir download + Save/Load JSON + Copy share link + New Circuit button
     ScopeButton.tsx     Open oscilloscope shortcut
-    StatusBar.tsx       Sim status dot + power + mode chip + hovered pin display
-  ContextMenu.tsx       Right-click context menu (delete/rotate/duplicate/properties); viewport-clamped
+    StatusBar.tsx       Sim status dot + power + mode chip + hovered pin + parts/nets count + sim time
+  ContextMenu.tsx       Right-click: component menu (delete/rotate/duplicate/properties) + WireContextMenu
+                        (7 color swatches + delete wire); both are viewport-clamped
   ErrorBoundary.tsx     Wraps Sidebar, Oscilloscope, SchematicView in page.tsx
-  HelpOverlay.tsx       ? key modal — full keyboard shortcut reference (L/I/P/V/O/S/F/1/2)
+  HelpOverlay.tsx       ? key modal — full keyboard shortcut reference
   KeyboardShortcuts.tsx Global keyboard handler (mount once in page.tsx)
   SimController.tsx     Worker lifecycle + SAB init + topology → UPDATE_NETLIST; power calc
   StepCard.tsx          Active module step card with spotlightTarget directional hint pill
@@ -107,7 +109,8 @@ features/
     types.ts            ModuleStep (spotlightTarget, highlightComponent), Module, ValidatorState
     definitions.ts      11 guided modules with autoLoadId, step validators, spotlight hints
   oscilloscope/
-    Oscilloscope.tsx    4-channel overlay: Y-axis labels, auto-scale, live voltage, clear-all button
+    Oscilloscope.tsx    4-channel overlay: Y-axis labels, auto-scale, live voltage, Vpp/Vmin/Vmax/freq
+                        stats per channel, time-window selector, clear-all button
     scopeBuffer.ts      Float32Array[4096] ring buffer per net
   schematic/
     SchematicView.tsx   SVG overlay (toggled with S key)
@@ -130,9 +133,11 @@ simulation/
     arduino.worker.ts   avr8js ATmega328P at 16 MHz; ADC (analogRead) + PWM (analogWrite) via SAB
 store/
   circuitStore.ts       Zustand + zundo: nodes, components, wires, circuitName, undo/redo, newCircuit()
-  uiStore.ts            hoveredNodeId, simStatus, sab, showHelp, zoom requests (fit/in/out),
+  uiStore.ts            hoveredNodeId, simStatus, simPaused, sab, showHelp, showSidebar,
+                        showValueLabels, arduinoTabRequested, zoom requests (fit/in/out),
                         showDesignators, showCurrentLabels, showPolarityLabels,
-                        showWireVoltageColors, power, contextMenu, boxSelect
+                        showWireVoltageColors, overloadIds, circuitHealthWarning,
+                        power, contextMenu, wireMenu, boxSelect
   moduleStore.ts        Zustand persist: activeModuleId, activeStepIndex, completedModuleIds,
                         resetProgress(); persisted to localStorage as 'circuit-modules'
   scopeStore.ts         Oscilloscope channels + open/close + clearChannels()
@@ -194,6 +199,12 @@ types/
 
 **Learn tab** — `LearnPanel.tsx` shows overall progress bar (X/11), ✓ badge on completed modules, violet left-border on the active module, and a subtle "Reset progress" button that calls `moduleStore.resetProgress()`.
 
+**Wire context menu** — Right-clicking a wire calls `openWireMenu(wireId, x, y)` in uiStore. `WireContextMenu` (named export from `ContextMenu.tsx`) renders 7 color swatches + a Delete button. Wire color is stored as `wire.color` in circuitStore and read by `Wire.tsx` for rendering.
+
+**Sidebar collapse** — `uiStore.showSidebar` (default `true`) gates `<Sidebar />` render in `page.tsx`. When hidden, a floating `›` button (absolute-positioned) reveals it. `B` key calls `toggleSidebar()`.
+
+**Parts category filter** — `Sidebar.tsx` has `'all' | 'passive' | 'active' | 'power' | 'ic'` chip row above the parts list. `PART_CATEGORIES` maps each `ComponentType` to a category. Chips are mutually exclusive; `'all'` is the default.
+
 **Zoom controls** — `uiStore` has `zoomInRequested` / `zoomOutRequested` counters (increment to trigger). `Scene.tsx` listens with `useEffect` and moves the camera via OrbitControls ref. `CanvasOverlay` buttons call `requestZoomIn` / `requestZoomOut` / `requestZoomToFit`.
 
 ## Stores at a Glance
@@ -201,7 +212,7 @@ types/
 | Store | What it holds | Undo/redo |
 |---|---|---|
 | `circuitStore` | nodes, components, wires, circuitName, selectedNodeId, selectedComponentId, selectedComponentIds, wiringMode, componentClipboard (module-level) | Yes (zundo, topology only) |
-| `uiStore` | hoveredNodeId, simStatus, simErrorDismissed, sab, showHelp, zoom requests, power, showPolarityLabels, showWireVoltageColors, contextMenu, boxSelect | No |
+| `uiStore` | hoveredNodeId, simStatus, simErrorDismissed, simPaused, sab, showHelp, showSidebar, showValueLabels, arduinoTabRequested, zoom requests, power, showPolarityLabels, showWireVoltageColors, overloadIds, circuitHealthWarning, contextMenu, wireMenu, boxSelect | No |
 | `moduleStore` | activeModuleId, activeStepIndex, completedModuleIds, justCompleted; persisted via Zustand persist | No |
 | `scopeStore` | oscilloscope open, channels (netId + color); clearChannels() clears all | No |
 | `schematicStore` | schematic overlay open | No |
@@ -216,15 +227,21 @@ types/
 | `I` | Toggle wire current labels |
 | `P` | Toggle polarity labels (+/−) |
 | `V` | Toggle wire voltage colours |
+| `W` | Toggle component value labels (Ω, µF, V) |
 | `O` | Toggle oscilloscope |
 | `S` | Toggle schematic view |
+| `B` | Show/hide sidebar |
 | `F` | Zoom to fit |
+| `+` / `-` | Zoom in / out |
 | `1` / `2` | Camera perspective / top |
 | `R` | Rotate selected/dragged component |
+| `Space` | Pause / resume simulation |
+| `A` | Open Arduino panel |
 | `?` | Show/hide help overlay |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Ctrl+C/V/A/D` | Copy / Paste / Select all / Duplicate |
+| `Shift+click` | Add/remove component from multi-selection |
 | `Delete/Backspace` | Delete selected (cancel wire during wiring) |
 | `Escape` | Deselect / cancel drag / cancel wiring |
 
@@ -249,8 +266,8 @@ types/
 - Motor and tactile switch are placed but electrically modelled as resistors only.
 - Arduino ADC: `analogRead()` feeds SAB net voltages into `AVRADC` — fully implemented.
 - Arduino PWM: `analogWrite()` computes duty-cycle voltage from TCCR/OCR registers — fully implemented.
+- Overload detection: `SimController` tracks components with |I| above rated threshold and sets `uiStore.overloadIds` — implemented.
 - Schematic view is read-only — no manual drag of component positions.
-- No overload/smoke detection (planned).
 
 ## Parallelization
 
