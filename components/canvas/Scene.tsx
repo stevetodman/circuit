@@ -28,6 +28,7 @@ interface PlacedComponentView {
   anchorPos: Vec3;
   rotationY: number;
   pins: Array<{ name: string; nodeId: string }>;
+  props: Record<string, number | string>;
 }
 
 interface BoxSelectState {
@@ -350,6 +351,7 @@ export default function Scene() {
                   event.nativeEvent.stopImmediatePropagation();
                   openContextMenu(component.id, event.nativeEvent.clientX, event.nativeEvent.clientY);
                 }}
+                componentProps={component.props}
                 onClick={(event) => {
                   event.stopPropagation();
                   if (event.shiftKey) {

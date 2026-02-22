@@ -13,6 +13,12 @@ import MOSFET from './MOSFET';
 import OpAmp from './OpAmp';
 import Inductor from './Inductor';
 import Potentiometer from './Potentiometer';
+import Capacitor from './Capacitor';
+import TactileSwitch from './TactileSwitch';
+import BJT from './BJT';
+import Timer555 from './Timer555';
+import ArduinoUno from './ArduinoUno';
+import Motor from './Motor';
 
 interface ComponentRendererProps {
   componentId:    string;
@@ -27,6 +33,7 @@ interface ComponentRendererProps {
   onContextMenu?: (event: ThreeEvent<MouseEvent>) => void;
   anodeNetId?:    number | null;
   cathodeNetId?:  number | null;
+  componentProps?: Record<string, number | string>;
 }
 
 const ZERO: Vec3 = [0, 0, 0];
@@ -79,6 +86,7 @@ export default function ComponentRenderer({
   onContextMenu,
   anodeNetId,
   cathodeNetId,
+  componentProps,
 }: ComponentRendererProps) {
   const rotYRad = (rotationY * Math.PI) / 180;
   const dragging = useDragStore((state) => state.dragging);
@@ -96,6 +104,73 @@ export default function ComponentRenderer({
           onClick={onClick}
           anodeNetId={anodeNetId}
           cathodeNetId={cathodeNetId}
+        />
+      );
+      break;
+    case 'capacitor':
+      inner = (
+        <Capacitor
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'tactileSwitch':
+      inner = (
+        <TactileSwitch
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+          closed={componentProps?.closed as number | undefined}
+        />
+      );
+      break;
+    case 'bjt':
+      inner = (
+        <BJT
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'timer555':
+      inner = (
+        <Timer555
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'arduino':
+      inner = (
+        <ArduinoUno
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
+        />
+      );
+      break;
+    case 'motor':
+      inner = (
+        <Motor
+          anchorPos={ZERO}
+          selected={selected}
+          transparent={transparent}
+          pinOffsets={pinOffsets}
+          onClick={onClick}
         />
       );
       break;

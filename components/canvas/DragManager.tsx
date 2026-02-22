@@ -91,6 +91,7 @@ export default function DragManager() {
       rotationY={rotationY}
       pinOffsets={pinOffsets}
       transparent
+      componentProps={{}}
       onClick={(event) => event.stopPropagation()}
     />
   );

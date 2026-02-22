@@ -53,9 +53,24 @@ function Battery({
         <meshStandardMaterial color="#c00" roughness={0.5} />
       </mesh>
 
+      <mesh position={[-0.06, 0.13, 0]}>
+        <boxGeometry args={[0.002, 0.01, 0.024]} />
+        <meshStandardMaterial color="#fff" roughness={0.2} />
+      </mesh>
+
       <mesh position={[0.06, 0.1, 0]}>
         <boxGeometry args={[0.045, 0.012, 0.03]} />
         <meshStandardMaterial color="#333" roughness={0.5} />
+      </mesh>
+
+      <mesh position={[0.06, 0.13, 0]}>
+        <boxGeometry args={[0.002, 0.01, 0.024]} />
+        <meshStandardMaterial color="#fff" roughness={0.2} />
+      </mesh>
+
+      <mesh position={[0.06, 0.13, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <boxGeometry args={[0.002, 0.01, 0.024]} />
+        <meshStandardMaterial color="#fff" roughness={0.2} />
       </mesh>
 
       {pinOffsets.map((offset, index) => (

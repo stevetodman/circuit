@@ -53,6 +53,9 @@ function LED({
   const domeRef = useRef<THREE.Mesh>(null);
 
   const opacity = transparent ? 0.75 : 1;
+  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
+  const cathodeSide = cathodeX >= 0 ? 1 : -1;
+  const cathodeMarkerPos: Vec3 = [cathodeSide * 0.03, 0.0425, 0];
 
   // ── Voltage-driven glow — runs every frame, no React re-renders ────────────
   useFrame(() => {
@@ -109,6 +112,11 @@ function LED({
           transparent
           opacity={transparent ? 0.65 : 0.7}
         />
+      </mesh>
+
+      <mesh position={cathodeMarkerPos}>
+        <boxGeometry args={[0.001, 0.018, 0.038]} />
+        <meshStandardMaterial color="#1e1e1e" roughness={0.95} />
       </mesh>
 
       {/* Leads */}
