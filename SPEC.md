@@ -1,70 +1,91 @@
-# SPEC: Oscilloscope PNG Export
+# SPEC: Wire Right-Click Context Menu
 
-Add a "Save PNG" button to the oscilloscope panel that downloads the current
-waveform view as a PNG image. Students can use this to document their experiments.
+## Goal
+Add a right-click context menu on wires that lets users delete a wire or
+change its color.
 
-## Read First
-- `features/oscilloscope/Oscilloscope.tsx` — find `canvasRef`, the header button
-  row (where Auto, freeze buttons are), and the canvas element.
-- The canvas already renders the full waveform — we just need `canvas.toDataURL()`
-  and trigger a download link.
+## Current State
+- `store/uiStore.ts` already has `wireMenu: { wireId, x, y } | null` state
+- `store/uiStore.ts` already has `openWireMenu(wireId, x, y)` and `closeWireMenu()` actions
+- `components/canvas/Wire.tsx` renders CatmullRomCurve3 tubes with click handling
+- `components/ContextMenu.tsx` handles component right-click — nothing handles wire right-click
+- Wire color is stored in `circuitStore.wires[id].color`
+- No UI exists to delete or recolor individual wires
 
-## Implementation
+## Changes Required
 
-### Step 1: Add download function
-
-Inside the `Oscilloscope` component (not in a sub-component), add a callback:
-
+### `components/canvas/Wire.tsx`
+Read the file to understand the existing mesh/click structure.
+Add `onContextMenu` to the tube mesh (the same object that handles `onClick`):
 ```tsx
-const handleExportPNG = useCallback(() => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const url = canvas.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'oscilloscope.png';
-  a.click();
-}, []);
+onContextMenu={(e) => {
+  e.stopPropagation();
+  openWireMenu(wire.id, e.clientX ?? e.nativeEvent.clientX, e.clientY ?? e.nativeEvent.clientY);
+}}
+```
+Import `useUIStore` and destructure `openWireMenu` from it using individual selectors.
+
+### `components/ContextMenu.tsx`
+Read the file. It currently renders the component context menu.
+Add a second export (or a second branch at the bottom) for wire menu:
+```tsx
+export function WireContextMenu() {
+  const wireMenu = useUIStore((s) => s.wireMenu);
+  const closeWireMenu = useUIStore((s) => s.closeWireMenu);
+  const updateWireColor = useCircuitStore((s) => s.updateWireColor);
+  const removeWire = useCircuitStore((s) => s.removeWire);
+
+  if (!wireMenu) return null;
+
+  const WIRE_COLORS = ['#cc3333','#3399ff','#33cc66','#ffaa00','#cc66ff','#ffffff','#aaaaaa'];
+
+  return (
+    <div
+      className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-2xl py-1.5 min-w-[160px]"
+      style={{ left: wireMenu.x, top: wireMenu.y }}
+      onMouseLeave={closeWireMenu}
+    >
+      <div className="px-3 py-1 flex flex-wrap gap-1.5">
+        {WIRE_COLORS.map((c) => (
+          <button
+            key={c}
+            onClick={() => { updateWireColor(wireMenu.wireId, c); closeWireMenu(); }}
+            className="w-4 h-4 rounded-full border border-white/20 hover:scale-110 transition-transform"
+            style={{ background: c }}
+            title={c}
+          />
+        ))}
+      </div>
+      <div className="h-px bg-white/[0.08] mx-2 my-1" />
+      <button
+        onClick={() => { removeWire(wireMenu.wireId); closeWireMenu(); }}
+        className="w-full px-3 py-1.5 text-left text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+      >
+        Delete wire
+      </button>
+    </div>
+  );
+}
 ```
 
-### Step 2: Add button to header
-
-In the oscilloscope header (the flex row with Auto, ⏸/▶, and channel + buttons),
-add a "↓" or "⤓" download button at the far right, after the existing buttons:
-
-```tsx
-<button
-  type="button"
-  onClick={handleExportPNG}
-  title="Save waveform as PNG"
-  className="w-7 h-7 rounded flex items-center justify-center text-white/35 hover:text-white/80 hover:bg-white/10 transition-colors text-[13px]"
->
-  ↓
-</button>
+### `store/circuitStore.ts`
+Read the file to understand the existing wire/component store actions.
+Add `updateWireColor(id: string, color: string): void` action:
+```ts
+updateWireColor(id, color) {
+  set((state) => ({
+    wires: { ...state.wires, [id]: { ...state.wires[id], color } },
+  }));
+},
 ```
+Add it to the interface and implementation. `removeWire` should already exist —
+if not, add it similarly. Do NOT wrap in temporal (undo) — wire color/delete
+changes are intentionally outside undo history.
 
-Read the file to find the exact header button pattern and copy it.
+### `app/page.tsx`
+Import and render `<WireContextMenu />` alongside the existing `<ContextMenu />`.
 
-### Step 3: Canvas background for export
-
-The canvas currently has a transparent background (or uses CSS for the dark background).
-To ensure the PNG has a dark background (not transparent), modify the draw loop:
-
-At the very start of the canvas draw function (before drawing anything else), add:
-```tsx
-ctx.fillStyle = '#0d0d0f';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-```
-
-This ensures the exported PNG has a dark background matching the UI.
-Check if this line already exists — if so, don't add it again.
-
-## Important
-- Only touch `features/oscilloscope/Oscilloscope.tsx`
-- The download happens immediately on click — no confirmation needed
-- `canvas.toDataURL()` returns a data URL; creating and clicking an `<a>` element
-  is the standard browser download trick
-- The downloaded filename should be `oscilloscope.png`
-- When `frozen` is true, the canvas still holds the last frame — the export works
-  in both frozen and live states
-- Run `pnpm build` — must pass with zero TypeScript errors
+## What NOT to do
+- Do NOT remove or change the existing component ContextMenu
+- Do NOT add undo support for wire color changes
+- Keep the WireContextMenu as a separate named export from ContextMenu.tsx

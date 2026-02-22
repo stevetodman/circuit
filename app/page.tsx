@@ -14,7 +14,7 @@ import EmptyStateGallery from '@/components/canvas/EmptyStateGallery';
 import Toolbar from '@/components/Toolbar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
-import WireContextMenu from '@/components/WireContextMenu';
+import { WireContextMenu } from '@/components/ContextMenu';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SimController from '@/components/SimController';
 import Oscilloscope from '@/features/oscilloscope/Oscilloscope';

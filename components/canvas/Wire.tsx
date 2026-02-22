@@ -142,7 +142,11 @@ export default function Wire({ wire, branchIndex }: WireProps) {
 
   const onContextMenu = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    openWireMenu(wire.id, e.clientX, e.clientY);
+    openWireMenu(
+      wire.id,
+      e.clientX ?? e.nativeEvent.clientX,
+      e.clientY ?? e.nativeEvent.clientY,
+    );
   };
 
   if (!geometry) return null;
