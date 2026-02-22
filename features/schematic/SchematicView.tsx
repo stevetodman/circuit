@@ -337,6 +337,14 @@ export default function SchematicView({ visible }: SchematicViewProps) {
 
   if (!isVisible) return null;
 
+  if (componentList.length === 0) {
+    return (
+      <div className="absolute inset-0 z-20 bg-[#04050b] flex items-center justify-center">
+        <p className="text-white/20 text-sm font-mono select-none">Place components to see schematic</p>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute inset-0 z-20">
       <svg

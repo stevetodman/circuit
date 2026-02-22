@@ -136,7 +136,7 @@ function tick(): void {
   }
 
   applyTimerOutputs(simTimeMs);
-  if (timestampView) timestampView[0] = simTimeMs;
+  if (timestampView) timestampView[0] = simTimeMs / 1000; // SAB timestamp in seconds
   self.postMessage({ type: 'VOLTAGES_READY', singular: false });
 }
 

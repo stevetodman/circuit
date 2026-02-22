@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
+import { MAX_CHANNELS, clearChannel } from '@/features/oscilloscope/scopeBuffer';
 
 export interface Channel {
   netId: number;
@@ -43,6 +43,7 @@ export const useScopeStore = create<ScopeState>()((set, get) => ({
   },
 
   removeChannel(netId) {
+    clearChannel(netId);
     set({ channels: get().channels.filter((channel) => channel.netId !== netId) });
   },
 }));

@@ -3,6 +3,7 @@
 import { useMemo, useRef, type ChangeEvent } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { exportSPICE } from '@/features/export/exportNetlist';
+import { useToastStore } from '@/store/toastStore';
 
 export default function ExportPanel() {
   const nodes = useCircuitStore((state) => state.nodes);
@@ -10,6 +11,7 @@ export default function ExportPanel() {
   const wires = useCircuitStore((state) => state.wires);
   const saveToJSON = useCircuitStore((state) => state.saveToJSON);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
+  const addToast = useToastStore((state) => state.addToast);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const spiceText = useMemo(() => {
@@ -54,10 +56,20 @@ export default function ExportPanel() {
     if (!file) return;
 
     try {
+      if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+        addToast('Not a JSON file', 'error');
+        return;
+      }
       const text = await file.text();
+      const before = Object.keys(useCircuitStore.getState().components).length;
       loadFromJSON(text);
+      const after = Object.keys(useCircuitStore.getState().components).length;
+      if (before === after && text.length > 10) {
+        addToast('Invalid circuit JSON — check the file format', 'error');
+      }
     } catch (error) {
       console.error('[ExportPanel] Failed to load JSON circuit', error);
+      addToast('Failed to read file', 'error');
     } finally {
       event.target.value = '';
     }

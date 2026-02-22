@@ -26,6 +26,9 @@ export default function KeyboardShortcuts() {
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const selectNode          = useCircuitStore((s) => s.selectNode);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const copySelected        = useCircuitStore((s) => s.copySelected);
+  const pasteClipboard      = useCircuitStore((s) => s.pasteClipboard);
+  const selectAll           = useCircuitStore((s) => s.selectAll);
   const dragging           = useDragStore((s) => s.dragging);
   const cancelDrag          = useDragStore((s) => s.cancel);
   const rotateDrag          = useDragStore((s) => s.rotate);
@@ -55,6 +58,12 @@ export default function KeyboardShortcuts() {
         useCircuitHistory().getState().redo();
         return;
       }
+
+      // Copy / Paste / Select-all / Duplicate
+      if (meta && key === 'c') { e.preventDefault(); copySelected(); return; }
+      if (meta && key === 'v') { e.preventDefault(); pasteClipboard(); return; }
+      if (meta && key === 'a') { e.preventDefault(); selectAll(); return; }
+      if (meta && key === 'd') { e.preventDefault(); copySelected(); pasteClipboard(); return; }
 
       // Show help
       if (key === '?') {
@@ -120,18 +129,11 @@ export default function KeyboardShortcuts() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [
-    deleteSelected,
-    dragging,
-    rotateComponent,
-    rotateDrag,
-    selectedComponentId,
-    selectNode,
-      selectComponent,
-      cancelDrag,
-      toggleSchematic,
-      requestZoomToFit,
-      requestCameraPreset,
-    ]);
+    deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
+    selectNode, selectComponent, cancelDrag, toggleSchematic,
+    requestZoomToFit, requestCameraPreset,
+    copySelected, pasteClipboard, selectAll,
+  ]);
 
   return null;
 }

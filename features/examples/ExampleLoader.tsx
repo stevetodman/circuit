@@ -3,9 +3,13 @@
 import { useState, type ChangeEvent } from 'react';
 import { EXAMPLE_CIRCUITS, type ExampleCircuit } from '@/features/examples/circuits';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useScopeStore } from '@/store/scopeStore';
+import { clearChannel } from '@/features/oscilloscope/scopeBuffer';
 
 export default function ExampleLoader() {
   const loadExample = useCircuitStore((state) => state.loadExample);
+  const scopeChannels = useScopeStore((state) => state.channels);
+  const removeScopeChannel = useScopeStore((state) => state.removeChannel);
   const [selectedIndex, setSelectedIndex] = useState('');
 
   const onChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -13,6 +17,12 @@ export default function ExampleLoader() {
     setSelectedIndex(index);
 
     if (!index) return;
+
+    // Clear oscilloscope channels before loading to avoid stale probes
+    for (const ch of scopeChannels) {
+      clearChannel(ch.netId);
+      removeScopeChannel(ch.netId);
+    }
 
     const circuit: ExampleCircuit = EXAMPLE_CIRCUITS[Number(index)];
     loadExample(circuit);

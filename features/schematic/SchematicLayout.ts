@@ -13,10 +13,10 @@ const DEFAULT_NODE_SIZE = { w: 150, h: 80 };
 
 const COMPONENT_SIZES: Record<string, { w: number; h: number }> = {
   resistor: { w: 180, h: 80 },
-  led: { w: 130, h: 90 },
+  led: { w: 130, h: 80 },
   battery: { w: 170, h: 70 },
   capacitor: { w: 140, h: 70 },
-  bjt: { w: 180, h: 120 },
+  bjt: { w: 180, h: 110 },
   arduino: { w: 240, h: 90 },
   motor: { w: 130, h: 70 },
   timer555: { w: 170, h: 90 },

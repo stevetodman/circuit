@@ -218,15 +218,12 @@ export const useCircuitStore = create<CircuitState>()(
         set((state) => {
           const component = state.components[componentId];
           if (!component) return state;
-          return {
-            components: {
-              ...state.components,
-              [componentId]: {
-                ...component,
-                rotationY: (component.rotationY + 90) % 360,
-              },
-            },
+          const components = {
+            ...state.components,
+            [componentId]: { ...component, rotationY: (component.rotationY + 90) % 360 },
           };
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes };
         });
       },
 
@@ -306,7 +303,8 @@ export const useCircuitStore = create<CircuitState>()(
         const payload = parseCircuitJSON(data);
         if (!payload) { console.warn('[circuitStore] Invalid JSON circuit data'); return; }
         const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
-        set({ nodes, components: payload.components, wires: payload.wires, selectedComponentId: null, selectedNodeId: null });
+        componentClipboard = []; // clear stale clipboard from previous circuit
+        set({ nodes, components: payload.components, wires: payload.wires, selectedComponentId: null, selectedNodeId: null, selectedComponentIds: [] });
         clearUndoHistory?.();
       },
 
@@ -338,8 +336,12 @@ export const useCircuitStore = create<CircuitState>()(
           let wires = state.wires;
           let components = state.components;
 
-          if (state.selectedComponentId) {
-            const { [state.selectedComponentId]: _c, ...rest } = components;
+          // Delete all multi-selected components (or fall back to single selection)
+          const idsToDelete = state.selectedComponentIds.length > 0
+            ? state.selectedComponentIds
+            : (state.selectedComponentId ? [state.selectedComponentId] : []);
+          for (const id of idsToDelete) {
+            const { [id]: _c, ...rest } = components;
             components = rest;
           }
           if (state.selectedNodeId) {
