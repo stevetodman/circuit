@@ -108,6 +108,7 @@ export default function SimController() {
         .catch(() => addToast('Invalid circuit link — could not decode', 'error'));
       return;
     }
+    if (!window.localStorage.getItem('circuit-has-visited')) return;
     const savedJSON = window.localStorage.getItem(CIRCUIT_SAVE_KEY);
     if (savedJSON) loadFromJSON(savedJSON);
   }, [loadFromJSON, addToast]);

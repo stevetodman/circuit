@@ -65,6 +65,7 @@ export default function ExampleLoader() {
       </label>
       <button
         type="button"
+        data-example-loader-trigger
         onClick={toggleExpanded}
         className="w-full flex items-center justify-between px-3 py-2 rounded-md text-[12px] text-white/50 hover:text-white/70 hover:bg-white/[0.05] transition-colors font-medium"
       >
