@@ -19,7 +19,7 @@ import { solveDC, type Netlist, type NetlistElement, type SolveResult } from '..
 import type { CircuitNode, PlacedComponent, Wire } from '../../types/circuit';
 import {
   MAX_NETS, MAX_BRANCHES,
-  SAB_VOLTAGE_OFFSET, SAB_CURRENT_OFFSET, SAB_TIMESTAMP_OFFSET,
+  SAB_VOLTAGE_OFFSET, SAB_CURRENT_OFFSET, SAB_TIMESTAMP_OFFSET, SAB_DIGITAL_OFFSET,
 } from '../../types/circuit';
 
 const DT_MS = 1;
@@ -155,10 +155,23 @@ function gatherOverloadViolations(
 }
 
 interface Timer555Model {
-  outNetId:  number;
-  vccNetId:  number;
-  frequency: number;
-  startedAt: number;
+  id:          string;
+  outNetId:    number;
+  vccNetId:    number;
+  trigNetId:   number | null;
+  threshNetId: number | null;
+  r1:          number;
+  capacitance: number;
+}
+
+interface AstableState {
+  outputHigh: boolean;
+}
+
+interface MonostableState {
+  outputHigh: boolean;
+  pulseEndTime: number;
+  wasTriggered: boolean;
 }
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -168,6 +181,8 @@ let prevVoltages: Float32Array | null = null;
 let prevInductorCurrents: Record<string, number> = {};
 const motorState: Map<string, { omega: number }> = new Map();
 let timer555Components: Timer555Model[] = [];
+let astableState: Map<string, AstableState> = new Map();
+let monoState: Map<string, MonostableState> = new Map();
 // P1-12: cumulative sim time — avoids wall-clock drift under CPU load
 let simTimeMs = 0;
 let lastOverloadPostMs = 0;
@@ -175,6 +190,7 @@ let lastOverloadPostMs = 0;
 let voltageView: Float32Array | null = null;
 let branchCurrentView: Float32Array | null = null;
 let timestampView: Float64Array | null = null;
+let digitalStateView: Uint8Array | null = null;
 let branchIndexByElementId: Record<string, number> = {};
 let diodeKindByElementId: Record<string, DiodeKind> = {};
 
@@ -206,11 +222,10 @@ function loadTimerModels(
     if (outNetId == null || vccNetId == null) continue;
 
     const r1          = asNumber(comp.props.r1, 1000);
-    const r2          = asNumber(comp.props.r2, 1000);
     const capacitance = asNumber(comp.props.capacitance, 1) * 1e-6;
-    const denominator = (r1 + 2 * r2) * capacitance;
-    const frequency   = denominator > 0 ? 1.44 / denominator : 0;
-    timers.push({ outNetId, vccNetId, frequency, startedAt: simTimeMs });
+    const trigNetId   = pinNet(nodes, comp, 'trig');
+    const threshNetId = pinNet(nodes, comp, 'thresh');
+    timers.push({ id: comp.id, outNetId, vccNetId, trigNetId, threshNetId, r1, capacitance });
   }
 
   return timers;
@@ -248,17 +263,63 @@ function applyTimerOutputs(now: number): void {
 
   for (const timer of timer555Components) {
     if (timer.outNetId < 0 || timer.outNetId >= MAX_NETS) continue; // P0-2: bounds guard
-    if (timer.frequency <= 0) {
+
+    if (timer.trigNetId == null) {
       voltageView[timer.outNetId] = 0;
+      if (digitalStateView) digitalStateView[timer.outNetId] = 0;
       continue;
     }
-    const periodMs = 1000 / timer.frequency;
-    const phase    = (now - timer.startedAt) / periodMs;
-    const high     = (phase % 1) > 0.5;
-    const vcc      = timer.vccNetId >= 0 && timer.vccNetId < MAX_NETS
-      ? voltageView[timer.vccNetId]
-      : 0;
-    voltageView[timer.outNetId] = high ? vcc : 0;
+
+    const trigNetIdx = timer.trigNetId;
+    const trigVoltage = voltageView[trigNetIdx] ?? 0;
+    const vcc = timer.vccNetId >= 0 && timer.vccNetId < MAX_NETS
+      ? (voltageView[timer.vccNetId] ?? 0)
+      : 5;
+    const trigThreshold = vcc / 3;
+    let outputHigh = false;
+
+    const isAstable = timer.threshNetId != null && timer.threshNetId === trigNetIdx;
+
+    if (isAstable) {
+      // SR-latch style astable mode: toggle when cap crosses 1/3 or 2/3 VCC
+      const capVoltage = voltageView[timer.trigNetId] ?? 0;
+      const upperThresh = (2 * vcc) / 3;
+      const lowerThresh = trigThreshold;
+      const state = astableState.get(timer.id) ?? { outputHigh: true };
+
+      if (state.outputHigh && capVoltage >= upperThresh) {
+        state.outputHigh = false;
+      } else if (!state.outputHigh && capVoltage <= lowerThresh) {
+        state.outputHigh = true;
+      }
+
+      astableState.set(timer.id, state);
+      outputHigh = state.outputHigh;
+    } else {
+      // One-shot monostable mode: pulse for T = 1.1 * R * C on TRIG falling edge
+      const state = monoState.get(timer.id) ?? {
+        outputHigh: false,
+        pulseEndTime: 0,
+        wasTriggered: false,
+      };
+      const T_ms = 1100 * timer.r1 * timer.capacitance;
+      const trigLow = trigVoltage < trigThreshold;
+
+      if (trigLow && !state.wasTriggered && !state.outputHigh && T_ms > 0) {
+        state.outputHigh = true;
+        state.pulseEndTime = now + T_ms;
+      }
+      if (state.outputHigh && now >= state.pulseEndTime) {
+        state.outputHigh = false;
+      }
+
+      state.wasTriggered = trigLow;
+      monoState.set(timer.id, state);
+      outputHigh = state.outputHigh;
+    }
+
+    voltageView[timer.outNetId] = outputHigh ? vcc : 0;
+    if (digitalStateView) digitalStateView[timer.outNetId] = outputHigh ? 1 : 0;
   }
 }
 
@@ -344,12 +405,15 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
 
   if (!voltageView || voltageView.buffer !== msg.sab) {
     voltageView       = new Float32Array(msg.sab, SAB_VOLTAGE_OFFSET, MAX_NETS);
+    digitalStateView  = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
     branchCurrentView = new Float32Array(msg.sab, SAB_CURRENT_OFFSET, MAX_BRANCHES);
     timestampView     = new Float64Array(msg.sab, SAB_TIMESTAMP_OFFSET, 1);
   }
 
   try {
     motorState.clear();
+    astableState          = new Map();
+    monoState             = new Map();
     simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
     lastOverloadPostMs    = 0;
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
