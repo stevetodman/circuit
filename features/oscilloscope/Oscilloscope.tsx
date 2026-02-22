@@ -172,6 +172,16 @@ export default function Oscilloscope({
     setCursorReadout(null);
   }, []);
 
+  const handleExportPNG = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'oscilloscope.png';
+    a.click();
+  }, []);
+
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
 
@@ -198,8 +208,7 @@ export default function Oscilloscope({
       if (!open) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT);
-
-      ctx.fillStyle = '#10131a';
+      ctx.fillStyle = '#0d0d0f';
       ctx.fillRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT);
 
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -447,6 +456,14 @@ export default function Oscilloscope({
           title="Close scope"
         >
           ×
+        </button>
+        <button
+          type="button"
+          onClick={handleExportPNG}
+          title="Save waveform as PNG"
+          className="w-7 h-7 rounded flex items-center justify-center text-white/35 hover:text-white/80 hover:bg-white/10 transition-colors text-[13px]"
+        >
+          ↓
         </button>
       </div>
     </div>
