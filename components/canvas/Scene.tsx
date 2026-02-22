@@ -74,6 +74,7 @@ export default function Scene() {
               key={component.id}
               type={component.type}
               anchorPos={component.anchorPos}
+              rotationY={component.rotationY}
               pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
               selected={selectedComponentId === component.id}
               anodeNetId={pinNet('anode')}

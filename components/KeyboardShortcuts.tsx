@@ -13,10 +13,12 @@ import { useDragStore } from '@/store/dragStore';
  *  Escape                → cancel drag / deselect
  */
 export default function KeyboardShortcuts() {
-  const deleteSelected = useCircuitStore((s) => s.deleteSelected);
-  const selectNode = useCircuitStore((s) => s.selectNode);
+  const deleteSelected  = useCircuitStore((s) => s.deleteSelected);
+  const rotateComponent = useCircuitStore((s) => s.rotateComponent);
+  const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
+  const selectNode      = useCircuitStore((s) => s.selectNode);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
-  const cancelDrag = useDragStore((s) => s.cancel);
+  const cancelDrag      = useDragStore((s) => s.cancel);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -40,6 +42,13 @@ export default function KeyboardShortcuts() {
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused()) {
         e.preventDefault();
         deleteSelected();
+        return;
+      }
+
+      // Rotate selected component
+      if ((e.key === 'r' || e.key === 'R') && !isInputFocused() && selectedComponentId) {
+        e.preventDefault();
+        rotateComponent(selectedComponentId);
         return;
       }
 

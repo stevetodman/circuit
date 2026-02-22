@@ -65,6 +65,8 @@ interface CircuitState extends TopologyState {
   setProperty(componentId: string, key: string, value: number | string): void;
   selectNode(id: string | null): void;
   selectComponent(id: string | null): void;
+  rotateComponent(id: string): void;
+  loadCircuit(components: Record<string, import('@/types/circuit').PlacedComponent>, wires: Record<string, import('@/types/circuit').Wire>): void;
   toggleWiringMode(): void;
   deleteSelected(): void;
 }
@@ -139,6 +141,25 @@ export const useCircuitStore = create<CircuitState>()(
 
       selectComponent(id) {
         set({ selectedComponentId: id });
+      },
+
+      rotateComponent(id) {
+        set((state) => ({
+          components: {
+            ...state.components,
+            [id]: {
+              ...state.components[id],
+              rotationY: ((state.components[id]?.rotationY ?? 0) + 90) % 360,
+            },
+          },
+        }));
+      },
+
+      loadCircuit(components, wires) {
+        set((state) => {
+          const nodes = runNetAnalysis(state.nodes, wires);
+          return { components, wires, nodes, selectedComponentId: null, selectedNodeId: null };
+        });
       },
 
       toggleWiringMode() {

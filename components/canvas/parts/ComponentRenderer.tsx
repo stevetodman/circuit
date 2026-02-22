@@ -9,42 +9,39 @@ import Battery from './Battery';
 interface ComponentRendererProps {
   type:          ComponentType;
   anchorPos:     Vec3;
+  rotationY?:    number;   // degrees (0 | 90 | 180 | 270)
   pinOffsets?:   Vec3[];
   selected?:     boolean;
   transparent?:  boolean;
   onClick?:      (event: ThreeEvent<MouseEvent>) => void;
-  // Voltage props forwarded to LED
   anodeNetId?:   number | null;
   cathodeNetId?: number | null;
 }
 
-function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick }: {
-  anchorPos: Vec3;
-  pinOffsets: Vec3[];
+const ZERO: Vec3 = [0, 0, 0];
+
+function FallbackPart({ pinOffsets = [], selected, onClick }: {
+  anchorPos?: Vec3; // ignored — handled by wrapper group
+  pinOffsets?: Vec3[];
   selected?: boolean;
   onClick?: (event: ThreeEvent<MouseEvent>) => void;
 }) {
   const offsets: Vec3[] = pinOffsets.length
     ? pinOffsets
-    : ([
-        [-0.254, 0, 0] as Vec3,
-        [0.254, 0, 0] as Vec3,
-      ]);
+    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3]);
 
   return (
-    <group position={anchorPos} onClick={onClick}>
+    <group onClick={onClick}>
       <mesh position={[0, 0.065, 0]}>
         <boxGeometry args={[0.14, 0.06, 0.06]} />
         <meshStandardMaterial color="#7a7a7a" roughness={0.7} />
       </mesh>
-
       {offsets.map((offset, index) => (
-        <mesh key={`${anchorPos.join('-')}-${index}-${offset[0]}`} position={offset}>
+        <mesh key={index} position={offset}>
           <cylinderGeometry args={[0.006, 0.006, 0.05, 10]} />
           <meshStandardMaterial color={selected ? '#ffddaa' : '#777'} roughness={0.4} />
         </mesh>
       ))}
-
       {selected && (
         <mesh position={[0, 0.115, 0]}>
           <ringGeometry args={[0.08, 0.092, 16]} />
@@ -55,9 +52,14 @@ function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick }: {
   );
 }
 
+/**
+ * Wraps every part in a rotation group so rotationY is applied uniformly.
+ * All part components receive anchorPos=[0,0,0] — position is handled here.
+ */
 export default function ComponentRenderer({
   type,
   anchorPos,
+  rotationY = 0,
   pinOffsets,
   selected,
   transparent,
@@ -65,11 +67,14 @@ export default function ComponentRenderer({
   anodeNetId,
   cathodeNetId,
 }: ComponentRendererProps) {
+  const rotYRad = (rotationY * Math.PI) / 180;
+
+  let inner: React.ReactNode;
   switch (type) {
     case 'led':
-      return (
+      inner = (
         <LED
-          anchorPos={anchorPos}
+          anchorPos={ZERO}
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
@@ -78,34 +83,42 @@ export default function ComponentRenderer({
           cathodeNetId={cathodeNetId}
         />
       );
+      break;
     case 'resistor':
-      return (
+      inner = (
         <Resistor
-          anchorPos={anchorPos}
+          anchorPos={ZERO}
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
           onClick={onClick}
         />
       );
+      break;
     case 'battery':
-      return (
+      inner = (
         <Battery
-          anchorPos={anchorPos}
+          anchorPos={ZERO}
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
           onClick={onClick}
         />
       );
+      break;
     default:
-      return (
+      inner = (
         <FallbackPart
-          anchorPos={anchorPos}
-          pinOffsets={pinOffsets ?? []}
+          pinOffsets={pinOffsets}
           selected={selected}
           onClick={onClick}
         />
       );
   }
+
+  return (
+    <group position={anchorPos} rotation={[0, rotYRad, 0]}>
+      {inner}
+    </group>
+  );
 }
