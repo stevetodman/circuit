@@ -7,6 +7,7 @@ interface ModuleStore {
   activeModuleId: string | null;
   activeStepIndex: number;
   completedModuleIds: string[];
+  justCompleted: boolean;
 
   activeModule: Module | null;
   activeStep: Module['steps'][number] | null;
@@ -20,10 +21,21 @@ interface ModuleStore {
 
 export const useModuleStore = create<ModuleStore>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      let completionTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const clearCompletionTimer = () => {
+        if (completionTimer) {
+          clearTimeout(completionTimer);
+          completionTimer = null;
+        }
+      };
+
+      return {
       activeModuleId: null,
       activeStepIndex: 0,
       completedModuleIds: [],
+      justCompleted: false,
 
       get activeModule() {
         return MODULES.find((m) => m.id === get().activeModuleId) ?? null;
@@ -37,6 +49,8 @@ export const useModuleStore = create<ModuleStore>()(
       },
 
       startModule(id: string) {
+        if (get().activeModuleId === id) return;
+        clearCompletionTimer();
         set({ activeModuleId: id, activeStepIndex: 0 });
       },
       advanceStep() {
@@ -44,24 +58,32 @@ export const useModuleStore = create<ModuleStore>()(
         if (!mod) return;
         const nextIdx = get().activeStepIndex + 1;
         if (nextIdx >= mod.steps.length) {
+          clearCompletionTimer();
           set((s) => ({
-            activeModuleId: null,
-            activeStepIndex: 0,
+            justCompleted: true,
+            activeStepIndex: get().activeStepIndex,
             completedModuleIds: s.completedModuleIds.includes(mod.id)
               ? s.completedModuleIds
               : [...s.completedModuleIds, mod.id],
           }));
+          completionTimer = setTimeout(() => {
+            get().exitModule();
+            set({ justCompleted: false });
+          }, 2500);
         } else {
           set({ activeStepIndex: nextIdx });
         }
       },
       exitModule() {
-        set({ activeModuleId: null, activeStepIndex: 0 });
+        clearCompletionTimer();
+        set({ activeModuleId: null, activeStepIndex: 0, justCompleted: false });
       },
       resetProgress() {
-        set({ activeModuleId: null, activeStepIndex: 0, completedModuleIds: [] });
+        clearCompletionTimer();
+        set({ activeModuleId: null, activeStepIndex: 0, completedModuleIds: [], justCompleted: false });
       },
-    }),
+      };
+    },
     { name: 'circuit-modules' },
   ),
 );

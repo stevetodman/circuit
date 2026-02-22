@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
@@ -74,6 +75,11 @@ export default function StatusBar() {
     showHelp: s.showHelp,
     circuitHealthWarning: s.circuitHealthWarning,
   })));
+  const [healthWarningDismissed, setHealthWarningDismissed] = useState(false);
+
+  useEffect(() => {
+    setHealthWarningDismissed(false);
+  }, [circuitHealthWarning]);
 
   const { open: schematicOpen, toggle: toggleSchematic } = useSchematicStore(
     useShallow((s) => ({ open: s.open, toggle: s.toggle })),
@@ -203,12 +209,20 @@ export default function StatusBar() {
         <span className={contextTextClass}>{contextText}</span>
       </div>
 
-      {circuitHealthWarning && (
-        <div className="mx-3 mb-2 flex items-center gap-2 rounded border border-amber-500/35 bg-amber-900/25 px-2 py-1.5">
+      {circuitHealthWarning && !healthWarningDismissed && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded border border-amber-500/35 bg-amber-900/25 px-2 py-1.5 min-h-0">
           <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-          <span className="text-[11px] leading-tight text-amber-200/90 font-mono min-w-0 break-words">
+          <span className="text-[11px] leading-tight text-amber-200/90 font-mono min-w-0 break-words flex-1">
             {circuitHealthWarning}
           </span>
+          <button
+            type="button"
+            onClick={() => setHealthWarningDismissed(true)}
+            className="text-amber-200/65 hover:text-amber-100 text-[11px] leading-none flex-shrink-0"
+            title="Dismiss health warning"
+          >
+            ✕
+          </button>
         </div>
       )}
 
