@@ -1,86 +1,60 @@
-# SPEC: P2.6 Status Bar Redesign
+# SPEC: P0.1 Typography/Contrast + P0.5 Focus Indicators
 
 ## Context
-Circuit Sandbox — React/Next.js/Tailwind. Run `pnpm build` to verify.
-File to change: `components/sidebar/StatusBar.tsx`
+Circuit Sandbox is a React/Next.js app. The sidebar uses Tailwind CSS.
+Run `pnpm build` to verify, no test suite.
 
-## Problem
-The current StatusBar is a stack of rows that gets cramped and hard to read.
-It mixes mode, sim status, power, error, net count, and hovered pin into
-a small vertical space with poor visual hierarchy.
+## Problems to Fix
 
-## New Design
+### P0.1 — Typography & Contrast
+Many UI labels use `text-[10px]` and `text-white/25` or `text-white/20`,
+which renders as ~7px effective size after AA and fails WCAG AA contrast.
 
-Redesign the StatusBar into two clearly segmented rows:
+### P0.5 — Focus Indicators
+Tab-navigating reveals no visible focus ring on any button or input.
+Keyboard-only users cannot see where focus is.
 
-**Row 1** — Simulation status (always visible):
-```
-[●] Running      ⚡ 12.3mW
-```
-- Left: sim dot + label
-- Right: power display
+## Files to Change
 
-**Row 2** — Context info (changes based on mode/state):
-```
-[PLACE]   Esc to cancel
-  or
-[SELECT]  R1 selected
-  or
-[WIRE]    Click to connect
-  or just: 3 nets
-```
+### `components/sidebar/Sidebar.tsx`
+- Section label "Insert Part": change `text-[10px]` → `text-[11px]`, `text-white/25` → `text-white/40`
+- Header span "Circuit Sandbox": keep size but bump to `text-white/90`
+- Add `focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none` to the `?` help button and schematic toggle button
 
-**Row 3 (conditional)** — Error banner (only on error):
-```
-[!] Sim error message     [×]
-```
+### `components/sidebar/StatusBar.tsx`
+- Net count span: `text-white/40` → `text-white/50`
+- Power line: `text-white/60` → `text-white/70`
+- Hovered pin text: `text-white/40` → `text-white/50`
 
-### Segment styles
+### `components/sidebar/PropertiesInspector.tsx`
+- `Label` component: `text-[10px] text-white/40` → `text-[11px] text-white/55`
+- Pin name/nodeId in pin list: bump from `text-white/30` and `text-white/20` to `text-white/45` and `text-white/35`
+- "No configurable properties": `text-white/20` → `text-white/40`
+- Add `focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none` to Delete and ✕ buttons
+- Add `focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none` to number/color inputs
+- Add `focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:outline-none` to toggle button
 
-All rows live in a `border-t border-white/[0.06]` container.
+### `components/sidebar/ExampleLoader.tsx`
+- "Load Example" label: `text-white/25` → `text-white/40`
+- Description text: `text-white/55` → `text-white/65`
+- Select element: add `focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none focus-visible:border-[#7c6fff]/60`
 
-Row 1: `flex items-center justify-between px-3 pt-2 pb-1`
-Row 2: `flex items-center gap-2 px-3 pb-2 min-h-[20px]`
+### `components/sidebar/ComponentTile.tsx`
+- Read this file first. Find any dim text classes and bump contrast.
+- Add `focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none` to the tile button.
 
-**Sim status dot with glow animation:**
-```tsx
-<span
-  className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${simStatus === 'running' ? 'animate-pulse' : ''}`}
-  style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 6px ${dot.color}` : 'none' }}
-/>
-```
+### `components/sidebar/ArduinoPanel.tsx` (if it exists)
+- Check for dim text and add focus rings to any buttons.
 
-**Mode chip** — keep `ModeChip` component but with slightly larger text `text-[10px]` → `text-[11px]`
+### `components/sidebar/ScopeButton.tsx`
+- Add `focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none` to button.
 
-**Context line** — show the most relevant info:
-- `dragging` → `text-[10px] text-white/35 font-mono` "Esc to cancel"
-- `wiringMode || selectedNodeId` → "Click to connect"
-- `selectedComponentIds.length > 1` → `{n} selected`
-- `hoveredNodeId` → hovered pin ID
-- Otherwise → `{netCount} net{s}`
-
-**Power** — right-aligned in row 1, `text-[10px] font-mono text-white/50`
-Format: use the existing `formatPower()` function unchanged.
-
-**Error banner** — only shown when `simStatus === 'error'` AND `!simErrorDismissed`:
-
-```tsx
-<div className="mx-3 mb-2 flex items-start gap-2 rounded border border-red-500/25 bg-red-950/40 px-2 py-1.5">
-  <span className="text-[9px] text-red-400 flex-1 leading-tight font-mono">{simError ?? 'Sim error'}</span>
-  <button onClick={dismissSimError} className="text-red-400/40 hover:text-red-300 text-[11px] leading-none flex-shrink-0" title="Dismiss">✕</button>
-</div>
-```
-
-Note: `simErrorDismissed` and `dismissSimError` come from uiStore — import them.
-If uiStore doesn't have `simErrorDismissed` yet, add it (boolean, default false)
-and `dismissSimError` action (sets it true). Also: `setSimError` should reset it to false.
-
-## Implementation Notes
-
-Rewrite `StatusBar.tsx` entirely from scratch using the design above.
-Keep all the same store imports and logic, just restructure the JSX.
-Remove the old nested `space-y-1.5` structure.
+### `app/page.tsx` (or wherever Toast/HelpOverlay buttons are)
+- Check for dim text on any overlay close buttons and add focus rings.
 
 ## Rules
-- Only change `components/sidebar/StatusBar.tsx` and `store/uiStore.ts` (if needed)
-- Run `pnpm build` and fix all TypeScript errors
+- Do NOT change layout, spacing, or component structure
+- Do NOT add new components or files
+- Only change text size classes (10px→11px for labels) and opacity classes (/20→/40, /25→/40, /40→/55)
+- Only add `focus-visible:ring-*` and `focus-visible:outline-none` for focus indicators
+- Run `pnpm build` at the end and fix any TypeScript errors

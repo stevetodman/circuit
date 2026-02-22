@@ -35,7 +35,7 @@ export default function ScopeButton() {
       onClick={() => toggle()}
       title="Oscilloscope (O)"
       aria-label="Toggle oscilloscope"
-      className={`mx-2 mb-2 rounded-md border text-[11px] font-semibold px-2 py-1.5 inline-flex items-center justify-center gap-1.5 ${open ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-200' : 'border-white/20 bg-white/3 text-white/75 hover:border-white/35 hover:text-white'}`}
+      className={`mx-2 mb-2 rounded-md border text-[11px] font-semibold px-2 py-1.5 inline-flex items-center justify-center gap-1.5 ${open ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-200' : 'border-white/20 bg-white/3 text-white/75 hover:border-white/35 hover:text-white'} focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none`}
     >
       <ScopeIcon />
       Scope

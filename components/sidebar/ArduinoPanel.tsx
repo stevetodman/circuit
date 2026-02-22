@@ -207,7 +207,7 @@ export default function ArduinoPanel() {
       {/* Quick blink button */}
       <button
         onClick={() => uploadAndRun(BLINK_HEX, 'blink.hex')}
-        className="w-full text-[10px] py-1.5 rounded bg-[#22cc66]/20 text-[#22cc66] hover:bg-[#22cc66]/30 transition-colors"
+        className="w-full text-[10px] py-1.5 rounded bg-[#22cc66]/20 text-[#22cc66] hover:bg-[#22cc66]/30 transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
       >
         Run Blink (pin 13)
       </button>
@@ -221,21 +221,21 @@ export default function ArduinoPanel() {
           <button
             onClick={() => uploadAndRun(hexText, hexName ?? 'sketch.hex')}
             disabled={running}
-            className="flex-1 text-[10px] py-1.5 rounded bg-[#2299cc]/20 text-[#2299cc] hover:bg-[#2299cc]/30 disabled:opacity-40 transition-colors"
+            className="flex-1 text-[10px] py-1.5 rounded bg-[#2299cc]/20 text-[#2299cc] hover:bg-[#2299cc]/30 disabled:opacity-40 transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
           >
             {running ? 'Running…' : 'Upload & Run'}
           </button>
           <button
             onClick={paused ? resume : pause}
             disabled={!running}
-            className="text-[10px] px-2 py-1.5 rounded bg-[#ffcc33]/20 text-[#ffcc33] hover:bg-[#ffcc33]/30 disabled:opacity-40 transition-colors"
+            className="text-[10px] px-2 py-1.5 rounded bg-[#ffcc33]/20 text-[#ffcc33] hover:bg-[#ffcc33]/30 disabled:opacity-40 transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
           >
             {paused ? 'Resume' : 'Pause'}
           </button>
           <button
             onClick={stopWorker}
             disabled={!running}
-            className="flex-1 text-[10px] py-1.5 rounded bg-white/[0.06] text-white/40 hover:bg-white/[0.10] disabled:opacity-40 transition-colors"
+            className="flex-1 text-[10px] py-1.5 rounded bg-white/[0.06] text-white/40 hover:bg-white/[0.10] disabled:opacity-40 transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
           >
             Stop
           </button>
