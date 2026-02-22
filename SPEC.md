@@ -1,70 +1,82 @@
-# SPEC: Oscilloscope PNG Export
+# SPEC: Oscilloscope Channel Stats (Vpp/Vmin/Vmax)
 
-Add a "Save PNG" button to the oscilloscope panel that downloads the current
-waveform view as a PNG image. Students can use this to document their experiments.
+## Goal
+Show Vpp, Vmin, Vmax, and approximate frequency stats for each active
+oscilloscope channel, displayed in a compact row below the channel label.
 
-## Read First
-- `features/oscilloscope/Oscilloscope.tsx` — find `canvasRef`, the header button
-  row (where Auto, freeze buttons are), and the canvas element.
-- The canvas already renders the full waveform — we just need `canvas.toDataURL()`
-  and trigger a download link.
+## Current State
+- `features/oscilloscope/Oscilloscope.tsx` has 4 channels rendered as color-coded labels
+- `features/oscilloscope/scopeBuffer.ts` exports `getSamples(netId)` → ordered Float32Array
+- The RAF loop already draws waveforms to the canvas
+- Channel labels show live voltage (polled from `voltages[netId]`)
+- No stats (Vpp, Vmin, Vmax, freq) are shown anywhere
 
-## Implementation
+## Change Required
 
-### Step 1: Add download function
+### `features/oscilloscope/Oscilloscope.tsx`
 
-Inside the `Oscilloscope` component (not in a sub-component), add a callback:
+Add a `computeStats` helper function near the top of the file:
 
-```tsx
-const handleExportPNG = useCallback(() => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const url = canvas.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'oscilloscope.png';
-  a.click();
-}, []);
+```ts
+function computeStats(samples: Float32Array, sampleRateHz = 1000): {
+  vmin: number; vmax: number; vpp: number; freqHz: number | null
+} {
+  if (samples.length === 0) return { vmin: 0, vmax: 0, vpp: 0, freqHz: null };
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < samples.length; i++) {
+    if (samples[i] < min) min = samples[i];
+    if (samples[i] > max) max = samples[i];
+  }
+  // Zero-crossing frequency estimate
+  const mid = (min + max) / 2;
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if ((samples[i - 1] < mid) !== (samples[i] < mid)) crossings++;
+  }
+  const freqHz = crossings > 1 ? (crossings / 2) * (sampleRateHz / samples.length) : null;
+  return { vmin: min, vmax: max, vpp: max - min, freqHz };
+}
 ```
 
-### Step 2: Add button to header
+In the channel label rendering (the RAF loop that updates channel label text),
+after updating the live voltage text, also compute stats on the current samples
+and render them below each channel color chip.
 
-In the oscilloscope header (the flex row with Auto, ⏸/▶, and channel + buttons),
-add a "↓" or "⤓" download button at the far right, after the existing buttons:
+The stats should be rendered as plain React state (not canvas-drawn), updating
+every 500ms via a `setInterval` in a `useEffect`. Store stats in a
+`useState<Record<number, { vmin: number; vmax: number; vpp: number; freqHz: number | null }>>({})`.
 
 ```tsx
-<button
-  type="button"
-  onClick={handleExportPNG}
-  title="Save waveform as PNG"
-  className="w-7 h-7 rounded flex items-center justify-center text-white/35 hover:text-white/80 hover:bg-white/10 transition-colors text-[13px]"
->
-  ↓
-</button>
+useEffect(() => {
+  const id = setInterval(() => {
+    const next: typeof statsMap = {};
+    for (const ch of channels) {
+      const s = getSamples(ch.netId);
+      next[ch.netId] = computeStats(s);
+    }
+    setStatsMap(next);
+  }, 500);
+  return () => clearInterval(id);
+}, [channels]);
 ```
 
-Read the file to find the exact header button pattern and copy it.
-
-### Step 3: Canvas background for export
-
-The canvas currently has a transparent background (or uses CSS for the dark background).
-To ensure the PNG has a dark background (not transparent), modify the draw loop:
-
-At the very start of the canvas draw function (before drawing anything else), add:
+In the JSX for each channel (the colored label row), add a sub-row below:
 ```tsx
-ctx.fillStyle = '#0d0d0f';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+{stats && stats.vpp > 0.01 && (
+  <span className="text-[8px] font-mono text-white/35 ml-1">
+    {stats.vpp.toFixed(2)}Vpp
+    {stats.freqHz != null && ` ${stats.freqHz >= 1000
+      ? `${(stats.freqHz/1000).toFixed(1)}kHz`
+      : `${stats.freqHz.toFixed(0)}Hz`}`}
+  </span>
+)}
 ```
 
-This ensures the exported PNG has a dark background matching the UI.
-Check if this line already exists — if so, don't add it again.
+Only show the stats row if `vpp > 0.01` (non-trivial signal).
+Keep the existing live voltage polling in the RAF loop unchanged.
 
-## Important
-- Only touch `features/oscilloscope/Oscilloscope.tsx`
-- The download happens immediately on click — no confirmation needed
-- `canvas.toDataURL()` returns a data URL; creating and clicking an `<a>` element
-  is the standard browser download trick
-- The downloaded filename should be `oscilloscope.png`
-- When `frozen` is true, the canvas still holds the last frame — the export works
-  in both frozen and live states
-- Run `pnpm build` — must pass with zero TypeScript errors
+## What NOT to do
+- Do NOT modify scopeBuffer.ts
+- Do NOT draw stats on the canvas — render them as React JSX beside the channel labels
+- Do NOT change the canvas drawing code
+- Only 1 file needs changes: Oscilloscope.tsx
