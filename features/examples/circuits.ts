@@ -2,6 +2,7 @@ import type { Vec3, PlacedComponent, Wire } from '@/types/circuit';
 import { BOARD_TOP_Y, COLS, PITCH, rowZTop } from '@/constants/breadboard';
 
 const TOP_ROWS = ['a', 'b', 'c', 'd', 'e'] as const;
+const CENTER_COL = 32;
 
 function colToX(col: number): number {
   return (col - (COLS - 1) / 2) * PITCH;
@@ -11,8 +12,16 @@ function topNodePos(col: number, row: number): Vec3 {
   return [colToX(col), BOARD_TOP_Y, rowZTop(row)];
 }
 
+export function bbNode(row: 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j', col: number): string {
+  return `bb-${row}${col}`;
+}
+
+export function railNode(rail: 'tp' | 'tn' | 'bp' | 'bn', n: number): string {
+  return `bb-${rail}-${n}`;
+}
+
 function topNodeId(col: number, row: number): string {
-  return `bb-${TOP_ROWS[row]}${col}`;
+  return bbNode(TOP_ROWS[row], col);
 }
 
 function midpoint(a: Vec3, b: Vec3): Vec3 {
@@ -26,14 +35,14 @@ export interface ExampleCircuit {
   wires: Wire[];
 }
 
-const ledNode1 = topNodeId(20, 0);
-const ledNode2 = topNodeId(22, 0);
-const ledNode3 = topNodeId(26, 0);
-const ledNode4 = topNodeId(28, 0);
+const ledNode1 = topNodeId(CENTER_COL - 12, 0);
+const ledNode2 = topNodeId(CENTER_COL - 10, 0);
+const ledNode3 = topNodeId(CENTER_COL - 6, 0);
+const ledNode4 = topNodeId(CENTER_COL - 4, 0);
 
-const divNode1 = topNodeId(30, 0);
-const divNode2 = topNodeId(34, 0);
-const divNode3 = topNodeId(38, 0);
+const divNode1 = topNodeId(CENTER_COL - 2, 0);
+const divNode2 = topNodeId(CENTER_COL + 2, 0);
+const divNode3 = topNodeId(CENTER_COL + 6, 0);
 
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {

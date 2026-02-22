@@ -89,16 +89,33 @@ function collectWireGroups(
   return groups;
 }
 
+let layoutCache: {
+  key: string;
+  result: Record<string, SchematicPos>;
+} | null = null;
+
+function topologyKey(components: Record<string, PlacedComponent>, wires: Record<string, Wire>): string {
+  const cIds = Object.keys(components).sort().join(',');
+  const wIds = Object.keys(wires).sort().join(',');
+  return `${cIds}|${wIds}`;
+}
+
 export async function layoutSchematic(
   components: Record<string, PlacedComponent>,
   wires:      Record<string, Wire>,
   nodes:      Record<string, CircuitNode>,
 ): Promise<Map<string, SchematicPos>> {
+  const key = topologyKey(components, wires);
+  if (layoutCache?.key === key) {
+    return new Map(Object.entries(layoutCache.result));
+  }
+
   const componentList = Object.values(components);
   const hasComponents = componentList.length > 0;
 
   const result = new Map<string, SchematicPos>();
   if (!hasComponents) {
+    layoutCache = { key, result: {} };
     return result;
   }
 
@@ -166,6 +183,12 @@ export async function layoutSchematic(
     const h = Number(child.height ?? getComponentSize(components[child.id]?.type ?? 'resistor').h);
     result.set(child.id, { id: child.id, x, y, w, h });
   }
+
+  const cacheResult: Record<string, SchematicPos> = {};
+  for (const [id, pos] of result.entries()) {
+    cacheResult[id] = pos;
+  }
+  layoutCache = { key, result: cacheResult };
 
   return result;
 }
