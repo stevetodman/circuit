@@ -47,6 +47,13 @@ export default function ContextMenu() {
 
   const { componentId, x, y } = contextMenu;
 
+  // F10.5: clamp so menu never overflows viewport
+  const MENU_W = 160;
+  const MENU_H = MENU_ITEMS.length * 33 + 4;
+  const PAD = 8;
+  const cx = Math.min(x, window.innerWidth  - MENU_W - PAD);
+  const cy = Math.min(y, window.innerHeight - MENU_H - PAD);
+
   const run = (action: () => void) => {
     action();
     closeContextMenu();
@@ -79,7 +86,7 @@ export default function ContextMenu() {
     <div
       ref={menuRef}
       className="fixed z-40 min-w-[160px] rounded border border-white/15 bg-[#161616] shadow-2xl overflow-hidden"
-      style={{ left: `${x}px`, top: `${y}px` }}
+      style={{ left: `${cx}px`, top: `${cy}px` }}
       onPointerDown={(event) => event.stopPropagation()}
     >
       {MENU_ITEMS.map((item) => (

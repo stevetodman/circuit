@@ -76,10 +76,14 @@ export default function KeyboardShortcuts() {
         return;
       }
 
-      // Delete selected
+      // Delete selected — F9.5: if wiring (node selected), cancel wire instead of deleting component
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        deleteSelected();
+        if (useCircuitStore.getState().selectedNodeId) {
+          selectNode(null);
+        } else {
+          deleteSelected();
+        }
         return;
       }
 
@@ -136,12 +140,14 @@ export default function KeyboardShortcuts() {
       }
 
       // Escape — cancel drag / deselect
+      // F3.5: if wiring, only cancel the wire — keep component selected
       if (e.key === 'Escape') {
         closeContextMenu();
         clearBoxSelect();
-        cancelDrag();
+        if (dragging) { cancelDrag(); return; }
+        const wiringActive = useCircuitStore.getState().selectedNodeId;
         selectNode(null);
-        selectComponent(null);
+        if (!wiringActive) selectComponent(null);
       }
     };
 

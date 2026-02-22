@@ -77,15 +77,17 @@ components/
       LED.tsx                Emissive glow from SAB voltages
       Resistor.tsx
       Battery.tsx
+  Toolbar.tsx           Top toolbar: undo/redo, delete, copy/paste, labels/current/schematic toggles
   sidebar/
     Sidebar.tsx         Left panel: part palette + inspector + panels + status
-    ComponentTile.tsx   Individual draggable part button
+    ComponentTile.tsx   Individual draggable part button (cursor-grab, tooltip, focus ring)
     PropertiesInspector.tsx  Context-sensitive editor + E12 resistor presets + LED presets
+                             + engineering notation (kΩ, µF) + empty-state hint + auto-scroll on select
     ArduinoPanel.tsx    Hex upload + serial monitor + PAUSE/RESUME + cycle counter
     ExportPanel.tsx     SPICE .cir download
     ScopeButton.tsx     Open oscilloscope shortcut
-    StatusBar.tsx       Sim status dot + mode chip + hovered pin display
-  ContextMenu.tsx       Right-click context menu (delete/rotate/duplicate/properties)
+    StatusBar.tsx       Sim status dot + power + dismissible error banner + hovered pin display
+  ContextMenu.tsx       Right-click context menu (delete/rotate/duplicate/properties); viewport-clamped
   ErrorBoundary.tsx     Wraps Sidebar, Oscilloscope, SchematicView in page.tsx
   HelpOverlay.tsx       ? key modal — full keyboard shortcut reference
   KeyboardShortcuts.tsx Global keyboard handler (mount once in page.tsx)
@@ -104,8 +106,8 @@ features/
                         Diode, MOSFET, OpAmp, Inductor, Potentiometer
                         SYMBOL_SIZES and SchematicLayout COMPONENT_SIZES are kept in sync
   examples/
-    circuits.ts         Pre-built example circuits (blink, voltage divider, RC)
-    ExampleLoader.tsx   Dropdown to load examples
+    circuits.ts         Pre-built example circuits: Blink, Voltage Divider, RC Filter, NPN Switch, 555 Blinker
+    ExampleLoader.tsx   Expandable card gallery to load examples; ?autoload=N URL param supported
   export/
     exportNetlist.ts    Circuit topology → SPICE .cir string (covers all 14 component types)
 simulation/
@@ -155,7 +157,7 @@ types/
 
 **SPICE export** — `exportNetlist.ts` covers all 14 component types. BJT → `Q<n> NPN_GENERIC`, diode → `D<n> DIODE_1N4148`, MOSFET → `M<n> NMOS_SIMPLE`, op-amp → `X<n> LM741`, inductor → `L<n>`, potentiometer → two `R<n>a`/`R<n>b` resistors. Models appended at bottom of `.cir`.
 
-**UX features** — Component designator labels (R1, C2…) float above each part in 3D; toggle with `L`. Right-click context menu on components (delete/rotate/duplicate/properties). Box-select: drag on empty canvas to select multiple components. Box-select state lives in `uiStore.boxSelect` + `boxSelectRect`. `SceneInteractions` in Scene.tsx handles pointer events; `BoxSelectOverlay` renders the CSS marquee.
+**UX features** — Top toolbar with undo/redo, delete, copy/paste, and view toggles. Component designator labels (R1, C2…) float above each part in 3D; toggle with `L`. Right-click context menu on components (delete/rotate/duplicate/properties); clamped to stay within viewport. Box-select: drag on empty canvas to select multiple components. Box-select state lives in `uiStore.boxSelect` + `boxSelectRect`. `SceneInteractions` in Scene.tsx handles pointer events; `BoxSelectOverlay` renders the CSS marquee. Pin hit-test layer uses a larger invisible InstancedMesh (radius 0.10) over the visible one (0.052) for easier clicking. PropertiesInspector auto-scrolls into view when a component is selected (F4.1).
 
 **Measurement** — Power dissipation computed in `SimController.tsx` (Σ|I·V_drop| for resistors, 500ms refresh) and stored in `uiStore.power`. Wire current labels (µA/mA/A) on wires via drei `<Text>`; toggle with `I`. Oscilloscope `+` button shows inline input instead of `window.prompt`.
 
@@ -164,7 +166,7 @@ types/
 | Store | What it holds | Undo/redo |
 |---|---|---|
 | `circuitStore` | nodes, components, wires, selectedNodeId, selectedComponentId, selectedComponentIds, wiringMode, componentClipboard (module-level) | Yes (zundo, topology only) |
-| `uiStore` | hoveredNodeId, simStatus, sab, showHelp, zoom/camera requests | No |
+| `uiStore` | hoveredNodeId, simStatus, simErrorDismissed, sab, showHelp, zoom/camera requests, power, contextMenu, boxSelect | No |
 | `scopeStore` | oscilloscope open, channels (netId + color); removeChannel clears ring buffer | No |
 | `schematicStore` | schematic overlay open | No |
 | `dragStore` | active drag type, position, rotationY | No |
@@ -182,7 +184,7 @@ types/
 - `deleteSelected()` — deletes all `selectedComponentIds` (or falls back to `selectedComponentId`), then also deletes any wire connected to `selectedNodeId`
 - `rotateComponent(id)` — rotates component and calls `runNetAnalysis` so net IDs update immediately
 
-Keyboard bindings (see `KeyboardShortcuts.tsx`): Ctrl+C copy, Ctrl+V paste, Ctrl+A select all, Ctrl+D duplicate (copy + paste in one step).
+Keyboard bindings (see `KeyboardShortcuts.tsx`): Ctrl+C copy, Ctrl+V paste, Ctrl+A select all, Ctrl+D duplicate (copy + paste in one step). Delete/Backspace during wiring cancels the wire instead of deleting the component (F9.5). Escape during wiring cancels the wire but keeps the component selected (F3.5).
 
 ## Known Limitations / Future Work
 

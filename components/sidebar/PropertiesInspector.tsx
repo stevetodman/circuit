@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
 
@@ -271,6 +272,12 @@ function ToggleInput({
 
 // ── Main inspector ─────────────────────────────────────────────────────────────
 function Inspector({ component }: { component: PlacedComponent }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // F4.1: scroll sidebar to show inspector when a component is selected
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, []);
+
   const setProperty    = useCircuitStore((s) => s.setProperty);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const deleteSelected  = useCircuitStore((s) => s.deleteSelected);
@@ -285,7 +292,7 @@ function Inspector({ component }: { component: PlacedComponent }) {
   }
 
   return (
-    <div className="border-t border-white/[0.06]">
+    <div ref={ref} className="border-t border-white/[0.06]">
       {/* Header row */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <span className="text-[11px] font-semibold text-white/60 tracking-wide">
