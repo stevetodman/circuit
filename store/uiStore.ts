@@ -23,6 +23,7 @@ interface UIState {
   power: number;
   overloadIds: string[];
   showCurrentLabels: boolean;
+  showPolarityLabels: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showDesignators: boolean;
@@ -46,6 +47,7 @@ interface UIState {
   setPower:            (power: number) => void;
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
+  setShowPolarityLabels: (showPolarityLabels: boolean) => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
   toggleDesignators:   () => void;
@@ -79,6 +81,7 @@ export const useUIStore = create<UIState>()((set) => ({
   power:         0,
   overloadIds:   [],
   showCurrentLabels: false,
+  showPolarityLabels: true,
   sab:           null,
   showHelp:      false,
   showDesignators: true,
@@ -105,6 +108,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setPower:      (power) => set({ power }),
   setOverloadIds: (ids) => set({ overloadIds: ids }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
+  setShowPolarityLabels: (showPolarityLabels) => set({ showPolarityLabels }),
   setSAB:         (sab) => set({ sab }),
   toggleHelp:     () => set((state) => ({ showHelp: !state.showHelp })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),

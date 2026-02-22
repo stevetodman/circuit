@@ -1,61 +1,64 @@
-# SPEC: Module Auto-Load + Health Checker False Positive Fix
+# SPEC: Polarity Labels on Component Pins
 
-Two small fixes. Read each file fully before editing.
+Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
+This is a top beginner pain point — they can't tell which end is which.
 
-## Fix 1: Health Checker False Positive
+## Read First
+- `components/canvas/parts/LED.tsx` — see how a part component is structured
+- `components/canvas/parts/Battery.tsx` — another example
+- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
+- The Three.js/R3F layer. All canvas code is SSR-disabled.
+- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
 
-File: `components/SimController.tsx`
+## Implementation
 
-The health checker currently fires "No current flowing" even when the canvas has 0 or 1 components.
+Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
 
-Find the health check logic (checks at most every 3s, looks for all-zero voltages).
+### Where to add
 
-Change the "no complete circuit" check:
-- BEFORE: `components >= 2 && battery exists && all voltages near 0`
-- AFTER: `components >= 3 && battery exists && led exists && all voltages near 0`
+In `components/canvas/parts/LED.tsx`:
+- Add a "+" label above the anode pin (pos side)
+- Add a "−" label above the cathode pin (neg side)
+- Position: slightly above the pin, y=0.12, at the pin's x/z offset
 
-The minimum meaningful circuit is: battery + resistor + LED. Require at least 3 components total AND a battery AND an LED before firing this warning. This eliminates the false positive on empty canvas and on partially-built circuits.
+In `components/canvas/parts/Battery.tsx`:
+- Add "+" above the positive terminal
+- Add "−" above the negative terminal
 
-Also: the "floating pin" check should only fire if there are >= 2 components placed.
+In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
+- For capacitor (polarized): add "+" on one side if it exists
 
-## Fix 2: Auto-Load Circuit When Starting a Module
-
-File: `store/moduleStore.ts` and `app/page.tsx`
-
-When `startModule(id)` is called, if the module has an `autoLoadId` field, load that circuit.
-
-### How example circuits are loaded
-
-In `app/page.tsx`, look for how the example loader works. The `EXAMPLE_CIRCUITS` array from `features/examples/circuits.ts` is used. Circuits are loaded via `useCircuitStore.getState().loadFromJSON(circuit)`.
-
-### Changes to moduleStore.ts
-
-The `startModule` action currently just sets state. Change it to also accept a callback or use a side effect to trigger circuit loading.
-
-Actually, the cleaner approach: in `app/page.tsx`, watch `activeModuleId` changes and trigger the circuit load there.
-
-Add to `app/page.tsx`:
+### Label style
 ```tsx
-// In the Home component, after the module store imports:
-const activeModuleId = useModuleStore((s) => s.activeModuleId);
-
-// In a useEffect:
-useEffect(() => {
-  if (!activeModuleId) return;
-  const mod = MODULES.find((m) => m.id === activeModuleId);
-  if (!mod?.autoLoadId) return;
-  const circuit = EXAMPLE_CIRCUITS.find((c) => c.id === mod.autoLoadId);
-  if (circuit) {
-    useCircuitStore.getState().loadFromJSON(circuit.circuit);
-  }
-}, [activeModuleId]);
+<Text
+  position={[xOffset, 0.12, zOffset]}
+  fontSize={0.08}
+  color={isPositive ? '#ff6b6b' : '#6b9fff'}
+  anchorX="center"
+  anchorY="middle"
+  renderOrder={10}
+>
+  {isPositive ? '+' : '−'}
+</Text>
 ```
 
-Make sure to import `MODULES` from `@/features/modules/definitions` and `EXAMPLE_CIRCUITS` from `@/features/examples/circuits`.
+Use red (#ff6b6b) for + and blue (#6b9fff) for −.
 
-Also import `useModuleStore` from `@/store/moduleStore`.
+### Toggle
 
-Read `app/page.tsx` fully to see existing imports and where to add this.
-Read `features/examples/circuits.ts` to check the `id` field exists on each example.
+Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
+Add a setter `setShowPolarityLabels`.
+
+Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
+
+Add `P` key handler in `components/KeyboardShortcuts.tsx`.
+
+Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
+
+### Important notes
+- `Text` from `@react-three/drei` is already used in the project — import from there
+- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
+- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
+- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
 
 Run `pnpm build` — must pass with zero errors.
