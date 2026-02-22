@@ -8,6 +8,7 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import Sidebar from '@/components/sidebar/Sidebar';
+import Toolbar from '@/components/Toolbar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
@@ -160,19 +161,22 @@ export default function Home() {
       <KeyboardShortcuts />
       <ErrorBoundary><Sidebar /></ErrorBoundary>
       <main className="relative flex-1 min-w-0 h-full">
-        <Scene />
-        <WiringHint />
-        <CameraHint />
-        <ErrorBoundary>
-          <Oscilloscope
-            open={scopeOpen}
-            channels={channels}
-            onClose={scopeToggle}
-            onAddChannel={addChannel}
-            onRemoveChannel={removeChannel}
-          />
-        </ErrorBoundary>
-        <ErrorBoundary><SchematicView visible={schematicOpen} /></ErrorBoundary>
+        <Toolbar />
+        <div className="absolute inset-0 top-[36px]">
+          <Scene />
+          <WiringHint />
+          <CameraHint />
+          <ErrorBoundary>
+            <Oscilloscope
+              open={scopeOpen}
+              channels={channels}
+              onClose={scopeToggle}
+              onAddChannel={addChannel}
+              onRemoveChannel={removeChannel}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary><SchematicView visible={schematicOpen} /></ErrorBoundary>
+        </div>
       </main>
     </div>
   );
