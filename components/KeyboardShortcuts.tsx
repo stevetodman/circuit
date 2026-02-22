@@ -36,6 +36,7 @@ export default function KeyboardShortcuts() {
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
+  const toggleWireVoltageColors = useUIStore((s) => s.toggleWireVoltageColors);
   const closeContextMenu    = useUIStore((s) => s.closeContextMenu);
   const clearBoxSelect      = useUIStore((s) => s.clearBoxSelect);
   const toggleCurrentLabels = useUIStore((s) => s.toggleCurrentLabels);
@@ -132,6 +133,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'v') {
+        e.preventDefault();
+        toggleWireVoltageColors();
+        return;
+      }
+
       // Toggle schematic
       if (key === 's') {
         e.preventDefault();
@@ -156,7 +163,7 @@ export default function KeyboardShortcuts() {
   }, [
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
-    requestZoomToFit, requestCameraPreset, toggleDesignators,
+    requestZoomToFit, requestCameraPreset, toggleDesignators, toggleWireVoltageColors,
     closeContextMenu, clearBoxSelect, toggleCurrentLabels,
     copySelected, pasteClipboard, selectAll,
   ]);

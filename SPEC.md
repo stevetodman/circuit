@@ -1,61 +1,84 @@
-# SPEC: Module Auto-Load + Health Checker False Positive Fix
+# SPEC: Wire Auto-Coloring by Voltage
 
-Two small fixes. Read each file fully before editing.
+Auto-color wires red/black based on the simulated voltage of the net they carry.
+This helps beginners understand power flow at a glance.
 
-## Fix 1: Health Checker False Positive
+## Read First
+- `components/canvas/Wire.tsx` — where wire color is set in useFrame
+- `simulation/SimBridge.ts` — exports `voltages` Float32Array (SAB-backed)
+- `store/circuitStore.ts` — `nodes` map has `netId` per node
+- `store/uiStore.ts` — how to add a toggle (see showCurrentLabels for the pattern)
+- `components/Toolbar.tsx` — where to add the toggle button
 
-File: `components/SimController.tsx`
+## Implementation
 
-The health checker currently fires "No current flowing" even when the canvas has 0 or 1 components.
+### Step 1: Add toggle to uiStore
 
-Find the health check logic (checks at most every 3s, looks for all-zero voltages).
+In `store/uiStore.ts`:
+- Add `showWireVoltageColors: boolean` to the interface (default: `true`)
+- Add `toggleWireVoltageColors: () => void` action
+- Implement as a simple boolean flip (same pattern as `showCurrentLabels`)
 
-Change the "no complete circuit" check:
-- BEFORE: `components >= 2 && battery exists && all voltages near 0`
-- AFTER: `components >= 3 && battery exists && led exists && all voltages near 0`
+### Step 2: Wire.tsx — read netId + voltage in useFrame
 
-The minimum meaningful circuit is: battery + resistor + LED. Require at least 3 components total AND a battery AND an LED before firing this warning. This eliminates the false positive on empty canvas and on partially-built circuits.
+In `components/canvas/Wire.tsx`:
+1. Import `voltages` from `@/simulation/SimBridge` (already imports `branchCurrents` from there)
+2. Read `showWireVoltageColors` from uiStore:
+   ```tsx
+   const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
+   ```
+3. Read the fromNode's netId from circuitStore:
+   ```tsx
+   const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
+   ```
+4. In `useFrame`, after the current/overload logic, compute auto-color:
+   ```tsx
+   // Auto-color by voltage (when not overloaded and feature is enabled)
+   if (!isOverloaded && showWireVoltageColors && fromNetId >= 0) {
+     const v = voltages[fromNetId] ?? 0;
+     let autoColor: string;
+     if (v > 2.5) {
+       autoColor = '#cc2200';      // red — high voltage
+     } else if (v < 0.3) {
+       autoColor = '#333344';      // dark — near ground
+     } else {
+       autoColor = wire.color;     // mid-range — keep stored color
+     }
+     matRef.current.color.set(autoColor);
+     matRef.current.emissive.set(autoColor);
+   }
+   ```
+   Place this AFTER the existing overload block (which has an early return) and AFTER the pulse calculation that sets `wire.color`.
 
-Also: the "floating pin" check should only fire if there are >= 2 components placed.
+   IMPORTANT: The existing code already does `matRef.current.color.set(wire.color)` in useFrame. The auto-color logic should override it when enabled. Restructure so the auto-color runs after/instead of the `wire.color` assignment.
 
-## Fix 2: Auto-Load Circuit When Starting a Module
+### Step 3: Toolbar button
 
-File: `store/moduleStore.ts` and `app/page.tsx`
+In `components/Toolbar.tsx`:
+- Add a "V Voltage" toggle button, same pattern as "I Current" and "L Labels"
+- Key: `V`
+- Import `useUIStore` and bind `showWireVoltageColors` + `toggleWireVoltageColors`
+- Read the file to find the exact button pattern and copy it
 
-When `startModule(id)` is called, if the module has an `autoLoadId` field, load that circuit.
+### Step 4: Keyboard shortcut
 
-### How example circuits are loaded
+In `components/KeyboardShortcuts.tsx`:
+- Add `V` key handler that calls `toggleWireVoltageColors()`
+- Follow the exact same pattern as the existing `I` key for current labels
+- Read the file to find the right spot
 
-In `app/page.tsx`, look for how the example loader works. The `EXAMPLE_CIRCUITS` array from `features/examples/circuits.ts` is used. Circuits are loaded via `useCircuitStore.getState().loadFromJSON(circuit)`.
+## Color scheme
+- `> 2.5V` → `#cc2200` (dark red — power/positive rail)
+- `< 0.3V` → `#333344` (near-black — ground/negative)
+- Between 0.3–2.5V → keep `wire.color` from store (user-chosen color)
+- Overloaded wire always → orange/red pulse (existing behavior, untouched)
+- Ground (net 0, voltage = 0.0) will be colored dark — correct behavior
 
-### Changes to moduleStore.ts
-
-The `startModule` action currently just sets state. Change it to also accept a callback or use a side effect to trigger circuit loading.
-
-Actually, the cleaner approach: in `app/page.tsx`, watch `activeModuleId` changes and trigger the circuit load there.
-
-Add to `app/page.tsx`:
-```tsx
-// In the Home component, after the module store imports:
-const activeModuleId = useModuleStore((s) => s.activeModuleId);
-
-// In a useEffect:
-useEffect(() => {
-  if (!activeModuleId) return;
-  const mod = MODULES.find((m) => m.id === activeModuleId);
-  if (!mod?.autoLoadId) return;
-  const circuit = EXAMPLE_CIRCUITS.find((c) => c.id === mod.autoLoadId);
-  if (circuit) {
-    useCircuitStore.getState().loadFromJSON(circuit.circuit);
-  }
-}, [activeModuleId]);
-```
-
-Make sure to import `MODULES` from `@/features/modules/definitions` and `EXAMPLE_CIRCUITS` from `@/features/examples/circuits`.
-
-Also import `useModuleStore` from `@/store/moduleStore`.
-
-Read `app/page.tsx` fully to see existing imports and where to add this.
-Read `features/examples/circuits.ts` to check the `id` field exists on each example.
+## Important notes
+- `voltages` in SimBridge is a Float32Array initialized to zeros — it's safe to read before simulation starts (wires will just show dark color until circuit runs)
+- `fromNetId` may be -1 if node doesn't exist yet — guard with `fromNetId >= 0` before indexing
+- Net 0 is typically ground (0V) — the ground bus wires will be colored dark automatically
+- Use individual selectors for all useStore hooks (not inline objects)
+- Do NOT change `wire.color` stored in circuitStore — only override the material color in useFrame
 
 Run `pnpm build` — must pass with zero errors.

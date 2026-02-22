@@ -61,12 +61,21 @@ export default function Toolbar() {
     }))
   );
 
-  const { showDesignators, toggleDesignators, showCurrentLabels, toggleCurrentLabels } = useUIStore(
+  const {
+    showDesignators,
+    toggleDesignators,
+    showCurrentLabels,
+    toggleCurrentLabels,
+    showWireVoltageColors,
+    toggleWireVoltageColors,
+  } = useUIStore(
     useShallow((s) => ({
       showDesignators: s.showDesignators,
       toggleDesignators: s.toggleDesignators,
       showCurrentLabels: s.showCurrentLabels,
       toggleCurrentLabels: s.toggleCurrentLabels,
+      showWireVoltageColors: s.showWireVoltageColors,
+      toggleWireVoltageColors: s.toggleWireVoltageColors,
     }))
   );
 
@@ -137,6 +146,13 @@ export default function Toolbar() {
         active={showCurrentLabels}
       >
         I Current
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleWireVoltageColors}
+        title="Toggle wire voltage colors (V)"
+        active={showWireVoltageColors}
+      >
+        V Voltage
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleSchematic}
