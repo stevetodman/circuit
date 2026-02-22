@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useUIStore } from '@/store/uiStore';
 
 const COLOR_IDLE       = new THREE.Color('#5a6a7a');
 const COLOR_HOVER      = new THREE.Color('#ffd700');   // hovered pin
@@ -17,7 +18,8 @@ export default function PinGrid() {
   const selectedId = useCircuitStore((s) => s.selectedNodeId);
   const addWire    = useCircuitStore((s) => s.addWire);
   const selectNode = useCircuitStore((s) => s.selectNode);
-  const { gl }     = useThree();
+  const { gl }        = useThree();
+  const setHovered    = useUIStore((s) => s.setHoveredNode);
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -78,17 +80,20 @@ export default function PinGrid() {
   const onMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
-      setHoveredIdx(e.instanceId ?? null);
+      const idx = e.instanceId ?? null;
+      setHoveredIdx(idx);
+      setHovered(idx != null ? (nodeList[idx]?.id ?? null) : null);
       // Cursor: 'cell' = "click to complete wire", 'crosshair' = "click to start"
       gl.domElement.style.cursor = selectedId ? 'cell' : 'crosshair';
     },
-    [selectedId, gl],
+    [selectedId, gl, nodeList, setHovered],
   );
 
   const onOut = useCallback(() => {
     setHoveredIdx(null);
+    setHovered(null);
     gl.domElement.style.cursor = 'default';
-  }, [gl]);
+  }, [gl, setHovered]);
 
   const onClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {

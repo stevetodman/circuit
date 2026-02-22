@@ -2,6 +2,7 @@
 
 import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
+import StatusBar from './StatusBar';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 
@@ -129,14 +130,6 @@ export default function Sidebar() {
         </span>
       </div>
 
-      {/* ── Sim status ── */}
-      <div className="px-4 py-2 border-b border-white/[0.05]">
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-white/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-          Simulator idle — M1
-        </span>
-      </div>
-
       {/* ── Insert Part ── */}
       <div className="flex-1 overflow-y-auto py-2">
         <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/25">
@@ -162,14 +155,8 @@ export default function Sidebar() {
       {/* ── Properties Inspector (shown when a component is selected) ── */}
       <PropertiesInspector />
 
-      {/* ── Footer ── */}
-      <div className="px-4 py-3 border-t border-white/[0.05]">
-        <p className="text-[10px] text-white/20 leading-relaxed">
-          Click pin → start wire · Click again → complete<br />
-          Right-click wire → remove · Delete key → remove selected<br />
-          Orbit · Pan · Zoom with mouse
-        </p>
-      </div>
+      {/* ── Status bar ── */}
+      <StatusBar />
     </aside>
   );
 }

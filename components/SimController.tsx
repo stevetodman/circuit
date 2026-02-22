@@ -13,14 +13,16 @@ import { useEffect, useRef } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { init as initSimBridge } from '@/simulation/SimBridge';
 import { SAB_TOTAL_BYTES } from '@/types/circuit';
+import { useUIStore } from '@/store/uiStore';
 
 export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
   const sabRef    = useRef<SharedArrayBuffer | null>(null);
   const readyRef  = useRef(false);   // true once worker is initialised
 
-  const nodes      = useCircuitStore((s) => s.nodes);
-  const components = useCircuitStore((s) => s.components);
+  const nodes         = useCircuitStore((s) => s.nodes);
+  const components    = useCircuitStore((s) => s.components);
+  const setSimStatus  = useUIStore((s) => s.setSimStatus);
 
   // ── Create worker + SAB on mount ────────────────────────────────────────────
   useEffect(() => {
@@ -41,9 +43,10 @@ export default function SimController() {
     worker.onmessage = (e) => {
       const { type, message } = e.data as { type: string; message?: string };
       if (type === 'VOLTAGES_READY') {
-        // Nothing to do — main thread reads from SAB directly in useFrame
+        setSimStatus('running');
       } else if (type === 'SIM_ERROR') {
         console.warn('[Sim] Solver error:', message);
+        setSimStatus('error', message);
       }
     };
 
