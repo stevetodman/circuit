@@ -29,7 +29,6 @@ const SECTIONS = [
       ['V', 'Toggle wire voltage colours'],
       ['F', 'Zoom to fit'],
       ['1 / 2', 'Camera (perspective / top)'],
-      ['Space', 'Pause / resume simulation'],
     ],
   },
   {
