@@ -102,6 +102,20 @@ let layoutCache: {
   result: Record<string, SchematicPos>;
 } | null = null;
 
+function applyManualPositions(
+  positions: Record<string, SchematicPos>,
+  manualPositions: Record<string, { x: number; y: number }>,
+): Map<string, SchematicPos> {
+  const merged = new Map<string, SchematicPos>();
+
+  for (const [id, pos] of Object.entries(positions)) {
+    const manual = manualPositions[id];
+    merged.set(id, manual ? { ...pos, x: manual.x, y: manual.y } : pos);
+  }
+
+  return merged;
+}
+
 function topologyKey(components: Record<string, PlacedComponent>, wires: Record<string, Wire>): string {
   const cIds = Object.keys(components).sort().join(',');
   const wIds = Object.keys(wires).sort().join(',');
@@ -112,10 +126,19 @@ export async function layoutSchematic(
   components: Record<string, PlacedComponent>,
   wires:      Record<string, Wire>,
   nodes:      Record<string, CircuitNode>,
+  manualPositions: Record<string, { x: number; y: number }> = {},
+  onTopologyChange?: () => void,
 ): Promise<Map<string, SchematicPos>> {
   const key = topologyKey(components, wires);
-  if (layoutCache?.key === key) {
-    return new Map(Object.entries(layoutCache.result));
+  const topologyChanged = layoutCache?.key !== key;
+  const effectiveManualPositions = topologyChanged ? {} : manualPositions;
+
+  if (topologyChanged) {
+    onTopologyChange?.();
+  }
+
+  if (!topologyChanged && layoutCache?.key === key) {
+    return applyManualPositions(layoutCache.result, effectiveManualPositions);
   }
 
   const componentList = Object.values(components);
@@ -124,7 +147,7 @@ export async function layoutSchematic(
   const result = new Map<string, SchematicPos>();
   if (!hasComponents) {
     layoutCache = { key, result: {} };
-    return result;
+    return applyManualPositions({}, effectiveManualPositions);
   }
 
   const netGroups = collectNetGroups(components, nodes);
@@ -180,7 +203,7 @@ export async function layoutSchematic(
   });
 
   if (!layout.children) {
-    return result;
+    return applyManualPositions({}, effectiveManualPositions);
   }
 
   for (const child of layout.children) {
@@ -198,5 +221,5 @@ export async function layoutSchematic(
   }
   layoutCache = { key, result: cacheResult };
 
-  return result;
+  return applyManualPositions(cacheResult, effectiveManualPositions);
 }

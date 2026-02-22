@@ -35,6 +35,14 @@ interface SchematicViewProps {
   visible: boolean;
 }
 
+interface DragState {
+  id: string;
+  startX: number;
+  startY: number;
+  startSVGX: number;
+  startSVGY: number;
+}
+
 interface ViewBox {
   x: number;
   y: number;
@@ -246,11 +254,20 @@ export default function SchematicView({ visible }: SchematicViewProps) {
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const getDesignator = useCircuitStore((s) => s.getDesignator);
   const open = useSchematicStore((s) => s.open);
+  const closeSchematic = useSchematicStore((s) => s.toggle);
+  const manualPositions = useSchematicStore((s) => s.manualPositions);
+  const setManualPosition = useSchematicStore((s) => s.setManualPosition);
+  const clearManualPositions = useSchematicStore((s) => s.clearManualPositions);
   const [layout, setLayout] = useState<Map<string, SchematicPos>>(new Map());
   const [computing, setComputing] = useState(false);
   const [viewBox, setViewBox] = useState<ViewBox>(BASE_VIEW);
   const [panning, setPanning] = useState<{ x: number; y: number; box: ViewBox } | null>(null);
+  const [dragging, setDragging] = useState<DragState | null>(null);
+  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const manualPositionsRef = useRef(manualPositions);
+
+  manualPositionsRef.current = manualPositions;
 
   const isVisible = visible && open;
 
@@ -278,29 +295,73 @@ export default function SchematicView({ visible }: SchematicViewProps) {
     };
   }, []);
 
+  const getSvgCoordinates = useCallback(
+    (clientX: number, clientY: number) => {
+      const svg = svgRef.current;
+      if (!svg) return null;
+
+      const rect = svg.getBoundingClientRect();
+      return {
+        x: ((clientX - rect.left) / rect.width) * viewBox.w + viewBox.x,
+        y: ((clientY - rect.top) / rect.height) * viewBox.h + viewBox.y,
+      };
+    },
+    [viewBox],
+  );
+
+  const rerunLayout = useCallback(
+    async (positions: Record<string, { x: number; y: number }> = manualPositionsRef.current) => {
+      setComputing(true);
+      const next = await layoutSchematic(components, wires, nodes, positions, () => clearManualPositions());
+      setLayout(next);
+      setViewBox(fitViewBox(next));
+      setComputing(false);
+    },
+    [components, wires, nodes, fitViewBox, clearManualPositions],
+  );
+
+  const onResetLayout = useCallback(() => {
+    clearManualPositions();
+    void rerunLayout({});
+  }, [clearManualPositions, rerunLayout]);
+
   useEffect(() => {
     if (!isVisible) return;
 
-    setComputing(true);
     const timer = setTimeout(() => {
-      void (async () => {
-        const next = await layoutSchematic(components, wires, nodes);
-        setLayout(next);
-        setViewBox(fitViewBox(next));
-        setComputing(false);
-      })();
+      void rerunLayout(manualPositionsRef.current);
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [components, wires, nodes, isVisible, fitViewBox]);
+  }, [components, wires, nodes, isVisible, rerunLayout]);
 
   const componentList = useMemo(() => Object.values(components), [components]);
+
+  const renderedLayout = useMemo(() => {
+    const next = new Map(layout);
+    for (const [id, position] of Object.entries(manualPositions)) {
+      const base = next.get(id);
+      if (!base) continue;
+      next.set(id, { ...base, x: position.x, y: position.y });
+    }
+    return next;
+  }, [layout, manualPositions]);
+
+  const orderedComponents = useMemo(() => {
+    if (!dragging) return componentList;
+    const list = [...componentList];
+    const draggedIdx = list.findIndex((component) => component.id === dragging.id);
+    if (draggedIdx === -1) return list;
+    const [active] = list.splice(draggedIdx, 1);
+    list.push(active);
+    return list;
+  }, [componentList, dragging?.id]);
 
   const terminals = useMemo(() => {
     const points: TerminalPoint[] = [];
 
     for (const component of componentList) {
-      const pos = layout.get(component.id);
+      const pos = renderedLayout.get(component.id);
       if (!pos) continue;
       const centerX = pos.x + pos.w / 2;
       const centerY = pos.y + pos.h / 2;
@@ -434,7 +495,25 @@ export default function SchematicView({ visible }: SchematicViewProps) {
     setPanning(null);
   }, []);
 
+  const onMouseMoveDrag = useCallback(
+    (event: MouseEvent<SVGSVGElement>) => {
+      if (!dragging) return;
+      const point = getSvgCoordinates(event.clientX, event.clientY);
+      if (!point) return;
+
+      const dx = point.x - dragging.startSVGX;
+      const dy = point.y - dragging.startSVGY;
+      setManualPosition(dragging.id, dragging.startX + dx, dragging.startY + dy);
+    },
+    [dragging, getSvgCoordinates, setManualPosition],
+  );
+
+  const onMouseUpDrag = useCallback(() => {
+    setDragging(null);
+  }, []);
+
   if (!isVisible) return null;
+  const svgCursor = dragging ? 'grabbing' : hoveredComponentId ? 'grab' : 'default';
 
   if (componentList.length === 0) {
     return (
@@ -446,6 +525,24 @@ export default function SchematicView({ visible }: SchematicViewProps) {
 
   return (
     <div className="absolute inset-0 z-20">
+      <div className="absolute right-3 top-3 z-30 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={closeSchematic}
+          className="rounded bg-black/65 px-2 py-1 text-[11px] font-mono text-white/85 border border-white/15 hover:text-white"
+          title="Close schematic"
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={onResetLayout}
+          className="rounded bg-black/65 px-2 py-1 text-[11px] font-mono text-white/85 border border-white/15 hover:text-white"
+          title="Reset layout"
+        >
+          Reset Layout
+        </button>
+      </div>
       <svg
         ref={svgRef}
         className="w-full h-full bg-[#04050b]"
@@ -456,6 +553,10 @@ export default function SchematicView({ visible }: SchematicViewProps) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerUp}
+        onMouseMove={onMouseMoveDrag}
+        onMouseUp={onMouseUpDrag}
+        onMouseLeave={onMouseUpDrag}
+        style={{ cursor: svgCursor }}
       >
         <g>
           <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="#06080f" />
@@ -472,24 +573,58 @@ export default function SchematicView({ visible }: SchematicViewProps) {
             />
           ))}
 
-          {componentList.map((component) => {
-            const pos = layout.get(component.id);
+          {orderedComponents.map((component) => {
+            const pos = renderedLayout.get(component.id);
             if (!pos) return null;
             const selected = selectedComponentId === component.id;
             const cx = pos.x + pos.w / 2;
             const cy = pos.y + pos.h / 2;
+            const isDragging = dragging?.id === component.id;
+            const isHovered = hoveredComponentId === component.id;
+            const showHandle = isDragging || isHovered;
             return (
               <g
                 key={component.id}
                 data-role="schematic-node"
+                style={{ cursor: isDragging ? 'grabbing' : isHovered ? 'grab' : 'default' }}
                 onClick={(event: MouseEvent<SVGGElement>) => {
                   event.preventDefault();
                   event.stopPropagation();
                   selectComponent(selected ? null : component.id);
                 }}
                 onPointerDown={(event: PointerEvent<SVGGElement>) => event.stopPropagation()}
+                onMouseEnter={() => setHoveredComponentId(component.id)}
+                onMouseLeave={() => {
+                  setHoveredComponentId((current) => (current === component.id ? null : current));
+                }}
+                onMouseDown={(event: MouseEvent<SVGGElement>) => {
+                  if (event.button !== 0) return;
+                  const point = getSvgCoordinates(event.clientX, event.clientY);
+                  if (!point) return;
+                  event.stopPropagation();
+                  event.preventDefault();
+                  setDragging({
+                    id: component.id,
+                    startX: pos.x,
+                    startY: pos.y,
+                    startSVGX: point.x,
+                    startSVGY: point.y,
+                  });
+                }}
               >
                 {symbolNode(component.type, cx, cy, selected, component.props as Record<string, number | string>)}
+                <text
+                  x={pos.x + 6}
+                  y={pos.y + 12}
+                  fontSize={12}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                  fontWeight={600}
+                  fill={selected ? '#7ef0ff' : 'rgba(255,255,255,0.72)'}
+                  opacity={showHandle ? 0.7 : 0}
+                  pointerEvents="none"
+                >
+                  ⠿
+                </text>
                 {selected && (
                   <g transform={`translate(${cx}, ${cy})`}>
                     <circle r={Math.max(pos.w, pos.h) / 2 + 6} fill="none" stroke="#7ef0ff" strokeWidth={2.4} opacity={0.65} />

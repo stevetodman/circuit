@@ -1,141 +1,91 @@
-# SPEC: Arduino Serial Monitor
+# SPEC: Schematic View — Manual Component Drag
 
 ## Goal
-Surface `Serial.print()` / `Serial.println()` output in the ArduinoPanel UI.
-avr8js already emulates the USART hardware — we just need to wire it to the UI.
+Allow users to drag components in the schematic SVG overlay to reposition them.
+ELK auto-layout runs first; manual overrides persist until the circuit changes.
 Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## How avr8js Serial Works
+## Architecture
 
-avr8js exposes USART via `AVRUSART` class:
+### State: schematicStore.ts
+In `store/schematicStore.ts`, add:
 ```typescript
-import { AVRUSART } from '@es-labs/avr8js';  // or wherever it's exported in the project
+manualPositions: Record<string, { x: number; y: number }>;  // componentId → {x,y}
+setManualPosition(id: string, x: number, y: number): void;
+clearManualPositions(): void;
+```
+`clearManualPositions()` is called when a new circuit is loaded (topology changes).
 
-const usart = new AVRUSART(cpu, usartConfig, 16e6);
-usart.onByteTransmit = (byte: number) => {
-  // byte is the ASCII code of the character sent by Serial.print()
-  const char = String.fromCharCode(byte);
-  // accumulate and send to main thread
-};
+### SchematicLayout.ts
+In `features/schematic/SchematicLayout.ts`:
+- After ELK layout, merge manual positions: for each component, if `manualPositions[id]` exists,
+  override the ELK-computed x/y with the manual position.
+- Clear manual positions when the netlist hash changes (topology changed).
+
+### SchematicView.tsx
+In `features/schematic/SchematicView.tsx`:
+
+Each component group `<g>` is currently rendered at the ELK-computed position.
+Add drag event handlers to each component group:
+
+```tsx
+const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; startSVGX: number; startSVGY: number } | null>(null);
+
+// On component <g>:
+onMouseDown={(e) => {
+  e.stopPropagation();
+  // Get SVG coordinates
+  const svgRect = svgRef.current!.getBoundingClientRect();
+  const svgX = (e.clientX - svgRect.left) * (SVG_WIDTH / svgRect.width);
+  const svgY = (e.clientY - svgRect.top) * (SVG_HEIGHT / svgRect.height);
+  setDragging({ id: comp.id, startX: pos.x, startY: pos.y, startSVGX: svgX, startSVGY: svgY });
+}}
 ```
 
-Check the existing import in `simulation/workers/arduino.worker.ts` to find the exact
-import path and config object name. Search for `AVRUSART` or `usart` in that file.
-
----
-
-## Implementation
-
-### 1. arduino.worker.ts — capture serial output
-
-In `simulation/workers/arduino.worker.ts`:
-
-After creating the CPU and existing peripherals (AVRADC, ports), add:
-```typescript
-import { AVRUSART } from '<same-package-as-AVRADC>';
-
-// In UPLOAD_HEX handler, after existing setup:
-let serialBuffer = '';
-const usart = new AVRUSART(cpu, usartConfig, 16e6);  // check exact config name
-
-usart.onByteTransmit = (byte: number) => {
-  const char = String.fromCharCode(byte);
-  serialBuffer += char;
-  // Flush on newline or when buffer > 256 chars
-  if (char === '\n' || serialBuffer.length > 256) {
-    self.postMessage({ type: 'SERIAL_OUTPUT', text: serialBuffer });
-    serialBuffer = '';
-  }
-};
-```
-
-Also flush any remaining buffer periodically (every 100ms) even without newline.
-
-### 2. SimController.tsx — receive serial output
-
-In `components/SimController.tsx`:
-- Add handler for `'SERIAL_OUTPUT'` message from arduino worker:
-  ```typescript
-  case 'SERIAL_OUTPUT':
-    useUIStore.getState().appendSerialOutput(data.text);
-    break;
-  ```
-
-### 3. uiStore.ts — store serial output
-
-In `store/uiStore.ts`:
-- Add `serialOutput: string` (default: `''`)
-- Add `appendSerialOutput(text: string): void` — append to serialOutput, cap at 10,000 chars
-  (trim from front if over limit to prevent memory leak)
-- Add `clearSerialOutput(): void` — set to `''`
-
-On `UPLOAD_HEX` (new sketch uploaded), clear serial output:
-```typescript
-case 'UPLOAD_HEX':
-  useUIStore.getState().clearSerialOutput();
-  // ... existing code
-```
-
-### 4. ArduinoPanel.tsx — display serial monitor
-
-In `components/sidebar/ArduinoPanel.tsx`:
-- Add a "Serial Monitor" section below the existing hex upload / controls
-- Read `serialOutput` from uiStore
-- Display in a scrollable `<pre>` or `<div>` with monospace font, dark background
-- Auto-scroll to bottom when new output arrives (use `useEffect` + `ref.scrollTop = ref.scrollHeight`)
-- Add a "Clear" button that calls `clearSerialOutput()`
-- Show placeholder text "No serial output yet. Upload a sketch with Serial.print()." when empty
-
-**UI design:**
-```
-[Serial Monitor]                              [Clear]
-┌─────────────────────────────────────────────────────┐
-│ Hello World!                                        │
-│ Sensor: 512                                         │
-│ Sensor: 489                                         │
-│ ...                                                 │
-└─────────────────────────────────────────────────────┘
-```
-
-Style to match existing ArduinoPanel dark theme:
-- Background: `bg-[#0a0a0c]`
-- Text: `text-green-400` (classic terminal green) or `text-white/70`
-- Font: `font-mono text-xs`
-- Height: fixed at 160px with `overflow-y-auto`
-- Border: `border border-white/10 rounded`
-
-Only show Serial Monitor section when `serialOutput.length > 0` OR always show it
-(always show is simpler and more discoverable).
-
-### 5. Baud Rate
-avr8js AVRUSART handles baud rate automatically from the UBRR register.
-Standard Arduino `Serial.begin(9600)` sets up UBRR correctly. No manual config needed.
-
----
-
-## Testing
-
-Upload the following Arduino sketch to test:
-```cpp
-void setup() {
-  Serial.begin(9600);
-}
-void loop() {
-  Serial.println("Hello from Arduino!");
-  delay(1000);
+On SVG `onMouseMove` (capture at SVG level):
+```tsx
+if (dragging) {
+  const svgX = /* compute svg coords from e.clientX */;
+  const svgY = /* compute svg coords from e.clientY */;
+  const dx = svgX - dragging.startSVGX;
+  const dy = svgY - dragging.startSVGY;
+  setManualPosition(dragging.id, dragging.startX + dx, dragging.startY + dy);
 }
 ```
 
-The serial monitor should show "Hello from Arduino!" appearing once per simulated second.
+On SVG `onMouseUp`:
+```tsx
+setDragging(null);
+```
+
+### Visual affordances
+- When hovering a component group, change cursor to `grab`
+- While dragging, change cursor to `grabbing`
+- Add a subtle drag handle icon (⠿) in the top-left corner of each component bounding box
+  (small, only visible on hover)
+- The dragged component should render on top (use SVG rendering order — render dragging component last)
+
+### Wire routing
+Wires in the schematic connect component terminals. After a drag, the wire routes should
+update to follow the component's new position. Since wires are rendered based on terminal
+positions (computed from component x/y + SYMBOL_TERMINALS offsets), they will automatically
+update when the component position changes.
+
+---
+
+## Reset
+- Add a "Reset Layout" button in the schematic overlay toolbar
+- Clicking it calls `clearManualPositions()` and re-runs ELK layout
+- Place it near the existing close button (top-right of schematic overlay)
 
 ---
 
 ## Implementation Notes
 
-- Do NOT add new npm packages
-- Check if AVRUSART is already imported in arduino.worker.ts — it may already be there
-- The `usartConfig` — look for it in the avr8js package (usually `usart0Config` or similar)
-- If avr8js doesn't export AVRUSART from the expected path, search node_modules for the correct import
-- Run `pnpm build` — fix all TypeScript errors before considering done
+- Do NOT add new npm dependencies
+- Touch only `features/schematic/`, `store/schematicStore.ts`
+- Manual positions should survive component property changes but clear on add/remove component
+- Do not add undo/redo for drag — too complex
+- Run `pnpm build` — fix all TypeScript errors
