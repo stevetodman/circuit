@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/sidebar/Sidebar';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -19,6 +20,7 @@ export default function Home() {
       className="flex h-screen w-screen overflow-hidden"
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
+      <KeyboardShortcuts />
       <Sidebar />
       <main className="relative flex-1 min-w-0 h-full">
         <Scene />

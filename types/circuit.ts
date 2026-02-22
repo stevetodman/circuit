@@ -121,11 +121,26 @@ export interface Snap {
   distance: number;
 }
 
-// SharedArrayBuffer layout (M5)
-// [0..255]   Float32Array — net voltages (V)
-// [256..511] Uint8Array   — digital HIGH/LOW per net
-// [2048]     Float64Array — simulation timestamp
+// ── SharedArrayBuffer layout (M5) ────────────────────────────────────────────
+// Byte offsets into the SAB — must stay in sync with SimBridge.ts:
+//
+//  [0              .. MAX_NETS*4-1          ]  Float32Array[MAX_NETS]     net voltages  (V)
+//  [MAX_NETS*4     .. MAX_NETS*5-1          ]  Uint8Array[MAX_NETS]       digital HIGH/LOW
+//  [MAX_NETS*5     .. MAX_NETS*5+MAX_BR*4-1 ]  Float32Array[MAX_BRANCHES] branch currents (A)
+//  [MAX_NETS*5+MAX_BR*4 .. +7              ]  Float64[1]                 simulation timestamp (s)
+//
+// MAX_BRANCHES = max placed components (256). ngspice computes per-branch
+// current so we can derive power = V_drop × I for smoke/overload detection.
 export const MAX_NETS = 256;
-export const SAB_VOLTAGE_OFFSET = 0;
-export const SAB_DIGITAL_OFFSET = MAX_NETS * 4;
-export const SAB_TIMESTAMP_OFFSET = MAX_NETS * 4 + MAX_NETS;
+export const MAX_BRANCHES = 256;
+
+export const SAB_VOLTAGE_OFFSET  = 0;
+export const SAB_DIGITAL_OFFSET  = MAX_NETS * 4;
+export const SAB_CURRENT_OFFSET  = MAX_NETS * 4 + MAX_NETS;           // branch currents
+export const SAB_TIMESTAMP_OFFSET = MAX_NETS * 4 + MAX_NETS + MAX_BRANCHES * 4; // timestamp
+
+export const SAB_TOTAL_BYTES =
+  MAX_NETS * 4 +        // voltages
+  MAX_NETS +            // digital
+  MAX_BRANCHES * 4 +    // currents
+  8;                    // timestamp (Float64)
