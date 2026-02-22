@@ -1,35 +1,55 @@
-# SPEC: Sidebar UX Fixes
+# SPEC: Module-Linked Example Circuits
 
-Several sidebar issues to fix. Read each file fully before editing.
+Add example circuits for all 11 guided modules, so each module can auto-load a relevant starting point.
 
-## Fix 1: Parts List Scroll
+## Read These Files First
 
-File: `components/sidebar/Sidebar.tsx`
+- `features/examples/circuits.ts` — existing example circuits format
+- `features/modules/definitions.ts` — the 11 module definitions with their `autoLoadId` fields
+- `types/circuit.ts` — PlacedComponent, Wire, Node types
 
-The parts list is getting cut off — only Battery and Wire are visible in screenshots. The sidebar needs proper flex layout so the parts list scrolls independently while the status bar stays pinned at the bottom.
+## Task
 
-Read `Sidebar.tsx` to understand the current layout structure. Ensure the parts panel section is `flex-1 overflow-y-auto` so it scrolls, while StatusBar stays at the bottom with `flex-shrink-0`.
+In `features/examples/circuits.ts`, add new example circuits that map to the module `autoLoadId` values.
 
-## Fix 2: Export Panel Less Prominent 
+Look at the existing example circuits to understand the format (nodes, components, wires arrays).
 
-File: `components/sidebar/Sidebar.tsx`
+The module definitions use these `autoLoadId` values (add circuits for each):
+1. Module "hello-electricity" — `autoLoadId: 'battery-only'`
+   - Just a 9V battery placed at columns 25-26
+   
+2. Module "complete-circle" — `autoLoadId: 'battery-resistor'`  
+   - Battery + 220Ω resistor wired in a loop
+   
+3. Module "first-led" — `autoLoadId: 'battery-led-resistor'`
+   - Battery + 220Ω resistor + red LED wired correctly
+   
+4. Module "bodyguard" — `autoLoadId: 'ohms-law-demo'`
+   - Battery + resistor + LED (same as first-led but with different resistor value)
+   
+5. Modules 5-11 — only add circuits where the `autoLoadId` is set in definitions.ts
+   Read definitions.ts to see which modules have `autoLoadId` and what values they use.
 
-The SPICE export panel (Export .cir) and the raw SPICE code preview take up too much sidebar space. Make it collapsed by default — just show an "Export .cir" button, and clicking it toggles open the full export panel with Save JSON / Load JSON / Copy link / SPICE preview.
+## Circuit Format
 
-Read `ExportPanel.tsx` and `Sidebar.tsx` to understand what's rendered. The fix is likely adding a `collapsed` toggle using `useState` in the Sidebar around where ExportPanel is rendered.
+Each circuit should be a valid `ExampleCircuit` object:
+```typescript
+{
+  id: 'battery-only',
+  name: 'Battery Only',
+  description: 'Single 9V battery',
+  circuit: {
+    components: [...],
+    nodes: {},
+    wires: []
+  }
+}
+```
 
-Actually, look at it and just make the SPICE code block hidden by default (collapsed). Add a small "Show netlist" toggle link under the Export .cir section. The code block is the main space hog.
+To understand node IDs: breadboard main grid is `bb-{row}{col}` where rows are `a-j` and cols are `1-63`. Power rails are `bb-tp-{n}` (top positive) and `bb-tn-{n}` (top negative).
 
-## Fix 3: Learn Tab Sidebar Scroll
+Look at the existing blink/voltage-divider/RC examples to understand the exact JSON structure for components, pins (each component has pin definitions), and wires.
 
-File: `components/sidebar/Sidebar.tsx`  
-
-When the Learn tab is active, the module list needs to scroll if there are too many modules. The LearnPanel should be wrapped in `overflow-y-auto` within the tab content area.
-
-## Fix 4: Health Warning Visibility
-
-File: `components/sidebar/StatusBar.tsx`
-
-The health warning text at the bottom is getting clipped. Check the current rendering and add `overflow-hidden text-ellipsis` or `flex-shrink-0` where needed. The warning message should always be fully visible without being cut off.
+Keep circuits minimal — just what the student needs to see the concept, not a complete solution.
 
 Run `pnpm build` — must pass with zero errors.
