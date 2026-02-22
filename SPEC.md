@@ -1,122 +1,101 @@
-# SPEC: Analog Simulation Pause / Resume
+# SPEC: Oscilloscope Time Window Control
 
-Add a ⏸/▶ toggle to pause and resume the analog simulation transient loop,
-plus a spacebar shortcut. Pausing freezes the SAB so the oscilloscope and
-LED brightness hold their last values without flickering or resetting.
+Add a time window selector to the oscilloscope so users can zoom in/out on
+the waveform time axis. Currently all 4096 samples are shown with no
+indication of how much real time they represent.
+
+Samples come in at DT_MS = 1ms each, so 4096 samples = ~4.1 seconds.
 
 ## Read First
-- `simulation/workers/analog.worker.ts` — look for `startLoop()`, `stopLoop()`,
-  and the `self.onmessage` handler block. No PAUSE message exists yet.
-- `store/uiStore.ts` — add `simPaused` + `toggleSimPaused` (pattern: simSpeed/setSimSpeed)
-- `components/SimController.tsx` — where to add the effect that forwards pause state to worker
-- `components/sidebar/StatusBar.tsx` — where to add the ⏸/▶ button
-- `components/KeyboardShortcuts.tsx` — where to bind spacebar
+- `features/oscilloscope/Oscilloscope.tsx` — find the RAF draw loop, the
+  `getSamples` call, and the x-axis drawing code. Look for `xStep` and where
+  samples are mapped to pixels.
+- `features/oscilloscope/scopeBuffer.ts` — `SCOPE_SAMPLES = 4096`, `getSamples(netId)`
+  returns Float32Array of ordered samples (oldest → newest).
+- The oscilloscope already has `frozen` state and an "Auto" button —
+  add the time-window buttons in the same header row.
 
-## Part 1: analog.worker.ts — handle PAUSE / RESUME
+## Implementation
 
-Add a new union to the message type near the top where `SetSpeedMsg` is defined:
-```ts
-type PauseMsg = { type: 'PAUSE' };
-type ResumeMsg = { type: 'RESUME' };
-```
+### Step 1: State
 
-Update `self.onmessage` signature to include the new types:
-```ts
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
-```
-
-In the message handler block, after the `SET_SPEED` handler and before the
-`UPDATE_NETLIST` guard, add:
-```ts
-if (msg.type === 'PAUSE') {
-  stopLoop();
-  return;
-}
-if (msg.type === 'RESUME') {
-  if (wasRunning) startLoop();
-  return;
-}
-```
-
-Add a module-level `let wasRunning = false;` just above the `startLoop` function.
-In `startLoop()`, set `wasRunning = true;` as the first line.
-In `stopLoop()`, capture `wasRunning = intervalId !== null;` BEFORE clearing intervalId.
-
-This ensures RESUME only restarts the loop when it was actually running (capacitor
-circuits), not for pure DC circuits where no interval was started.
-
-## Part 2: uiStore.ts — add simPaused
-
-Add to the interface and initial state:
-```ts
-simPaused: boolean;
-toggleSimPaused: () => void;
-```
-Initial: `simPaused: false`.
-Action: `toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused }))`.
-
-## Part 3: SimController.tsx — forward pause/resume to worker
-
-Read the existing file to find `workerRef` and the existing `simSpeed` effect (around line 267–270).
-
-Add a selector and effect right after the simSpeed effect:
+Add a local state to the `Oscilloscope` component:
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-
-useEffect(() => {
-  if (!workerRef.current) return;
-  workerRef.current.postMessage({ type: simPaused ? 'PAUSE' : 'RESUME' });
-}, [simPaused]);
+const [timeWindow, setTimeWindow] = useState<number>(1000); // ms
 ```
 
-## Part 4: StatusBar.tsx — ⏸/▶ button
+The `timeWindow` options are `50`, `200`, `1000`, `4000` (ms).
+These correspond to last 50, 200, 1000, or 4000 samples (1 sample = 1ms).
 
-Read the existing file. Find the speed chip buttons (the `[1, 2, 5, 10].map(...)` block).
-Add a ⏸/▶ button immediately BEFORE the speed chips:
+### Step 2: Time-window buttons in the header
+
+In the header row where `Auto` and `⏸/▶` buttons are, add 4 buttons:
 
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
-
-<button
-  type="button"
-  onClick={toggleSimPaused}
-  title={simPaused ? 'Resume simulation (Space)' : 'Pause simulation (Space)'}
-  className={`w-6 h-5 flex items-center justify-center rounded text-[11px] transition-colors ${
-    simPaused
-      ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-      : 'text-white/40 hover:text-white/70 hover:bg-white/10'
-  }`}
->
-  {simPaused ? '▶' : '⏸'}
-</button>
+{[50, 200, 1000, 4000].map((ms) => (
+  <button
+    key={ms}
+    type="button"
+    onClick={() => setTimeWindow(ms)}
+    className={`text-[9px] font-mono px-1 py-0.5 rounded transition-colors ${
+      timeWindow === ms
+        ? 'bg-violet-500/25 text-violet-300'
+        : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+    }`}
+  >
+    {ms < 1000 ? `${ms}ms` : `${ms / 1000}s`}
+  </button>
+))}
 ```
 
-## Part 5: KeyboardShortcuts.tsx — spacebar
+Place this group BEFORE the "Auto" button.
 
-Read the existing file. Find the section that handles single-key shortcuts (after
-the meta-key block, near the `key === 'f'` handler).
+### Step 3: Limit displayed samples in the draw loop
 
-Add:
+In the RAF `useEffect` that draws the canvas, after calling `getSamples(channel.netId)`,
+slice to the last `timeWindow` samples:
+
 ```tsx
-if (key === ' ') {
-  e.preventDefault();
-  useUIStore.getState().toggleSimPaused();
-  return;
-}
+const rawSamples = getSamples(channel.netId);
+const samples = rawSamples.length > timeWindow
+  ? rawSamples.subarray(rawSamples.length - timeWindow)
+  : rawSamples;
 ```
 
-## Zustand selector rule (CRITICAL)
-Always individual selectors — NEVER inline objects:
+Also apply the same slicing where samples are used for the auto-scale min/max pass
+(there's a separate loop that reads all channels' samples to compute yMin/yMax).
+
+The `xStep` calculation already uses `samples.length`, so it will automatically
+adjust to the displayed count.
+
+### Step 4: X-axis time label
+
+Below the waveform plot (outside the canvas), add a small text label showing
+the time span and scale:
 ```tsx
-const simPaused = useUIStore(s => s.simPaused);         // CORRECT
-const { simPaused } = useUIStore(s => ({ ... }));       // WRONG — crash
+<div className="text-[9px] font-mono text-white/25 text-center mt-0.5">
+  {timeWindow < 1000 ? `${timeWindow}ms` : `${timeWindow / 1000}s`} window
+  · {(timeWindow / 10).toFixed(0)}ms/div
+</div>
 ```
 
-## Important
-- Files: `simulation/workers/analog.worker.ts`, `store/uiStore.ts`,
-  `components/SimController.tsx`, `components/sidebar/StatusBar.tsx`,
-  `components/KeyboardShortcuts.tsx`
-- Pausing a DC-only circuit (no loop running) is harmless — the button still
-  toggles state, the worker ignores RESUME if wasRunning is false
+Place this just below the `<canvas>` element.
+
+### Step 5: Pass timeWindow to frozen check
+
+The `frozen` feature freezes the canvas. The time window should still be changeable
+when frozen (it will take effect when unfrozen). No changes needed for frozen logic.
+
+## Important Notes
+- Only touch `features/oscilloscope/Oscilloscope.tsx`
+- `timeWindow` is local React state — NOT in any store
+- The `subarray` method returns a view without copying, which is efficient
+- `getSamples` is called inside the RAF loop that already depends on `channelsRef`
+  and `frozenRef` — make sure `timeWindow` is also captured in the RAF via a ref
+  so it always reads the latest value:
+  ```tsx
+  const timeWindowRef = useRef(timeWindow);
+  useEffect(() => { timeWindowRef.current = timeWindow; }, [timeWindow]);
+  ```
+  Then in the RAF loop, use `timeWindowRef.current`.
 - Run `pnpm build` — must pass with zero TypeScript errors
