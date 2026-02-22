@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CircuitNode, PlacedComponent, Wire, ComponentType, Vec3 } from '@/types/circuit';
+import { runNetAnalysis } from './netAnalysis';
 
 export const PITCH = 0.254;        // 2.54mm in Three.js units (1 unit = 10mm)
 export const CENTER_GAP = 0.508;   // gap between rows e and f
@@ -89,32 +90,38 @@ export const useCircuitStore = create<CircuitState>()((set) => ({
 
   addComponent(type, pos) {
     const id = crypto.randomUUID();
-    set((state) => ({
-      components: {
+    set((state) => {
+      const components = {
         ...state.components,
         [id]: { id, type, anchorPos: pos, rotationY: 0, pins: [], props: {} },
-      },
-    }));
+      };
+      const nodes = runNetAnalysis(state.nodes, state.wires);
+      return { components, nodes };
+    });
   },
 
   removeComponent(id) {
     set((state) => {
       const { [id]: _removed, ...rest } = state.components;
-      return { components: rest };
+      const nodes = runNetAnalysis(state.nodes, state.wires);
+      return { components: rest, nodes };
     });
   },
 
   addWire(fromId, toId, color = '#cc2222') {
     const id = crypto.randomUUID();
-    set((state) => ({
-      wires: { ...state.wires, [id]: { id, fromNodeId: fromId, toNodeId: toId, color } },
-    }));
+    set((state) => {
+      const wires = { ...state.wires, [id]: { id, fromNodeId: fromId, toNodeId: toId, color } };
+      const nodes = runNetAnalysis(state.nodes, wires);
+      return { wires, nodes };
+    });
   },
 
   removeWire(id) {
     set((state) => {
       const { [id]: _removed, ...rest } = state.wires;
-      return { wires: rest };
+      const nodes = runNetAnalysis(state.nodes, rest);
+      return { wires: rest, nodes };
     });
   },
 
