@@ -1,64 +1,103 @@
-# SPEC: Polarity Labels on Component Pins
+# SPEC: Component Descriptions in Parts Palette
 
-Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
-This is a top beginner pain point — they can't tell which end is which.
+Show a 1-line beginner-friendly description under each part name in the palette.
+"What is this?" answered before the user even clicks.
 
 ## Read First
-- `components/canvas/parts/LED.tsx` — see how a part component is structured
-- `components/canvas/parts/Battery.tsx` — another example
-- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
-- The Three.js/R3F layer. All canvas code is SSR-disabled.
-- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
+- `components/sidebar/ComponentTile.tsx` — add description display here
+- `components/sidebar/Sidebar.tsx` — where ComponentTile is rendered, to wire the description prop
 
-## Implementation
+## Part 1: Create component descriptions constant
 
-Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
+Create a new file `constants/partDescriptions.ts`:
 
-### Where to add
+```ts
+import type { ComponentType } from '@/types/circuit';
 
-In `components/canvas/parts/LED.tsx`:
-- Add a "+" label above the anode pin (pos side)
-- Add a "−" label above the cathode pin (neg side)
-- Position: slightly above the pin, y=0.12, at the pin's x/z offset
-
-In `components/canvas/parts/Battery.tsx`:
-- Add "+" above the positive terminal
-- Add "−" above the negative terminal
-
-In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
-- For capacitor (polarized): add "+" on one side if it exists
-
-### Label style
-```tsx
-<Text
-  position={[xOffset, 0.12, zOffset]}
-  fontSize={0.08}
-  color={isPositive ? '#ff6b6b' : '#6b9fff'}
-  anchorX="center"
-  anchorY="middle"
-  renderOrder={10}
->
-  {isPositive ? '+' : '−'}
-</Text>
+export const PART_DESCRIPTIONS: Partial<Record<ComponentType | 'wire', string>> = {
+  battery:       'Power source — supplies voltage',
+  resistor:      'Limits current — protects other parts',
+  led:           'Lights up when current flows through it',
+  capacitor:     'Stores charge — used for timing & filters',
+  diode:         'One-way valve — blocks reverse current',
+  bjt:           'NPN transistor switch',
+  pnp:           'PNP transistor switch',
+  mosfet:        'Voltage-controlled switch',
+  tactileSwitch: 'Push-button — closes circuit when pressed',
+  potentiometer: 'Variable resistor — twist to change value',
+  motor:         'DC motor — spins when powered',
+  timer555:      '555 timer — generates repeating pulses',
+  inductor:      'Coil — resists current changes',
+  arduino:       'Microcontroller — runs your sketch',
+  schottky:      'Fast diode — low forward voltage drop',
+  zener:         'Voltage-clamp diode',
+  opamp:         'Amplifies voltage differences',
+  wire:          'Connects two pins',
+};
 ```
 
-Use red (#ff6b6b) for + and blue (#6b9fff) for −.
+## Part 2: Update ComponentTile
 
-### Toggle
+In `components/sidebar/ComponentTile.tsx`, add an optional `description` prop:
 
-Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
-Add a setter `setShowPolarityLabels`.
+```tsx
+interface Props {
+  type: ComponentType | 'wire';
+  label: string;
+  icon: React.ReactNode;
+  tooltip?: string;
+  description?: string;   // ← new
+  onAdd?: () => void;
+}
+```
 
-Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
+Change the button's inner layout to support a stacked label + description:
 
-Add `P` key handler in `components/KeyboardShortcuts.tsx`.
+Replace the current inner structure with:
+```tsx
+<div className="flex items-center gap-2.5 w-full min-w-0">
+  <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-sm">
+    {icon}
+  </span>
+  <div className="flex flex-col min-w-0 flex-1">
+    <span className="leading-none text-[13px] text-[#c8c8d0] group-hover:text-white">{label}</span>
+    {description && (
+      <span className="text-[10px] text-white/28 leading-tight truncate mt-0.5">{description}</span>
+    )}
+  </div>
+</div>
+```
 
-Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
+Add `group` to the button's className so the label hover works:
+```tsx
+className={`group flex items-center w-full px-3 py-2 rounded-md text-left
+             transition-colors duration-100
+             cursor-grab active:cursor-grabbing
+             hover:bg-white/[0.08] active:bg-white/[0.12]
+             focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none
+             ${isHighlighted ? 'ring-1 ring-[#7c6fff]/70 animate-pulse' : ''}`}
+```
 
-### Important notes
-- `Text` from `@react-three/drei` is already used in the project — import from there
-- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
-- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
-- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
+Note: remove `gap-2.5` from the button className since the inner div now handles it.
+
+## Part 3: Pass description from Sidebar.tsx
+
+In `components/sidebar/Sidebar.tsx`, import `PART_DESCRIPTIONS`:
+```tsx
+import { PART_DESCRIPTIONS } from '@/constants/partDescriptions';
+```
+
+For every `<ComponentTile>` rendering, add:
+```tsx
+description={PART_DESCRIPTIONS[componentType]}
+```
+
+Read `Sidebar.tsx` fully to find all ComponentTile usages and add the prop to each.
+
+## Important notes
+- Keep descriptions short (≤5 words) — they truncate on one line
+- TypeScript: `PART_DESCRIPTIONS[x]` returns `string | undefined` → compatible with `description?: string`
+- Do NOT change the tile height significantly — descriptions are `text-[10px]` and very compact
+- Do NOT modify `uiStore.ts`, `Toolbar.tsx`, or any canvas files — this is sidebar-only
 
 Run `pnpm build` — must pass with zero errors.
