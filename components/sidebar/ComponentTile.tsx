@@ -6,12 +6,14 @@ interface Props {
   type: ComponentType | 'wire';
   label: string;
   icon: React.ReactNode;
+  tooltip?: string;
   onAdd?: () => void;
 }
 
-export default function ComponentTile({ label, icon, onAdd }: Props) {
+export default function ComponentTile({ label, icon, tooltip, onAdd }: Props) {
   return (
     <button
+      title={tooltip ?? label}
       onClick={onAdd}
       className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left
                  transition-colors duration-100

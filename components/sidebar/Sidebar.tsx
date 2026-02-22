@@ -163,22 +163,22 @@ function SchematicIcon({ active }: { active: boolean }) {
 }
 
 // ── Component catalogue (beginner-first order) ────────────────────────────────
-const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode }[] = [
-  { type: 'battery',       label: 'Battery',           icon: <Battery /> },
-  { type: 'wire',          label: 'Wire',              icon: <WireIcon /> },
-  { type: 'resistor',      label: 'Resistor',          icon: <Rect fill="#c8a060" /> },
-  { type: 'led',           label: 'LED',               icon: <LED /> },
-  { type: 'capacitor',     label: 'Capacitor',         icon: <Circle fill="#4488cc" /> },
-  { type: 'bjt',           label: 'NPN Transistor',    icon: <BJT /> },
-  { type: 'timer555',      label: '555 Timer',         icon: <Timer555 /> },
-  { type: 'motor',         label: 'Motor',             icon: <Motor /> },
-  { type: 'tactileSwitch', label: 'Tactile Switch',    icon: <Circle fill="#666" /> },
-  { type: 'diode',         label: 'Diode',             icon: <Diode /> },
-  { type: 'mosfet',        label: 'MOSFET',            icon: <MOSFET /> },
-  { type: 'opamp',         label: 'Op-Amp',            icon: <OpAmp /> },
-  { type: 'inductor',      label: 'Inductor',          icon: <Inductor /> },
-  { type: 'potentiometer', label: 'Potentiometer',     icon: <Potentiometer /> },
-  { type: 'arduino',       label: 'Arduino Uno',       icon: <Arduino /> },
+const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode; tooltip: string }[] = [
+  { type: 'battery',       label: 'Battery',        tooltip: 'DC voltage source (1.5–30V). Powers your circuit.', icon: <Battery /> },
+  { type: 'wire',          label: 'Wire',           tooltip: 'Connect two pins. Click any pin to start.', icon: <WireIcon /> },
+  { type: 'resistor',      label: 'Resistor',       tooltip: 'Limits current flow. Set resistance in Ω.', icon: <Rect fill="#c8a060" /> },
+  { type: 'led',           label: 'LED',            tooltip: 'Light-Emitting Diode. Glows when current flows.', icon: <LED /> },
+  { type: 'capacitor',     label: 'Capacitor',      tooltip: 'Stores charge. Blocks DC, passes AC.', icon: <Circle fill="#4488cc" /> },
+  { type: 'bjt',           label: 'NPN Transistor', tooltip: 'Bipolar transistor: amplifier or switch.', icon: <BJT /> },
+  { type: 'timer555',      label: '555 Timer',      tooltip: 'Generates square waves. Set frequency via R1, R2, C.', icon: <Timer555 /> },
+  { type: 'motor',         label: 'Motor',          tooltip: 'DC hobby motor. Spins when voltage is applied.', icon: <Motor /> },
+  { type: 'tactileSwitch', label: 'Tactile Switch', tooltip: 'Momentary push-button switch. Toggle in inspector.', icon: <Circle fill="#666" /> },
+  { type: 'diode',         label: 'Diode',          tooltip: 'Allows current in one direction only (1N4148).', icon: <Diode /> },
+  { type: 'mosfet',        label: 'MOSFET',         tooltip: 'Voltage-controlled switch. Gate controls drain-source.', icon: <MOSFET /> },
+  { type: 'opamp',         label: 'Op-Amp',         tooltip: 'Operational amplifier. Amplifies voltage difference.', icon: <OpAmp /> },
+  { type: 'inductor',      label: 'Inductor',       tooltip: 'Stores energy in magnetic field. Opposes current change.', icon: <Inductor /> },
+  { type: 'potentiometer', label: 'Potentiometer',  tooltip: 'Variable resistor. Wiper position sets output voltage.', icon: <Potentiometer /> },
+  { type: 'arduino',       label: 'Arduino Uno',    tooltip: 'ATmega328P microcontroller. Upload sketches to run code.', icon: <Arduino /> },
 ];
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -241,9 +241,10 @@ export default function Sidebar() {
           {PARTS.map((p) => (
             <ComponentTile
               key={`${p.type}-${p.label}`}
-              type={p.type as ComponentType}
+              type={p.type}
               label={p.label}
               icon={p.icon}
+              tooltip={p.tooltip}
               onAdd={
                 p.type === 'wire'
                   ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
