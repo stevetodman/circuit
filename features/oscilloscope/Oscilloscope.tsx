@@ -59,7 +59,9 @@ export default function Oscilloscope({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const channelsRef = useRef<Channel[]>(channels);
   const autoScaleRef = useRef(false);
+  const timeWindowRef = useRef(1000);
   const [autoScale, setAutoScale] = useState(false);
+  const [timeWindow, setTimeWindow] = useState<number>(1000);
   const [addingChannel, setAddingChannel] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [invalidInput, setInvalidInput] = useState(false);
@@ -80,6 +82,10 @@ export default function Oscilloscope({
   const hoveredNetId  = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
   );
+
+  useEffect(() => {
+    timeWindowRef.current = timeWindow;
+  }, [timeWindow]);
 
   useEffect(() => {
     if (addingChannel) {
@@ -158,7 +164,11 @@ export default function Oscilloscope({
     const t = (px - plotLeft) / plotWidth;
     const readings = channelsRef.current
       .map((ch) => {
-        const samples = getSamples(ch.netId);
+        const rawSamples = getSamples(ch.netId);
+        const samples =
+          rawSamples.length > timeWindowRef.current
+            ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
+            : rawSamples;
         if (samples.length === 0) return null;
         const idx = Math.min(Math.round(t * (samples.length - 1)), samples.length - 1);
         return { netId: ch.netId, color: ch.color, voltage: samples[idx] };
@@ -225,7 +235,11 @@ export default function Oscilloscope({
         let max = Number.NEGATIVE_INFINITY;
 
         for (const channel of channelsRef.current) {
-          const samples = getSamples(channel.netId);
+          const rawSamples = getSamples(channel.netId);
+          const samples =
+            rawSamples.length > timeWindowRef.current
+              ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
+              : rawSamples;
           for (let i = 0; i < samples.length; i++) {
             const value = samples[i];
             if (value < min) min = value;
@@ -265,7 +279,11 @@ export default function Oscilloscope({
 
       // draw traces
       for (const channel of channelsRef.current) {
-        const samples = getSamples(channel.netId);
+        const rawSamples = getSamples(channel.netId);
+        const samples =
+          rawSamples.length > timeWindowRef.current
+            ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
+            : rawSamples;
         if (samples.length === 0) continue;
 
         const xStep = samples.length > 1 ? plot.width / (samples.length - 1) : plot.width;
@@ -332,6 +350,10 @@ export default function Oscilloscope({
         onMouseMove={handleCanvasMouseMove}
         onMouseLeave={handleCanvasMouseLeave}
       />
+      <div className="absolute left-0 right-0 bottom-0 z-10 text-[9px] font-mono text-white/25 text-center mt-0.5 pointer-events-none">
+        {timeWindow < 1000 ? `${timeWindow}ms` : `${timeWindow / 1000}s`} window ·{' '}
+        {(timeWindow / 10).toFixed(0)}ms/div
+      </div>
 
       <div className="absolute left-2 top-1.5 z-10 flex flex-col gap-1">
         {channels.map((channel, i) => {
@@ -391,6 +413,20 @@ export default function Oscilloscope({
         >
           {frozen ? '▶' : '⏸'}
         </button>
+        {[50, 200, 1000, 4000].map((ms) => (
+          <button
+            key={ms}
+            type="button"
+            onClick={() => setTimeWindow(ms)}
+            className={`text-[9px] font-mono px-1 py-0.5 rounded transition-colors ${
+              timeWindow === ms
+                ? 'bg-violet-500/25 text-violet-300'
+                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+            }`}
+          >
+            {ms < 1000 ? `${ms}ms` : `${ms / 1000}s`}
+          </button>
+        ))}
         <button
           onClick={() => setAutoScale((prev) => !prev)}
           className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${autoScale ? 'border-cyan-300 text-cyan-200' : 'border-white/20 text-white/65'}`}
