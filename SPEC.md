@@ -1,91 +1,130 @@
-# SPEC: Schematic View — Manual Component Drag
+# SPEC: Additional Example Circuits
 
 ## Goal
-Allow users to drag components in the schematic SVG overlay to reposition them.
-ELK auto-layout runs first; manual overrides persist until the circuit changes.
+Add 4 new example circuits to `features/examples/circuits.ts`.
+All examples must be self-contained, buildable, and simulate correctly.
 Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## Architecture
+## Study the existing code first
 
-### State: schematicStore.ts
-In `store/schematicStore.ts`, add:
-```typescript
-manualPositions: Record<string, { x: number; y: number }>;  // componentId → {x,y}
-setManualPosition(id: string, x: number, y: number): void;
-clearManualPositions(): void;
-```
-`clearManualPositions()` is called when a new circuit is loaded (topology changes).
+Read `features/examples/circuits.ts` in full before writing anything.
+Pay attention to:
+- How `topNodeId(col, row)` is used (row 1–5 = top half, row 6–10 = bottom half)
+- How `CENTER_COL` is used (typically 32)
+- How components and wires are defined
+- The export structure at the bottom
 
-### SchematicLayout.ts
-In `features/schematic/SchematicLayout.ts`:
-- After ELK layout, merge manual positions: for each component, if `manualPositions[id]` exists,
-  override the ELK-computed x/y with the manual position.
-- Clear manual positions when the netlist hash changes (topology changed).
-
-### SchematicView.tsx
-In `features/schematic/SchematicView.tsx`:
-
-Each component group `<g>` is currently rendered at the ELK-computed position.
-Add drag event handlers to each component group:
-
-```tsx
-const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; startSVGX: number; startSVGY: number } | null>(null);
-
-// On component <g>:
-onMouseDown={(e) => {
-  e.stopPropagation();
-  // Get SVG coordinates
-  const svgRect = svgRef.current!.getBoundingClientRect();
-  const svgX = (e.clientX - svgRect.left) * (SVG_WIDTH / svgRect.width);
-  const svgY = (e.clientY - svgRect.top) * (SVG_HEIGHT / svgRect.height);
-  setDragging({ id: comp.id, startX: pos.x, startY: pos.y, startSVGX: svgX, startSVGY: svgY });
-}}
-```
-
-On SVG `onMouseMove` (capture at SVG level):
-```tsx
-if (dragging) {
-  const svgX = /* compute svg coords from e.clientX */;
-  const svgY = /* compute svg coords from e.clientY */;
-  const dx = svgX - dragging.startSVGX;
-  const dy = svgY - dragging.startSVGY;
-  setManualPosition(dragging.id, dragging.startX + dx, dragging.startY + dy);
-}
-```
-
-On SVG `onMouseUp`:
-```tsx
-setDragging(null);
-```
-
-### Visual affordances
-- When hovering a component group, change cursor to `grab`
-- While dragging, change cursor to `grabbing`
-- Add a subtle drag handle icon (⠿) in the top-left corner of each component bounding box
-  (small, only visible on hover)
-- The dragged component should render on top (use SVG rendering order — render dragging component last)
-
-### Wire routing
-Wires in the schematic connect component terminals. After a drag, the wire routes should
-update to follow the component's new position. Since wires are rendered based on terminal
-positions (computed from component x/y + SYMBOL_TERMINALS offsets), they will automatically
-update when the component position changes.
+Also read `store/circuitStore.ts` to understand `PlacedComponent` shape and valid component types.
 
 ---
 
-## Reset
-- Add a "Reset Layout" button in the schematic overlay toolbar
-- Clicking it calls `clearManualPositions()` and re-runs ELK layout
-- Place it near the existing close button (top-right of schematic overlay)
+## Example 1: BJT Common-Emitter Switch
+
+Name: `'bjt-switch'`
+Description: "NPN transistor as a digital switch — base resistor controls LED via collector"
+
+Circuit:
+- VCC (9V) battery: top terminal to top rail
+- Base resistor (10kΩ): from top rail col ~20 to base pin of NPN
+- NPN BJT (2N2222 or generic):
+  - Base: connected to base resistor
+  - Collector: connected to LED anode (through 470Ω collector resistor from VCC)
+  - Emitter: connected to GND
+- Collector resistor (470Ω): between VCC rail and collector
+- LED: collector → LED anode, LED cathode → GND
+- GND rail connected to bottom of battery
+
+This demonstrates: transistor as a switch, base current controls collector current.
+
+## Example 2: RC Low-Pass Filter
+
+Name: `'rc-filter'`
+Description: "RC low-pass filter — capacitor smooths voltage changes"
+
+Circuit:
+- VCC battery (5V) left side
+- Resistor (10kΩ) in series from VCC
+- Capacitor (100µF) from resistor output to GND
+- The output node (junction of R and C) is the filtered output
+
+This demonstrates: how capacitors resist voltage changes, RC time constant.
+
+## Example 3: H-Bridge Motor Driver
+
+Name: `'h-bridge'`
+Description: "H-bridge motor control — two switches control motor direction"
+
+Circuit:
+- VCC (9V) battery
+- Two tactile switches (top switches of H-bridge): S1 from VCC to motor+, S2 from VCC to motor-
+- Two more switches or wire connections (bottom): motor+ to GND, motor- to GND
+- Motor in center
+
+Note: Since we only have one motor component, simplify to a half-H-bridge:
+- Switch S1: VCC → Motor+
+- Motor+ → Motor terminal A
+- Motor terminal B → GND via second switch S2
+- When S1 closed and S2 closed: motor runs
+
+## Example 4: Voltage Divider with Potentiometer
+
+Name: `'pot-voltage-divider'`
+Description: "Potentiometer as adjustable voltage divider — wiper picks off variable voltage"
+
+Circuit:
+- VCC (5V) battery
+- Potentiometer: terminal A to VCC, terminal B to GND, wiper = 0.5 (midpoint = 2.5V)
+- LED + 220Ω resistor from wiper to GND (to visualize the wiper voltage)
+
+This is similar to pot-dimmer but framed as a teaching circuit about voltage dividers.
+
+---
+
+## Code Pattern
+
+Follow this exact pattern from existing examples:
+
+```typescript
+export const MY_EXAMPLE: ExampleCircuit = {
+  id: 'my-example',
+  name: 'My Example',
+  description: 'What this teaches',
+  components: [
+    {
+      id: 'c1',
+      type: 'battery',
+      props: { voltage: 9 },
+      nodes: { positive: topNodeId(CENTER_COL - 10, 1), negative: topNodeId(CENTER_COL - 10, 2) },
+    },
+    // ...
+  ],
+  wires: [
+    { id: 'w1', from: topNodeId(X1, Y1), to: topNodeId(X2, Y2) },
+    // ...
+  ],
+};
+```
+
+Add each new example to the `EXAMPLE_CIRCUITS` array at the bottom of the file.
+
+---
+
+## ExampleLoader.tsx
+
+In `features/examples/ExampleLoader.tsx`:
+- The new examples should automatically appear in the dropdown since they're added to EXAMPLE_CIRCUITS
+- No changes needed here unless the dropdown needs grouping
 
 ---
 
 ## Implementation Notes
 
-- Do NOT add new npm dependencies
-- Touch only `features/schematic/`, `store/schematicStore.ts`
-- Manual positions should survive component property changes but clear on add/remove component
-- Do not add undo/redo for drag — too complex
+- Read the file first — understand the node ID system before writing any code
+- Keep circuits simple and educational — they're for beginners
+- Make sure all wire connections form valid paths (from valid nodeId to valid nodeId)
+- Do NOT add new component types — use only existing types
 - Run `pnpm build` — fix all TypeScript errors
+- Valid component types: battery, resistor, led, capacitor, diode, bjt, mosfet, switch,
+  potentiometer, motor, timer555, inductor, arduino, schottky, zener
