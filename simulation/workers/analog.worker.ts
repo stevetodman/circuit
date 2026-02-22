@@ -48,14 +48,16 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
     const result  = solveDC(netlist);
 
     voltageView.fill(0);
-    branchCurrentView.fill(0);
+    branchCurrentView?.fill(0);
 
     if (result) {
       const voltageLen = Math.min(result.voltages.length, MAX_NETS);
       for (let i = 0; i < voltageLen; i++) voltageView[i] = result.voltages[i];
 
       const branchLen = Math.min(result.branchCurrents.length, MAX_BRANCHES);
-      for (let i = 0; i < branchLen; i++) branchCurrentView[i] = result.branchCurrents[i];
+      if (branchCurrentView) {
+        for (let i = 0; i < branchLen; i++) branchCurrentView[i] = result.branchCurrents[i];
+      }
 
       if (timestampView) {
         timestampView[0] = performance.now();

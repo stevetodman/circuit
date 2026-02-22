@@ -37,7 +37,7 @@ Main Thread (React + R3F)
 [MAX_NETS*4 .. MAX_NETS*5-1]     Uint8Array    — digital HIGH/LOW per net
 [MAX_NETS*5 .. MAX_NETS*5+MAX_BRANCHES*4-1]  Float32Array  — branch currents (A)
 [end-8]                          Float64Array  — simulation timestamp
-MAX_NETS = 256, MAX_BRANCHES = 512
+MAX_NETS = 256, MAX_BRANCHES = 256
 ```
 
 `SimBridge.ts` exports module-level typed arrays. On mount, `SimController` calls `init(sab)` to replace them with SAB-backed views. Workers receive the SAB via postMessage and create their own typed views.

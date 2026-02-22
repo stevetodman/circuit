@@ -45,7 +45,7 @@ export function buildNetlist(
         const netB = pinNet(comp, 'p2');
         if (netA == null || netB == null || netA === netB) break;
         const R = typeof props.resistance === 'number' ? props.resistance : 1000;
-        const element = { id: comp.id, kind: 'resistor', netA, netB, value: R };
+        const element: NetlistElement = { id: comp.id, kind: 'resistor', netA, netB, value: R };
         elements.push(element);
         branchElements.push(element);
         break;
@@ -56,7 +56,7 @@ export function buildNetlist(
         const netB = pinNet(comp, 'neg'); // negative terminal
         if (netA == null || netB == null || netA === netB) break;
         const V = typeof props.voltage === 'number' ? props.voltage : 9;
-        const element = { id: comp.id, kind: 'vsource', netA, netB, value: V };
+        const element: NetlistElement = { id: comp.id, kind: 'vsource', netA, netB, value: V };
         elements.push(element);
         branchElements.push(element);
         break;

@@ -15,6 +15,7 @@ import {
   SAB_VOLTAGE_OFFSET,
   SAB_DIGITAL_OFFSET,
   SAB_CURRENT_OFFSET,
+  SAB_TIMESTAMP_OFFSET,
 } from '@/types/circuit';
 
 // Default to regular (non-SAB) zero arrays before init — safe to read
