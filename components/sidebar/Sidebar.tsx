@@ -2,6 +2,7 @@
 
 import ComponentTile from './ComponentTile';
 import type { ComponentType } from '@/types/circuit';
+import { useDragStore } from '@/store/dragStore';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function Rect({ fill }: { fill: string }) {
@@ -104,6 +105,8 @@ const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNod
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 export default function Sidebar() {
+  const startDrag = useDragStore((state) => state.startDrag);
+
   return (
     <aside
       className="flex flex-col h-full select-none"
@@ -145,7 +148,11 @@ export default function Sidebar() {
               type={p.type as ComponentType}
               label={p.label}
               icon={p.icon}
-              onAdd={() => console.log('[Circuit] Queue add:', p.type)}
+              onAdd={
+                p.type === 'wire'
+                  ? undefined
+                  : () => startDrag(p.type as ComponentType)
+              }
             />
           ))}
         </div>

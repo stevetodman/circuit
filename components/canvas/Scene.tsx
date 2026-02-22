@@ -1,11 +1,15 @@
 'use client';
 
-import { Component, type ReactNode } from 'react';
+import { Component, type ReactNode, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Breadboard from './Breadboard';
 import PinGrid from './Pin';
 import WireLayer from './WireLayer';
+import DragManager from './DragManager';
+import ComponentRenderer from './parts/ComponentRenderer';
+import { useCircuitStore } from '@/store/circuitStore';
+import { PIN_TEMPLATES } from '@/types/circuit';
 
 const CANVAS_BG = 'linear-gradient(155deg, #f9f7ff 0%, #ede8f8 55%, #e8ecf8 100%)';
 
@@ -31,6 +35,9 @@ class SceneErrorBoundary extends Component<
 }
 
 export default function Scene() {
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const components = useCircuitStore((state) => Object.values(state.components));
+
   return (
     <SceneErrorBoundary>
       <Canvas
@@ -48,6 +55,22 @@ export default function Scene() {
         <Breadboard />
         <WireLayer />
         <PinGrid />
+        <DragManager />
+
+        {/* Placed components */}
+        {components.map((component) => (
+          <ComponentRenderer
+            key={component.id}
+            type={component.type}
+            anchorPos={component.anchorPos}
+            pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
+            selected={selectedComponentId === component.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedComponentId((prev) => (prev === component.id ? null : component.id));
+            }}
+          />
+        ))}
 
         {/* Orbit camera */}
         <OrbitControls
