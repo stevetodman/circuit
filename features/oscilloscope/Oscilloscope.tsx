@@ -19,6 +19,7 @@ const DEFAULT_Y_MAX = 15;
 const H_DIVISIONS = 10;
 const V_DIVISIONS = 8;
 const MARGIN = { left: 34, right: 8, top: 24, bottom: 18 };
+const BUFFER_SIZE = SCOPE_SAMPLES;
 
 function drawGrid(
   ctx: CanvasRenderingContext2D,
@@ -124,6 +125,20 @@ export default function Oscilloscope({
       }
 
       const valueRange = yMax - yMin || 1;
+      const minV = yMin;
+      const maxV = yMax;
+
+      // Y-axis labels (left side)
+      const labelCount = 5;
+      const voltageRange = maxV - minV;
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= labelCount; i++) {
+        const v = minV + (voltageRange * i) / labelCount;
+        const y = plot.top + plot.height - (plot.height * i) / labelCount;
+        ctx.fillText(`${v.toFixed(1)}V`, 38, y + 3);
+      }
 
       // draw traces
       for (const channel of channelsRef.current) {
@@ -159,6 +174,10 @@ export default function Oscilloscope({
         : `samples: 0/${SCOPE_SAMPLES}`;
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.fillText(sampleText, PANEL_WIDTH - ctx.measureText(sampleText).width - 8, PANEL_HEIGHT - 6);
+
+      // X-axis: show sample count
+      ctx.textAlign = 'center';
+      ctx.fillText(`← ${BUFFER_SIZE} samples →`, PANEL_WIDTH / 2, PANEL_HEIGHT - 2);
 
       window.requestAnimationFrame(render);
     };

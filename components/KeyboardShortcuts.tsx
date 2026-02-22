@@ -54,6 +54,13 @@ export default function KeyboardShortcuts() {
 
       if (isInputFocused()) return;
 
+      // Show help
+      if (key === '?') {
+        e.preventDefault();
+        useUIStore.getState().toggleHelp();
+        return;
+      }
+
       // Delete selected
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
@@ -117,12 +124,12 @@ export default function KeyboardShortcuts() {
     rotateDrag,
     selectedComponentId,
     selectNode,
-    selectComponent,
-    cancelDrag,
-    toggleSchematic,
-    requestZoomToFit,
-    requestCameraPreset,
-  ]);
+      selectComponent,
+      cancelDrag,
+      toggleSchematic,
+      requestZoomToFit,
+      requestCameraPreset,
+    ]);
 
   return null;
 }
