@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCircuitStore, pausePropertyUndo, resumePropertyUndo } from '@/store/circuitStore';
 import { voltageView } from '@/simulation/SimBridge';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
+import { useScopeStore } from '@/store/scopeStore';
 
 // ── Property field definitions per component type ─────────────────────────────
 interface NumericField {
@@ -465,6 +466,8 @@ function Inspector({ component }: { component: PlacedComponent }) {
   const setProperty    = useCircuitStore((s) => s.setProperty);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const deleteSelected  = useCircuitStore((s) => s.deleteSelected);
+  const nodes = useCircuitStore((s) => s.nodes);
+  const channels = useScopeStore((s) => s.channels);
 
   const fields = PROP_DEFS[component.type] ?? [];
   const typeLabel = TYPE_LABELS[component.type] ?? component.type;
@@ -597,7 +600,35 @@ function Inspector({ component }: { component: PlacedComponent }) {
             {component.pins.map((pin) => (
               <div key={pin.name} className="flex justify-between text-[10px] font-mono">
                 <span className="text-white/30">{pin.name}</span>
-                <span className="text-white/20">{pin.nodeId}</span>
+                {(() => {
+                  const netId = nodes[pin.nodeId]?.netId ?? null;
+                  const isInScope = netId != null && channels.some((ch) => ch.netId === netId);
+                  const isDisabled = netId == null || channels.length >= 4;
+
+                  return (
+                    <span className="text-white/20 inline-flex items-center">
+                      <span>{pin.nodeId}</span>
+                      {netId != null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const SCOPE_COLORS = ['#7c6fff', '#4ecdc4', '#ff6b6b', '#ffd93d'];
+                            const usedCount = useScopeStore.getState().channels.length;
+                            useScopeStore.getState().addChannel(
+                              netId,
+                              SCOPE_COLORS[usedCount % SCOPE_COLORS.length],
+                            );
+                          }}
+                          title="Add to oscilloscope"
+                          disabled={isDisabled}
+                          className={`ml-1 text-[10px] transition-opacity ${isInScope ? 'opacity-90 text-[#7c6fff]' : 'opacity-35 hover:opacity-80'}`}
+                        >
+                          📊
+                        </button>
+                      )}
+                    </span>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -1,64 +1,77 @@
-# SPEC: Polarity Labels on Component Pins
+# SPEC: Oscilloscope UX — Pin-click "Add to Scope"
 
-Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
-This is a top beginner pain point — they can't tell which end is which.
+Right now adding a net to the oscilloscope requires: open scope → click + → know the net ID number.
+This is confusing. Fix it: add an "Add to Scope" button next to each pin in the PropertiesInspector.
 
 ## Read First
-- `components/canvas/parts/LED.tsx` — see how a part component is structured
-- `components/canvas/parts/Battery.tsx` — another example
-- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
-- The Three.js/R3F layer. All canvas code is SSR-disabled.
-- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
+- `components/sidebar/PropertiesInspector.tsx` — understand pin display, live readings, component selection
+- `store/scopeStore.ts` — addChannel(netId, color), channels[], removeChannel
+- `features/oscilloscope/Oscilloscope.tsx` — understand channel display, colors
 
-## Implementation
+## Part 1: "Add to Scope" button per pin in PropertiesInspector
 
-Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
+In `components/sidebar/PropertiesInspector.tsx`, find where pins are displayed (the live V/I readings section).
 
-### Where to add
-
-In `components/canvas/parts/LED.tsx`:
-- Add a "+" label above the anode pin (pos side)
-- Add a "−" label above the cathode pin (neg side)
-- Position: slightly above the pin, y=0.12, at the pin's x/z offset
-
-In `components/canvas/parts/Battery.tsx`:
-- Add "+" above the positive terminal
-- Add "−" above the negative terminal
-
-In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
-- For capacitor (polarized): add "+" on one side if it exists
-
-### Label style
+For each pin that has a valid `netId` (not null), add a small "📊" button beside it:
 ```tsx
-<Text
-  position={[xOffset, 0.12, zOffset]}
-  fontSize={0.08}
-  color={isPositive ? '#ff6b6b' : '#6b9fff'}
-  anchorX="center"
-  anchorY="middle"
-  renderOrder={10}
+<button
+  type="button"
+  onClick={() => {
+    const SCOPE_COLORS = ['#7c6fff', '#4ecdc4', '#ff6b6b', '#ffd93d'];
+    const usedCount = useScopeStore.getState().channels.length;
+    useScopeStore.getState().addChannel(netId, SCOPE_COLORS[usedCount % SCOPE_COLORS.length]);
+  }}
+  title="Add to oscilloscope"
+  className="ml-1 text-[10px] opacity-40 hover:opacity-90 transition-opacity"
 >
-  {isPositive ? '+' : '−'}
-</Text>
+  📊
+</button>
 ```
 
-Use red (#ff6b6b) for + and blue (#6b9fff) for −.
+Import `useScopeStore` from `@/store/scopeStore`.
 
-### Toggle
+Check if this pin's netId is already in scope; if so, show a filled/active style instead:
+```tsx
+const channels = useScopeStore((s) => s.channels);
+const isInScope = channels.some((ch) => ch.netId === netId);
+// Style: isInScope → opacity-90 text-[#7c6fff], else → opacity-35 hover:opacity-80
+```
 
-Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
-Add a setter `setShowPolarityLabels`.
+Read `PropertiesInspector.tsx` fully to find the exact pin listing section and integrate naturally.
+The pins section shows live voltage readings — the add-to-scope button belongs right there.
 
-Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
+## Part 2: Show channel voltage in scope header
 
-Add `P` key handler in `components/KeyboardShortcuts.tsx`.
+In `features/oscilloscope/Oscilloscope.tsx`, each channel row shows a color swatch and net ID.
 
-Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
+Read the file. Find the channel row rendering. Import `voltages` from `@/simulation/SimBridge`.
+Add live voltage text next to each channel row using a `useRef` + direct DOM update in the existing
+animation/RAF loop. Find where the canvas draws and add:
 
-### Important notes
-- `Text` from `@react-three/drei` is already used in the project — import from there
-- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
-- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
-- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
+```tsx
+// Simple approach: show voltage in the channel label as static React state
+// Add a state: const [liveV, setLiveV] = useState<number[]>([]);
+// In the existing requestAnimationFrame loop (or useEffect), update liveV
+// Then render: <span>{liveV[i] !== undefined ? `${liveV[i].toFixed(2)}V` : ''}</span>
+```
+
+Look at the existing code — it may already have a RAF loop for drawing. Add the voltage readout there.
+
+## Part 3: "Clear all channels" button in oscilloscope
+
+In `store/scopeStore.ts`, add `clearChannels: () => void`:
+```ts
+clearChannels: () => set({ channels: [] }),
+```
+Also clear the ring buffers — look at how `removeChannel` clears its buffer, do the same for all.
+
+In `features/oscilloscope/Oscilloscope.tsx`, add a small "✕ all" button in the scope header.
+Read the file to find the header and add it next to the close button.
+
+## Important notes
+- Import `useScopeStore` with individual selectors (NOT inline objects) to avoid React 18 crashes
+- `PropertiesInspector.tsx` uses `voltageView` (Float32Array from SimBridge) — the scopeStore uses `netId`
+- Max 4 scope channels already enforced by scopeStore — when `channels.length >= 4`, disable add button
+- The `addChannel` action already exists in scopeStore — just call it with the right netId + color
 
 Run `pnpm build` — must pass with zero errors.
