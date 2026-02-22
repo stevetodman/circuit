@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
 import ArduinoPanel from './ArduinoPanel';
@@ -234,10 +234,17 @@ export default function Sidebar() {
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
   const newCircuit = useCircuitStore((s) => s.newCircuit);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
+  const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'parts' | 'learn'>('parts');
+  const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (arduinoTabRequested > 0) {
+      setTab('arduino');
+    }
+  }, [arduinoTabRequested]);
 
   return (
     <aside
@@ -318,6 +325,17 @@ export default function Sidebar() {
         >
           Learn
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('arduino')}
+          className={`flex-1 text-[11px] py-2 font-semibold transition-colors ${
+            tab === 'arduino'
+              ? 'bg-white/[0.05] text-white'
+              : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+          }`}
+        >
+          Arduino
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -375,18 +393,19 @@ export default function Sidebar() {
                 ))}
               </div>
             </>
-          ) : (
+          ) : tab === 'learn' ? (
             <div className="overflow-y-auto">
               <LearnPanel />
+            </div>
+          ) : (
+            <div className="overflow-y-auto">
+              <ArduinoPanel />
             </div>
           )}
         </div>
 
         {/* ── Properties Inspector (shown when a component is selected) ── */}
         <PropertiesInspector />
-
-        {/* ── Arduino panel (shown when Arduino is selected) ── */}
-        <ArduinoPanel />
 
         {/* ── New Circuit (inline confirm) ── */}
         <div className="px-2 pt-2 pb-1 border-t border-white/[0.06]">

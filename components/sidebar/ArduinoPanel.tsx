@@ -62,9 +62,10 @@ export default function ArduinoPanel() {
   const [hexText,   setHexText]   = useState('');
   const [hexName,   setHexName]   = useState<string | null>(null);
   const [cycleCount,setCycleCount]= useState(0);
+  const [userScrolled, setUserScrolled] = useState(false);
   const serialOutput = useUIStore((s) => s.serialOutput);
   const clearSerialOutput = useUIStore((s) => s.clearSerialOutput);
-  const serialMonitorRef = useRef<HTMLPreElement | null>(null);
+  const serialRef = useRef<HTMLPreElement | null>(null);
 
   // Derive whether we are looking at an Arduino component
   const component = selectedId ? components[selectedId] : null;
@@ -158,9 +159,17 @@ export default function ArduinoPanel() {
   }, [sab, addToast, buildPinMap]);
 
   useEffect(() => {
-    if (!serialMonitorRef.current) return;
-    serialMonitorRef.current.scrollTop = serialMonitorRef.current.scrollHeight;
-  }, [serialOutput]);
+    if (!userScrolled && serialRef.current) {
+      serialRef.current.scrollTop = serialRef.current.scrollHeight;
+    }
+  }, [serialOutput, userScrolled]);
+
+  const handleScroll = () => {
+    const el = serialRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 10;
+    setUserScrolled(!isAtBottom);
+  };
 
   const pause = useCallback(() => {
     workerRef.current?.postMessage({ type: 'PAUSE' });
@@ -255,7 +264,7 @@ export default function ArduinoPanel() {
       )}
 
       {/* Serial monitor */}
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 relative">
         <div className="flex items-center justify-between">
           <p className="text-[9px] text-white/25 uppercase tracking-widest">Serial Monitor</p>
           <button
@@ -266,13 +275,26 @@ export default function ArduinoPanel() {
           </button>
         </div>
         <pre
-          ref={serialMonitorRef}
+          ref={serialRef}
           className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 h-40 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap"
+          onScroll={handleScroll}
         >
           {serialOutput.length > 0
             ? serialOutput
             : 'No serial output yet. Upload a sketch with Serial.print().'}
         </pre>
+        {userScrolled && (
+          <button
+            type="button"
+            onClick={() => {
+              setUserScrolled(false);
+              if (serialRef.current) serialRef.current.scrollTop = serialRef.current.scrollHeight;
+            }}
+            className="absolute bottom-2 right-2 bg-white/10 hover:bg-white/20 text-white/60 text-[10px] px-1.5 py-0.5 rounded"
+          >
+            ↓ latest
+          </button>
+        )}
       </div>
     </div>
   );

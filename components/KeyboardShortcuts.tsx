@@ -73,6 +73,12 @@ export default function KeyboardShortcuts() {
       if (meta && key === 'a') { e.preventDefault(); selectAll(); return; }
       if (meta && key === 'd') { e.preventDefault(); copySelected(); pasteClipboard(); return; }
 
+      if (!meta && key === 'a') {
+        e.preventDefault();
+        useUIStore.getState().requestArduinoTab();
+        return;
+      }
+
       // Show help
       if (key === '?') {
         e.preventDefault();
