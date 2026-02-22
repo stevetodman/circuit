@@ -1,43 +1,63 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { EXAMPLE_CIRCUITS, type ExampleCircuit } from '@/features/examples/circuits';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { clearChannel } from '@/features/oscilloscope/scopeBuffer';
 
 export default function ExampleLoader() {
+  const searchParams = useSearchParams();
   const loadExample = useCircuitStore((state) => state.loadExample);
   const components  = useCircuitStore((state) => state.components);
   const wires       = useCircuitStore((state) => state.wires);
   const scopeChannels = useScopeStore((state) => state.channels);
   const removeScopeChannel = useScopeStore((state) => state.removeChannel);
-  const [selectedIndex, setSelectedIndex] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [pendingCircuit, setPendingCircuit] = useState<ExampleCircuit | null>(null);
+  const lastAutoloadRef = useRef<string | null>(null);
 
-  const onChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const index = event.target.value;
-    setSelectedIndex(index);
-
-    if (!index) return;
-
-    // Confirm before overwriting a non-empty circuit
-    const hasContent = Object.keys(components).length > 0 || Object.keys(wires).length > 0;
-    if (hasContent) {
-      if (!window.confirm('Load example? This will clear your current circuit.')) {
-        setSelectedIndex('');
-        return;
-      }
-    }
-
+  const doLoad = (circuit: ExampleCircuit) => {
     // Clear oscilloscope channels before loading to avoid stale probes
     for (const ch of scopeChannels) {
       clearChannel(ch.netId);
       removeScopeChannel(ch.netId);
     }
 
-    const circuit: ExampleCircuit = EXAMPLE_CIRCUITS[Number(index)];
     loadExample(circuit);
-    setSelectedIndex('');
+    setExpanded(false);
+    setPendingCircuit(null);
+  };
+
+  const handleSelect = (circuit: ExampleCircuit) => {
+    const hasContent = Object.keys(components).length > 0 || Object.keys(wires).length > 0;
+    if (hasContent) {
+      setPendingCircuit(circuit);
+      return;
+    }
+    doLoad(circuit);
+  };
+
+  const confirmLoad = () => {
+    if (!pendingCircuit) return;
+    doLoad(pendingCircuit);
+  };
+
+  useEffect(() => {
+    const autoload = searchParams.get('autoload');
+    if (!autoload) return;
+    if (Number.isNaN(Number(autoload))) return;
+    if (lastAutoloadRef.current === autoload) return;
+    const index = Number(autoload);
+    const circuit = EXAMPLE_CIRCUITS[index];
+    if (!circuit) return;
+    lastAutoloadRef.current = autoload;
+    doLoad(circuit);
+  }, [searchParams]);
+
+  const toggleExpanded = () => {
+    setExpanded((current) => !current);
   };
 
   return (
@@ -45,22 +65,51 @@ export default function ExampleLoader() {
       <label className="px-2 block text-[11px] font-semibold uppercase tracking-wide text-white/25 mb-1">
         Load Example
       </label>
-      <select
-        value={selectedIndex}
-        onChange={onChange}
-        className="w-full rounded border border-white/15 bg-[#1b1b1d] text-white px-2 py-1.5 text-sm"
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        className="w-full flex items-center justify-between px-3 py-2 rounded-md text-[12px] text-white/50 hover:text-white/70 hover:bg-white/[0.05] transition-colors font-medium"
       >
-        <option value="" className="text-black">Select example…</option>
-        {EXAMPLE_CIRCUITS.map((example, index) => (
-          <option key={example.name} value={String(index)}>
-            {example.name}
-          </option>
-        ))}
-      </select>
-      {selectedIndex && (
-        <p className="px-1 pt-1.5 text-[11px] text-white/55 leading-tight">
-          {EXAMPLE_CIRCUITS[Number(selectedIndex)]?.description}
-        </p>
+        <span>Load Example</span>
+        <span className="text-[10px]">{expanded ? '▾' : '▸'}</span>
+      </button>
+      {expanded && (
+        <div className="mt-2 grid gap-2">
+          {EXAMPLE_CIRCUITS.map((example) => (
+            <button
+              key={example.name}
+              type="button"
+              onClick={() => handleSelect(example)}
+              className="rounded-md border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.14] cursor-pointer transition-colors p-2.5 text-left"
+            >
+              <p className="text-[12px] font-semibold text-white">{example.name}</p>
+              <p className="text-[10px] text-white/50 leading-tight">{example.description}</p>
+            </button>
+          ))}
+        </div>
+      )}
+      {pendingCircuit && (
+        <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+          <p>
+            Replace current circuit with <span className="font-semibold">{pendingCircuit.name}</span>?
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={confirmLoad}
+              className="rounded border border-amber-400/50 px-2 py-1 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20"
+            >
+              Replace
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingCircuit(null)}
+              className="rounded border border-white/20 px-2 py-1 text-[11px] font-semibold text-white/70 hover:bg-white/10"
+            >
+              Keep
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
