@@ -29,6 +29,7 @@ function midpoint(a: Vec3, b: Vec3): Vec3 {
 }
 
 export interface ExampleCircuit {
+  id: string;
   name: string;
   description: string;
   components: PlacedComponent[];
@@ -116,6 +117,7 @@ const potDividerLedK   = topNodeId(CENTER_COL + 4, 4);
 
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
+    id: 'led-resistor',
     name: 'LED + Resistor',
     description: '9V battery, 470Ω resistor, red LED',
     components: [
@@ -161,6 +163,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'half-wave-rectifier',
     name: 'Half-wave Rectifier',
     description: 'Battery, diode, and resistor path',
     components: [
@@ -201,6 +204,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     wires: [],
   },
   {
+    id: 'voltage-divider',
     name: 'Voltage Divider',
     description: 'Two resistors forming a voltage divider',
     components: [
@@ -245,6 +249,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'rc-filter',
     name: 'RC Filter',
     description: 'RC low-pass filter. Capacitor charges/discharges through resistor.',
     components: [
@@ -288,6 +293,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'button-led',
     name: 'Button + LED',
     description: 'Tactile switch controlling an LED. Click the switch to toggle.',
     components: [
@@ -341,6 +347,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'zener-regulator',
     name: 'Zener Regulator',
     description: '12 V input regulated to 5.1 V by a Zener diode + series resistor.',
     components: [
@@ -383,6 +390,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'npn-switch',
     name: 'NPN Switch',
     description: 'NPN transistor used as a switch to drive an LED.',
     components: [
@@ -435,6 +443,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     wires: [],
   },
   {
+    id: 'blinker-555',
     name: '555 Blinker',
     description: '555 timer in astable mode. LED blinks at ~1Hz.',
     components: [
@@ -515,6 +524,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     wires: [],
   },
   {
+    id: 'one-shot-555',
     name: '555 One-Shot Timer',
     description: '555 monostable mode. A momentary trigger pulse gives ~1.1s output pulse.',
     components: [
@@ -605,6 +615,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     wires: [],
   },
   {
+    id: 'pot-dimmer',
     name: 'Pot Dimmer',
     description: 'Potentiometer as voltage divider — adjust wiper in Properties to change LED brightness.',
     components: [
@@ -661,6 +672,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'bjt-switch',
     name: 'bjt-switch',
     description: 'NPN transistor as a digital switch — base resistor controls LED via collector',
     components: [
@@ -724,6 +736,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     wires: [],
   },
   {
+    id: 'rc-filter-dual',
     name: 'rc-filter',
     description: 'RC low-pass filter — capacitor smooths voltage changes',
     components: [
@@ -766,6 +779,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'h-bridge',
     name: 'h-bridge',
     description: 'H-bridge motor control — two switches control motor direction',
     components: [
@@ -821,6 +835,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    id: 'pot-voltage-divider',
     name: 'pot-voltage-divider',
     description: 'Potentiometer as adjustable voltage divider — wiper picks off variable voltage',
     components: [

@@ -273,7 +273,12 @@ export default function SimController() {
     let warning: string | null = null;
 
     // 1) No current flowing (existing check with stronger copy)
-    if (componentList.length >= 2 && componentList.some((c) => c.type === 'battery') && !hasNonZeroVoltage()) {
+    if (
+      componentList.length >= 3
+      && componentList.some((c) => c.type === 'battery')
+      && componentList.some((c) => c.type === 'led')
+      && !hasNonZeroVoltage()
+    ) {
       warning = 'No current flowing — check that battery + and − both connect to the circuit';
     }
 
@@ -319,7 +324,7 @@ export default function SimController() {
 
     // 4) Floating net (with 3 s grace period for newly placed components)
     if (!warning) {
-      const hasFloatingPin = componentList.some((component) => {
+      const hasFloatingPin = componentList.length >= 2 && componentList.some((component) => {
         const placedAt = componentPlacedAtRef.current.get(component.id);
         if (!placedAt || now - placedAt < FLOATING_NET_GRACE_MS) return false;
 
