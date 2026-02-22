@@ -83,6 +83,32 @@ const potDimPotB   = topNodeId(CENTER_COL - 2,  4); // col 30 — pot terminal b
 const potDimRes2   = topNodeId(CENTER_COL + 2,  4); // col 34 — resistor p2 / LED anode
 const potDimLedK   = topNodeId(CENTER_COL + 4,  4); // col 36 — LED cathode
 
+const bjtSwitchBatPos      = topNodeId(CENTER_COL - 12, 0);
+const bjtSwitchBatNeg      = topNodeId(CENTER_COL - 10, 0);
+const bjtSwitchBaseNode    = topNodeId(CENTER_COL - 8, 0);
+const bjtSwitchCollector   = topNodeId(CENTER_COL - 4, 0);
+
+const rcFilterBatPos  = topNodeId(CENTER_COL - 16, 1);
+const rcFilterBatNeg  = topNodeId(CENTER_COL - 14, 1);
+const rcFilterOut     = topNodeId(CENTER_COL - 12, 1);
+const rcFilterGround  = railNode('bn', 1);
+
+const hBridgeBatPos = topNodeId(CENTER_COL - 10, 2);
+const hBridgeBatNeg = topNodeId(CENTER_COL - 8, 2);
+const hBridgeS1In   = topNodeId(CENTER_COL - 6, 2);
+const hBridgeS1Out  = topNodeId(CENTER_COL - 4, 2);
+const hBridgeMotorA = topNodeId(CENTER_COL - 2, 2);
+const hBridgeMotorB = topNodeId(CENTER_COL, 2);
+const hBridgeS2In   = topNodeId(CENTER_COL + 2, 2);
+
+const potDividerBatPos = topNodeId(CENTER_COL - 12, 4);
+const potDividerBatNeg = topNodeId(CENTER_COL - 10, 4);
+const potDividerPotA   = topNodeId(CENTER_COL - 8, 4);
+const potDividerPotW   = topNodeId(CENTER_COL - 6, 4);
+const potDividerPotB   = topNodeId(CENTER_COL - 4, 4);
+const potDividerRes    = topNodeId(CENTER_COL + 2, 4);
+const potDividerLedK   = topNodeId(CENTER_COL + 4, 4);
+
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
     name: 'LED + Resistor',
@@ -536,6 +562,222 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
       { id: 'example-pot-w1', fromNodeId: potDimBatPos, toNodeId: potDimPotA,   color: '#cc4444' },
       { id: 'example-pot-w2', fromNodeId: potDimPotB,   toNodeId: potDimBatNeg, color: '#333333' },
       { id: 'example-pot-w3', fromNodeId: potDimLedK,   toNodeId: potDimBatNeg, color: '#333333' },
+    ],
+  },
+  {
+    name: 'bjt-switch',
+    description: 'NPN transistor as a digital switch — base resistor controls LED via collector',
+    components: [
+      {
+        id: 'example-bjt-switch-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 12, 0), topNodePos(CENTER_COL - 10, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: bjtSwitchBatPos },
+          { name: 'neg', nodeId: bjtSwitchBatNeg },
+        ],
+        props: { voltage: 9 },
+      },
+      {
+        id: 'example-bjt-switch-base-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 10, 0), topNodePos(CENTER_COL - 8, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: bjtSwitchBatPos },
+          { name: 'p2', nodeId: bjtSwitchBaseNode },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-bjt-switch-collector-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 10, 0), topNodePos(CENTER_COL - 4, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: bjtSwitchBatPos },
+          { name: 'p2', nodeId: bjtSwitchCollector },
+        ],
+        props: { resistance: 470 },
+      },
+      {
+        id: 'example-bjt-switch-bjt',
+        type: 'bjt',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 6, 0), topNodePos(CENTER_COL - 4, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'base', nodeId: bjtSwitchBaseNode },
+          { name: 'collector', nodeId: bjtSwitchCollector },
+          { name: 'emitter', nodeId: bjtSwitchBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-bjt-switch-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 4, 0), topNodePos(CENTER_COL - 10, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: bjtSwitchCollector },
+          { name: 'cathode', nodeId: bjtSwitchBatNeg },
+        ],
+        props: {},
+      },
+    ],
+    wires: [],
+  },
+  {
+    name: 'rc-filter',
+    description: 'RC low-pass filter — capacitor smooths voltage changes',
+    components: [
+      {
+        id: 'example-rc-filter-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 16, 1), topNodePos(CENTER_COL - 14, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: rcFilterBatPos },
+          { name: 'neg', nodeId: rcFilterBatNeg },
+        ],
+        props: { voltage: 5 },
+      },
+      {
+        id: 'example-rc-filter-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 14, 1), topNodePos(CENTER_COL - 12, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: rcFilterBatPos },
+          { name: 'p2', nodeId: rcFilterOut },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-rc-filter-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 12, 1), topNodePos(CENTER_COL - 14, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: rcFilterOut },
+          { name: 'neg', nodeId: rcFilterBatNeg },
+        ],
+        props: { capacitance: 100 },
+      },
+    ],
+    wires: [
+      { id: 'example-rc-filter-w1', fromNodeId: rcFilterBatNeg, toNodeId: rcFilterGround, color: '#333333' },
+    ],
+  },
+  {
+    name: 'h-bridge',
+    description: 'H-bridge motor control — two switches control motor direction',
+    components: [
+      {
+        id: 'example-hbridge-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 10, 2), topNodePos(CENTER_COL - 8, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: hBridgeBatPos },
+          { name: 'neg', nodeId: hBridgeBatNeg },
+        ],
+        props: { voltage: 9 },
+      },
+      {
+        id: 'example-hbridge-switch-1',
+        type: 'tactileSwitch',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 6, 2), topNodePos(CENTER_COL - 4, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: hBridgeS1In },
+          { name: 'p2', nodeId: hBridgeS1Out },
+        ],
+        props: { closed: 0 },
+      },
+      {
+        id: 'example-hbridge-switch-2',
+        type: 'tactileSwitch',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 2, 2), topNodePos(CENTER_COL - 8, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: hBridgeS2In },
+          { name: 'p2', nodeId: hBridgeBatNeg },
+        ],
+        props: { closed: 0 },
+      },
+      {
+        id: 'example-hbridge-motor',
+        type: 'motor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 2, 2), topNodePos(CENTER_COL, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: hBridgeMotorA },
+          { name: 'p2', nodeId: hBridgeMotorB },
+        ],
+        props: {},
+      },
+    ],
+    wires: [
+      { id: 'example-hbridge-w1', fromNodeId: hBridgeBatPos, toNodeId: hBridgeS1In, color: '#cc8800' },
+      { id: 'example-hbridge-w2', fromNodeId: hBridgeS1Out, toNodeId: hBridgeMotorA, color: '#22aa22' },
+      { id: 'example-hbridge-w3', fromNodeId: hBridgeMotorB, toNodeId: hBridgeS2In, color: '#2255cc' },
+    ],
+  },
+  {
+    name: 'pot-voltage-divider',
+    description: 'Potentiometer as adjustable voltage divider — wiper picks off variable voltage',
+    components: [
+      {
+        id: 'example-pot-divider-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 12, 4), topNodePos(CENTER_COL - 10, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: potDividerBatPos },
+          { name: 'neg', nodeId: potDividerBatNeg },
+        ],
+        props: { voltage: 5 },
+      },
+      {
+        id: 'example-pot-divider-pot',
+        type: 'potentiometer',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 8, 4), topNodePos(CENTER_COL - 4, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'a', nodeId: potDividerPotA },
+          { name: 'wiper', nodeId: potDividerPotW },
+          { name: 'b', nodeId: potDividerPotB },
+        ],
+        props: { resistance: 10000, wiper: 0.5 },
+      },
+      {
+        id: 'example-pot-divider-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 6, 4), topNodePos(CENTER_COL + 2, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: potDividerPotW },
+          { name: 'p2', nodeId: potDividerRes },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-pot-divider-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 2, 4), topNodePos(CENTER_COL + 4, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: potDividerRes },
+          { name: 'cathode', nodeId: potDividerLedK },
+        ],
+        props: {},
+      },
+    ],
+    wires: [
+      { id: 'example-pot-divider-w1', fromNodeId: potDividerBatPos, toNodeId: potDividerPotA, color: '#cc4444' },
+      { id: 'example-pot-divider-w2', fromNodeId: potDividerPotB, toNodeId: potDividerBatNeg, color: '#333333' },
+      { id: 'example-pot-divider-w3', fromNodeId: potDividerLedK, toNodeId: potDividerBatNeg, color: '#333333' },
     ],
   },
 ];
