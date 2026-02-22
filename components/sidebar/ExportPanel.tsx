@@ -6,7 +6,12 @@ import { exportSPICE } from '@/features/export/exportNetlist';
 import { useToastStore } from '@/store/toastStore';
 import { CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
 
-export default function ExportPanel() {
+type ExportPanelProps = {
+  showNetlist: boolean;
+  onToggleNetlist: () => void;
+};
+
+export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPanelProps) {
   const nodes = useCircuitStore((state) => state.nodes);
   const components = useCircuitStore((state) => state.components);
   const wires = useCircuitStore((state) => state.wires);
@@ -117,6 +122,14 @@ export default function ExportPanel() {
         🔗 Copy link
       </button>
 
+      <button
+        type="button"
+        onClick={onToggleNetlist}
+        className="text-left text-[10px] px-1.5 text-white/45 hover:text-white/75 underline underline-offset-2"
+      >
+        {showNetlist ? 'Hide netlist' : 'Show netlist'}
+      </button>
+
       <input
         type="file"
         accept=".json"
@@ -125,12 +138,14 @@ export default function ExportPanel() {
         onChange={onLoadJSONFile}
       />
 
-      <textarea
-        value={spiceText}
-        readOnly
-        rows={6}
-        className="w-full rounded bg-black/30 border border-white/[0.08] px-2 py-1.5 text-[10px] leading-5 text-[#9fe7a3] font-mono resize-none overflow-y-auto h-[8.25rem]"
-      />
+      {showNetlist && (
+        <textarea
+          value={spiceText}
+          readOnly
+          rows={6}
+          className="w-full rounded bg-black/30 border border-white/[0.08] px-2 py-1.5 text-[10px] leading-5 text-[#9fe7a3] font-mono resize-none overflow-y-auto h-[8.25rem]"
+        />
+      )}
     </div>
   );
 }

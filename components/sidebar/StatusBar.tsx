@@ -130,7 +130,7 @@ export default function StatusBar() {
   }
 
   return (
-    <div className="border-t border-white/[0.06]">
+    <div className="border-t border-white/[0.06] flex-shrink-0">
       <div className="flex items-center justify-between px-3 pt-2 pb-1">
         <span className="flex items-center gap-2">
           <span
@@ -206,7 +206,9 @@ export default function StatusBar() {
       {circuitHealthWarning && (
         <div className="mx-3 mb-2 flex items-center gap-2 rounded border border-amber-500/35 bg-amber-900/25 px-2 py-1.5">
           <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-          <span className="text-[11px] leading-tight text-amber-200/90 font-mono">{circuitHealthWarning}</span>
+          <span className="text-[11px] leading-tight text-amber-200/90 font-mono min-w-0 break-words">
+            {circuitHealthWarning}
+          </span>
         </div>
       )}
 

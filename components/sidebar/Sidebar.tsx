@@ -229,6 +229,7 @@ export default function Sidebar() {
   const addToast = useToastStore((state) => state.addToast);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'parts' | 'learn'>('parts');
+  const [showNetlist, setShowNetlist] = useState(false);
 
   return (
     <aside
@@ -297,73 +298,82 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* ── Insert Part / Learn panel ── */}
-      <div className="flex-1 overflow-y-auto py-2">
-        {tab === 'parts' ? (
-          <>
-            <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
-              Insert Part
-            </p>
-            <ScopeButton />
-            <ExampleLoader />
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {/* ── Insert Part / Learn panel ── */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-2">
+          {tab === 'parts' ? (
+            <>
+              <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                Insert Part
+              </p>
+              <ScopeButton />
+              <ExampleLoader />
 
-            {/* Search filter */}
-            <div className="px-2 pb-1">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
-                  placeholder="Filter parts…"
-                  className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
-                             border border-white/[0.08] placeholder-white/20 focus:outline-none
-                             focus:border-[#7c6fff]/50 pr-6"
-                />
-                {query && (
-                  <button
-                    onClick={() => setQuery('')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
-                  >
-                    ✕
-                  </button>
-                )}
+              {/* Search filter */}
+              <div className="px-2 pb-1">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
+                    placeholder="Filter parts…"
+                    className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
+                               border border-white/[0.08] placeholder-white/20 focus:outline-none
+                               focus:border-[#7c6fff]/50 pr-6"
+                  />
+                  {query && (
+                    <button
+                      onClick={() => setQuery('')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-0.5 px-2">
-              {PARTS.filter((p) => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
-                <ComponentTile
-                  key={`${p.type}-${p.label}`}
-                  type={p.type}
-                  label={p.label}
-                  icon={p.icon}
-                  tooltip={p.tooltip}
-                  onAdd={
-                    p.type === 'wire'
-                      ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
-                      : () => startDrag(p.type as ComponentType)
-                  }
-                />
-              ))}
+              <div className="space-y-0.5 px-2">
+                {PARTS.filter((p) => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
+                  <ComponentTile
+                    key={`${p.type}-${p.label}`}
+                    type={p.type}
+                    label={p.label}
+                    icon={p.icon}
+                    tooltip={p.tooltip}
+                    onAdd={
+                      p.type === 'wire'
+                        ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
+                        : () => startDrag(p.type as ComponentType)
+                    }
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="overflow-y-auto">
+              <LearnPanel />
             </div>
-          </>
-        ) : (
-          <LearnPanel />
-        )}
+          )}
+        </div>
+
+        {/* ── Properties Inspector (shown when a component is selected) ── */}
+        <PropertiesInspector />
+
+        {/* ── Arduino panel (shown when Arduino is selected) ── */}
+        <ArduinoPanel />
+
+        {/* ── Export panel (SPICE) ── */}
+        <ExportPanel
+          showNetlist={showNetlist}
+          onToggleNetlist={() => setShowNetlist((value) => !value)}
+        />
       </div>
 
-      {/* ── Properties Inspector (shown when a component is selected) ── */}
-      <PropertiesInspector />
-
-      {/* ── Arduino panel (shown when Arduino is selected) ── */}
-      <ArduinoPanel />
-
-      {/* ── Export panel (SPICE) ── */}
-      <ExportPanel />
-
       {/* ── Status bar ── */}
-      <StatusBar />
+      <div className="flex-shrink-0">
+        <StatusBar />
+      </div>
     </aside>
   );
 }
