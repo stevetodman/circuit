@@ -38,6 +38,7 @@ export default function KeyboardShortcuts() {
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
   const closeContextMenu    = useUIStore((s) => s.closeContextMenu);
   const clearBoxSelect      = useUIStore((s) => s.clearBoxSelect);
+  const toggleCurrentLabels = useUIStore((s) => s.toggleCurrentLabels);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -121,6 +122,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'i') {
+        e.preventDefault();
+        toggleCurrentLabels();
+        return;
+      }
+
       // Toggle schematic
       if (key === 's') {
         e.preventDefault();
@@ -144,7 +151,7 @@ export default function KeyboardShortcuts() {
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
     requestZoomToFit, requestCameraPreset, toggleDesignators,
-    closeContextMenu, clearBoxSelect,
+    closeContextMenu, clearBoxSelect, toggleCurrentLabels,
     copySelected, pasteClipboard, selectAll,
   ]);
 

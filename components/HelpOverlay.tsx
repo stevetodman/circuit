@@ -13,6 +13,7 @@ const SHORTCUTS = [
   ['Ctrl/Cmd+Z', 'Undo'],
   ['Ctrl/Cmd+Shift+Z', 'Redo'],
   ['Escape', 'Deselect / cancel'],
+  ['I', 'Toggle current labels on wires'],
   ['?', 'Show / hide this panel'],
 ];
 

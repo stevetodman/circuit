@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { getSamples, SCOPE_SAMPLES, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
 import { type Channel } from '@/store/scopeStore';
 
@@ -57,15 +57,65 @@ export default function Oscilloscope({
   const channelsRef = useRef<Channel[]>(channels);
   const autoScaleRef = useRef(false);
   const [autoScale, setAutoScale] = useState(false);
+  const [addingChannel, setAddingChannel] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [invalidInput, setInvalidInput] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdd = useCallback(() => {
-    if (channels.length >= MAX_CHANNELS) return; // P1-19: enforce channel limit before prompting
-    const raw = window.prompt('Enter a net ID (0-255) to probe');
-    if (raw === null) return;
-    const parsed = Number.parseInt(raw.trim(), 10);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed < 0 || parsed > 255) return;
+  useEffect(() => {
+    if (addingChannel) {
+      inputRef.current?.focus();
+    }
+  }, [addingChannel]);
+
+  const handleStartAdd = useCallback(() => {
+    if (channels.length >= MAX_CHANNELS) return;
+    setInputValue('');
+    setInvalidInput(false);
+    setAddingChannel(true);
+  }, [channels.length]);
+
+  const handleCancelAdd = useCallback(() => {
+    setAddingChannel(false);
+    setInputValue('');
+    setInvalidInput(false);
+  }, []);
+
+  const handleConfirmAdd = useCallback(() => {
+    const value = inputValue.trim();
+    if (!/^\d+$/.test(value)) {
+      setInvalidInput(true);
+      return;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0 || parsed > 255) {
+      setInvalidInput(true);
+      return;
+    }
+
     onAddChannel(parsed);
-  }, [onAddChannel, channels.length]);
+    setAddingChannel(false);
+    setInputValue('');
+    setInvalidInput(false);
+  }, [inputValue, onAddChannel]);
+
+  const handleSubmitAdd = useCallback((e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleConfirmAdd();
+  }, [handleConfirmAdd]);
+
+  const handleAddInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleConfirmAdd();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      handleCancelAdd();
+    }
+  }, [handleCancelAdd, handleConfirmAdd]);
 
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
@@ -231,13 +281,50 @@ export default function Oscilloscope({
         >
           Auto
         </button>
-        <button
-          onClick={handleAdd}
-          className="text-[10px] px-1.5 py-0.5 rounded-sm border border-white/20 text-white/80 hover:text-white hover:border-white/40"
-          title="Add a channel"
-        >
-          +
-        </button>
+        {addingChannel ? (
+          <form onSubmit={handleSubmitAdd} className="flex items-center gap-1">
+            <input
+              ref={inputRef}
+              type="number"
+              min={0}
+              max={255}
+              step={1}
+              inputMode="numeric"
+              value={inputValue}
+              onChange={(event) => {
+                setInputValue(event.target.value);
+                if (invalidInput) setInvalidInput(false);
+              }}
+              onKeyDown={handleAddInputKeyDown}
+              className={`h-4 w-14 rounded-sm border bg-[#131720] text-[10px] px-1 text-white outline-none ${invalidInput ? 'border-red-400' : 'border-white/30'}`}
+              placeholder="0-255"
+            />
+            <button
+              type="submit"
+              className="h-4 w-4 rounded-sm border border-white/20 text-white/80 hover:text-white hover:border-white/40 text-[10px]"
+              title="Add"
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelAdd}
+              className="h-4 w-4 rounded-sm border border-white/20 text-white/80 hover:text-white hover:border-white/40 text-[10px]"
+              title="Cancel"
+            >
+              ×
+            </button>
+          </form>
+        ) : (
+          <button
+            onClick={handleStartAdd}
+            disabled={channels.length >= MAX_CHANNELS}
+            className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${channels.length >= MAX_CHANNELS ? 'border-white/8 text-white/30' : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'}`}
+            title="Add a channel"
+          >
+            +
+          </button>
+        )}
         <button
           onClick={onClose}
           className="text-[10px] px-1.5 py-0.5 rounded-sm border border-white/20 text-white/80 hover:text-white hover:border-white/40"
