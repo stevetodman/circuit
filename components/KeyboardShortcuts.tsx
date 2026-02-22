@@ -4,22 +4,29 @@ import { useEffect } from 'react';
 import { useCircuitStore, useCircuitHistory } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import { useScopeStore } from '@/store/scopeStore';
+import { useSchematicStore } from '@/store/schematicStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
  *
- *  Ctrl+Z / Cmd+Z        → undo
+ *  Ctrl+Z / Cmd+Z            → undo
  *  Ctrl+Shift+Z / Cmd+Shift+Z → redo
- *  Delete / Backspace    → delete selected component/wire
- *  Escape                → cancel drag / deselect
+ *  Delete / Backspace        → delete selected component/wire
+ *  R                         → rotate selected component
+ *  O                         → toggle oscilloscope
+ *  S                         → toggle schematic view
+ *  F                         → zoom to fit
+ *  1 / 2                     → camera presets
+ *  Escape                    → cancel drag / deselect
  */
 export default function KeyboardShortcuts() {
-  const deleteSelected  = useCircuitStore((s) => s.deleteSelected);
-  const rotateComponent = useCircuitStore((s) => s.rotateComponent);
+  const deleteSelected      = useCircuitStore((s) => s.deleteSelected);
+  const rotateComponent     = useCircuitStore((s) => s.rotateComponent);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
-  const selectNode      = useCircuitStore((s) => s.selectNode);
-  const selectComponent = useCircuitStore((s) => s.selectComponent);
-  const cancelDrag      = useDragStore((s) => s.cancel);
+  const selectNode          = useCircuitStore((s) => s.selectNode);
+  const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const cancelDrag          = useDragStore((s) => s.cancel);
+  const toggleSchematic     = useSchematicStore((s) => s.toggle);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -39,24 +46,33 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (isInputFocused()) return;
+
       // Delete selected
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused()) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         deleteSelected();
         return;
       }
 
       // Rotate selected component
-      if ((e.key === 'r' || e.key === 'R') && !isInputFocused() && selectedComponentId) {
+      if ((e.key === 'r' || e.key === 'R') && selectedComponentId) {
         e.preventDefault();
         rotateComponent(selectedComponentId);
         return;
       }
 
       // Toggle oscilloscope
-      if (e.key.toLowerCase() === 'o' && !isInputFocused()) {
+      if (e.key.toLowerCase() === 'o') {
         e.preventDefault();
         useScopeStore.getState().toggle();
+        return;
+      }
+
+      // Toggle schematic
+      if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        toggleSchematic();
         return;
       }
 
@@ -70,7 +86,7 @@ export default function KeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [deleteSelected, selectNode, selectComponent, cancelDrag]);
+  }, [deleteSelected, rotateComponent, selectedComponentId, selectNode, selectComponent, cancelDrag, toggleSchematic]);
 
   return null;
 }

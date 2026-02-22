@@ -8,6 +8,7 @@ import ScopeButton from './ScopeButton';
 import ExportPanel from './ExportPanel';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
+import { useSchematicStore } from '@/store/schematicStore';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function Rect({ fill }: { fill: string }) {
@@ -94,6 +95,19 @@ function Battery() {
   );
 }
 
+function SchematicIcon({ active }: { active: boolean }) {
+  const stroke = active ? '#6cf' : '#8a8a8a';
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <line x1="1" y1="10" x2="15" y2="10" stroke={stroke} strokeWidth="1.25" />
+      <line x1="1" y1="6" x2="15" y2="6" stroke={stroke} strokeWidth="1.25" />
+      <polyline points="4,6 4,10 6,10 6,6" stroke={stroke} strokeWidth="1.25" fill="none" />
+      <polyline points="10,6 10,10 12,10 12,6" stroke={stroke} strokeWidth="1.25" fill="none" />
+      <circle cx="8" cy="8" r="1" fill={stroke} />
+    </svg>
+  );
+}
+
 // ── Component catalogue ───────────────────────────────────────────────────────
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode }[] = [
   { type: 'arduino',       label: 'Arduino Uno',      icon: <Arduino /> },
@@ -111,6 +125,8 @@ const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNod
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const startDrag = useDragStore((state) => state.startDrag);
+  const schematicOpen = useSchematicStore((state) => state.open);
+  const toggleSchematic = useSchematicStore((state) => state.toggle);
 
   return (
     <aside
@@ -131,6 +147,16 @@ export default function Sidebar() {
         <span className="text-[13px] font-semibold tracking-wide text-white/80">
           Circuit Sandbox
         </span>
+        <button
+          type="button"
+          onClick={toggleSchematic}
+          title={schematicOpen ? 'Hide schematic view' : 'Show schematic view'}
+          className="ml-auto h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/90 hover:bg-white/[0.08] grid place-items-center"
+          aria-pressed={schematicOpen}
+        >
+          <span className="sr-only">Schematic view</span>
+          <SchematicIcon active={schematicOpen} />
+        </button>
       </div>
 
       {/* ── Insert Part ── */}
