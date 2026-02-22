@@ -1,57 +1,47 @@
-# SPEC: Breadboard Row/Column Labels
+# Circuit Sandbox — Feature Wave Log
 
-Add floating 3D text labels to the breadboard so beginners can orient themselves.
-This is the first thing tutorial instructions reference ("place in row e, col 5").
+Tracks completed feature waves. Each wave was implemented via parallel Codex agents in git worktrees.
 
-## Read First
-- `components/canvas/Breadboard.tsx` — breadboard geometry; understand board dimensions
-- `components/canvas/Scene.tsx` — see how Breadboard is rendered + what's imported
-- `constants/breadboard.ts` — PITCH, COLS, ROWS, BOARD_TOP_Y constants
+---
 
-## What to build
+## Wave 4 (merged)
 
-Create a new file `components/canvas/BreadboardLabels.tsx` that renders:
-1. **Row letters** (a–j) floating to the LEFT of the board, one per row in the main grid
-2. **Column numbers** (1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) floating BELOW the board
+| Branch | Feature |
+|---|---|
+| `module-link` | `autoLoadId` on all 11 module steps → auto-loads starter circuit when entering a module |
+| `polarity` | +/− polarity labels on LED, Battery, Capacitor; `P` key toggle |
+| `module-spotlight` | `spotlightTarget` directional hint pill in StepCard; `highlightComponent` pulse ring on ComponentTile; sidebar glow |
+| `wire-autocolor` | Wire voltage colouring (red >2.5V, dark <0.3V); `V` key toggle |
 
-Use `<Text>` from `@react-three/drei`. Import constants from `@/constants/breadboard.ts`:
-- `PITCH = 0.254` (spacing between holes)
-- `COLS = 63` (number of columns)
-- `ROWS = 10` (a=0 through j=9 in the main grid)
-- `BOARD_TOP_Y` is the Z-offset to the start of the board grid rows
+---
 
-### Coordinate system
-- 1 Three.js unit = 10mm
-- Columns run along the X axis; rows run along the Z axis
-- The breadboard has a gap in the middle between rows e (index 4) and f (index 5)
-- Read Breadboard.tsx to get the exact X/Z origins for hole [0,0] (col 1, row a)
+## Wave 5 (merged)
 
-### Row label positions
-- For row index r (0=a, 1=b, ..., 9=j), place a Text label at:
-  - X: left edge of the board minus a small offset (~ -0.15 units to the left of col 1)
-  - Z: the Z position of that row's holes
-  - Y: same Y as the board surface (use 0.02 so it floats just above)
-- Text content: the letter ('a','b',...,'j')
-- fontSize: 0.09
-- color: '#555577'
-- anchorX: 'right'
+| Branch | Feature |
+|---|---|
+| `diode-pol` | +/− polarity labels on Diode; missing − label added to Capacitor |
+| `part-descriptions` | Short description text under each sidebar tile (`PART_DESCRIPTIONS` constant) |
+| `circuit-name` | Editable circuit name input in sidebar; syncs `document.title`; persisted in JSON |
+| `scope-ux` | 📊 "Add to Scope" button per pin in PropertiesInspector; live voltage in scope channel labels via RAF; "✕ all" clear-all button |
 
-### Column number positions
-- For column indices [0, 4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59] (cols 1,5,10,...)
-  - Place text at: X = col X position, Z = bottom edge of board + 0.15 offset, Y = 0.02
-- Text content: the column number as string ('1','5','10',...)
-- fontSize: 0.08
-- color: '#555577'
-- anchorX: 'center'
+---
 
-### Rendering the component
-In `components/canvas/Scene.tsx`:
-- Import `BreadboardLabels` from `./BreadboardLabels`
-- Add `<BreadboardLabels />` inside the R3F Canvas scene, next to `<Breadboard />`
+## Wave 6 (merged)
 
-## Important
-- Use `<Text>` from `@react-three/drei` only — no HTML/CSS (this is inside the R3F canvas)
-- No new store fields needed — this is purely visual/static
-- Do NOT import Three.js directly; use R3F primitives only
-- Read Breadboard.tsx carefully to get exact hole positions before placing labels
-- Run `pnpm build` — must pass with zero TypeScript errors
+| Branch | Feature |
+|---|---|
+| _(inline)_ | HelpOverlay updated with P/V shortcuts |
+| `breadboard-labels` | Floating 3D Text: a–j row letters left of board + column numbers (1,5,10…60) below board |
+| `learn-polish` | Progress bar (X/11) at top of Learn tab; ✓ completion badges on module cards; violet left-border on active module; "Reset progress" button |
+| `new-circuit` | "＋ New Circuit" dashed button in sidebar with inline Confirm/Cancel; `circuitStore.newCircuit()` clears board + undo history |
+| `canvas-toolbar` | `CanvasOverlay.tsx`: floating zoom +/−/fit buttons (bottom-right); component count badge; `zoomInRequested`/`zoomOutRequested` wired to Scene.tsx |
+
+---
+
+## Known agent pitfalls
+
+- `resetModules()` → actual method is `resetProgress()` in moduleStore
+- `wires` field in circuitStore is `Record<string, Wire>` not an array
+- Zustand inline object selectors crash React 18 — always use individual selectors or `useShallow`
+- SPEC.md always conflicts during merge — resolve with `git checkout --ours SPEC.md`
+- When two branches both add to uiStore/Toolbar/KeyboardShortcuts — manually merge to keep BOTH
