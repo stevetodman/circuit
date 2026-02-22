@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { useCircuitHistory, useCircuitStore } from '@/store/circuitStore';
 import { useSchematicStore } from '@/store/schematicStore';
@@ -39,8 +40,8 @@ function Sep() {
 }
 
 export default function Toolbar() {
-  const history = useCircuitHistory();
-  const { pastStates, futureStates } = history;
+  const canUndo = useStore(useCircuitHistory(), (s) => s.pastStates.length > 0);
+  const canRedo = useStore(useCircuitHistory(), (s) => s.futureStates.length > 0);
 
   const {
     deleteSelected,
@@ -71,15 +72,13 @@ export default function Toolbar() {
     useShallow((s) => ({ open: s.open, toggle: s.toggle }))
   );
 
-  const canUndo = pastStates.length > 0;
-  const canRedo = futureStates.length > 0;
   const noSelection = !selectedComponentId && selectedComponentIds.length === 0;
 
   return (
     <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px]">
       <ToolbarBtn
         onClick={() => {
-          history.getState().undo();
+          useCircuitHistory().getState().undo();
         }}
         title="Undo (Ctrl/Cmd+Z)"
         disabled={!canUndo}
@@ -88,7 +87,7 @@ export default function Toolbar() {
       </ToolbarBtn>
       <ToolbarBtn
         onClick={() => {
-          history.getState().redo();
+          useCircuitHistory().getState().redo();
         }}
         title="Redo (Ctrl/Cmd+Shift+Z)"
         disabled={!canRedo}

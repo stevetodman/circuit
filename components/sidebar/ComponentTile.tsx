@@ -15,7 +15,6 @@ export default function ComponentTile({ label, icon, tooltip, onAdd }: Props) {
     <button
       title={tooltip ?? label}
       onClick={onAdd}
-      title="Drag to place, or click to begin placement"
       draggable={false}
       className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left
                  transition-colors duration-100

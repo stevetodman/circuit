@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { EXAMPLE_CIRCUITS, type ExampleCircuit } from '@/features/examples/circuits';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { clearChannel } from '@/features/oscilloscope/scopeBuffer';
 
 export default function ExampleLoader() {
-  const searchParams = useSearchParams();
   const loadExample = useCircuitStore((state) => state.loadExample);
   const components  = useCircuitStore((state) => state.components);
   const wires       = useCircuitStore((state) => state.wires);
@@ -45,16 +43,16 @@ export default function ExampleLoader() {
   };
 
   useEffect(() => {
-    const autoload = searchParams.get('autoload');
-    if (!autoload) return;
-    if (Number.isNaN(Number(autoload))) return;
+    const params = new URLSearchParams(window.location.search);
+    const autoload = params.get('autoload');
+    if (!autoload || Number.isNaN(Number(autoload))) return;
     if (lastAutoloadRef.current === autoload) return;
-    const index = Number(autoload);
-    const circuit = EXAMPLE_CIRCUITS[index];
+    const circuit = EXAMPLE_CIRCUITS[Number(autoload)];
     if (!circuit) return;
     lastAutoloadRef.current = autoload;
     doLoad(circuit);
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleExpanded = () => {
     setExpanded((current) => !current);
