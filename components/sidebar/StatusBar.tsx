@@ -29,7 +29,11 @@ export default function StatusBar() {
   const selectedNodeId      = useCircuitStore((s) => s.selectedNodeId);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
 
-  const { simStatus, hoveredNodeId } = useUIStore();
+  const { simStatus, simError, hoveredNodeId } = useUIStore((s) => ({
+    simStatus: s.simStatus,
+    simError: s.simError,
+    hoveredNodeId: s.hoveredNodeId,
+  }));
 
   // Count non-null distinct nets (for net count display)
   const netCount = useCircuitStore((s) => {
@@ -63,6 +67,11 @@ export default function StatusBar() {
           {dot.label}
         </span>
       </div>
+      {simStatus === 'error' && (
+        <span className="text-[10px] text-red-400 truncate max-w-[140px]" title={simError ?? ''}>
+          {simError ?? 'Sim error'}
+        </span>
+      )}
 
       {/* Net count + hovered pin */}
       <div className="flex items-center justify-between text-[9px] font-mono text-white/25">

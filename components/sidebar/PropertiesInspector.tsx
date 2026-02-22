@@ -43,6 +43,16 @@ const PROP_DEFS: Partial<Record<ComponentType, PropField[]>> = {
     { kind: 'number', key: 'resistance', label: 'Coil resistance', default: 10, min: 1, max: 1000, unit: 'Ω' },
   ],
 };
+const E12_VALUES = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000];
+
+const LED_PRESETS = [
+  { label: 'Red',    color: '#ff3333', vf: 2.0 },
+  { label: 'Green',  color: '#33cc33', vf: 2.1 },
+  { label: 'Blue',   color: '#3366ff', vf: 3.4 },
+  { label: 'Yellow', color: '#ffcc00', vf: 2.1 },
+  { label: 'White',  color: '#ffffff', vf: 3.2 },
+  { label: 'IR',     color: '#660066', vf: 1.6 },
+];
 
 const TYPE_LABELS: Record<ComponentType, string> = {
   resistor:     'Resistor',
@@ -161,17 +171,51 @@ function Inspector({ component }: { component: PlacedComponent }) {
             <div key={field.key} className="space-y-1">
               <Label>{field.label}</Label>
               {field.kind === 'number' ? (
-                <NumberInput
-                  field={field}
-                  value={getValue(field) as number}
-                  onChange={(v) => setProperty(component.id, field.key, v)}
-                />
+                <>
+                  <NumberInput
+                    field={field}
+                    value={getValue(field) as number}
+                    onChange={(v) => setProperty(component.id, field.key, v)}
+                  />
+                  {component.type === 'resistor' && field.key === 'resistance' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {E12_VALUES.map((value) => (
+                        <button
+                          key={value}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                          onClick={() => setProperty(component.id, 'resistance', value)}
+                        >
+                          {value >= 1000 ? `${value / 1000}k` : `${value}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
-                <ColorInput
-                  field={field}
-                  value={getValue(field) as string}
-                  onChange={(v) => setProperty(component.id, field.key, v)}
-                />
+                <>
+                  <ColorInput
+                    field={field}
+                    value={getValue(field) as string}
+                    onChange={(v) => setProperty(component.id, field.key, v)}
+                  />
+                  {component.type === 'led' && field.key === 'color' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {LED_PRESETS.map(({ label, color, vf }) => (
+                        <button
+                          key={label}
+                          className="text-[9px] px-1.5 py-0.5 rounded font-mono border border-white/10"
+                          style={{ background: color + '33', color }}
+                          onClick={() => {
+                            setProperty(component.id, 'color', color);
+                            setProperty(component.id, 'forwardVoltage', vf);
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

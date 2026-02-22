@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import Sidebar from '@/components/sidebar/Sidebar';
+import HelpOverlay from '@/components/HelpOverlay';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SimController from '@/components/SimController';
 import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
@@ -35,6 +36,7 @@ export default function Home() {
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
       <SimController />
+      <HelpOverlay />
       <KeyboardShortcuts />
       <Sidebar />
       <main className="relative flex-1 min-w-0 h-full">

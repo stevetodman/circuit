@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useCircuitStore } from '@/store/circuitStore';
@@ -62,6 +62,12 @@ export default function WirePreview() {
     mesh.geometry   = newGeom;
     mesh.visible    = true;
   });
+
+  useEffect(() => {
+    return () => {
+      geomRef.current?.dispose();
+    };
+  }, []);
 
   // Always mount the mesh so ref is stable; visibility is driven by useFrame
   return (
