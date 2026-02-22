@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useMemo, useCallback, useState } from 'react';
+import { useRef, useEffect, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -10,8 +10,8 @@ import { useUIStore } from '@/store/uiStore';
 const COLOR_IDLE       = new THREE.Color('#5a6a7a');
 const COLOR_HOVER      = new THREE.Color('#ffd700');   // hovered pin
 const COLOR_SELECTED   = new THREE.Color('#ff6b2b');   // wiring start pin
-const COLOR_NET_PEER   = new THREE.Color('#3a9fff');   // same-net peers on hover
-const COLOR_NET_ACTIVE = new THREE.Color('#22ddaa');   // same-net as selected pin
+const COLOR_NET_PEER   = new THREE.Color('#22ccee');   // same-net peers on hover
+const COLOR_NET_ACTIVE = new THREE.Color('#ffaa00');   // same-net as selected pin
 
 export default function PinGrid() {
   const nodes      = useCircuitStore((s) => s.nodes);
@@ -19,18 +19,18 @@ export default function PinGrid() {
   const addWire    = useCircuitStore((s) => s.addWire);
   const selectNode = useCircuitStore((s) => s.selectNode);
   const { gl }        = useThree();
+  const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const setHovered    = useUIStore((s) => s.setHoveredNode);
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
   const hitMeshRef = useRef<THREE.InstancedMesh>(null);
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // Stable ordered list — only recomputes when topology changes
   const nodeList = useMemo(() => Object.values(nodes), [nodes]);
   const count    = nodeList.length;
 
   // Derived: netId of the currently hovered pin (for net highlighting)
-  const hoveredNetId = hoveredIdx != null ? (nodeList[hoveredIdx]?.netId ?? null) : null;
+  const hoveredNetId = hoveredNodeId != null ? (nodes[hoveredNodeId]?.netId ?? null) : null;
 
   // Derived: netId of the selected start pin (highlight its net peers)
   const selectedNode = selectedId ? nodes[selectedId] : null;
@@ -69,16 +69,16 @@ export default function PinGrid() {
     nodeList.forEach((node, i) => {
       let col: THREE.Color;
 
-      if (i === hoveredIdx) {
+      if (node.id === hoveredNodeId) {
         col = COLOR_HOVER;
       } else if (node.id === selectedId) {
         col = COLOR_SELECTED;
-      } else if (hoveredNetId != null && node.netId === hoveredNetId) {
-        // Net peers of hovered pin glow blue
-        col = COLOR_NET_PEER;
       } else if (selectedNetId != null && node.netId === selectedNetId) {
-        // Net peers of the wiring start pin glow teal
+        // Net peers of the wiring start pin glow amber
         col = COLOR_NET_ACTIVE;
+      } else if (hoveredNetId != null && node.netId === hoveredNetId) {
+        // Net peers of hovered pin glow cyan
+        col = COLOR_NET_PEER;
       } else {
         col = COLOR_IDLE;
       }
@@ -87,14 +87,13 @@ export default function PinGrid() {
     });
 
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [hoveredIdx, hoveredNetId, selectedId, selectedNetId, nodeList]);
+  }, [hoveredNodeId, hoveredNetId, selectedId, selectedNetId, nodeList]);
 
   // ── Pointer events ────────────────────────────────────────────────────────
   const onMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
       const idx = e.instanceId ?? null;
-      setHoveredIdx(idx);
       setHovered(idx != null ? (nodeList[idx]?.id ?? null) : null);
       // Cursor: 'cell' = "click to complete wire", 'crosshair' = "click to start"
       gl.domElement.style.cursor = selectedId ? 'cell' : 'crosshair';
@@ -103,7 +102,6 @@ export default function PinGrid() {
   );
 
   const onOut = useCallback(() => {
-    setHoveredIdx(null);
     setHovered(null);
     gl.domElement.style.cursor = 'default';
   }, [gl, setHovered]);
