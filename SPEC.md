@@ -1,167 +1,203 @@
-# SPEC: UX Polish — Polarity Indicator + Circuit Diagnostic + Toolbar Buttons
+# SPEC: Live Inline Math in PropertiesInspector
 
-## Priority
-🟡 HIGH — implement all three items.
-Run `pnpm build` to verify — must pass with zero errors.
+## Goal
+When a component is selected, show live simulation data (V, I, P) plus the
+Ohm's Law formula written out, directly in the PropertiesInspector panel.
+
+Run `pnpm build` — must pass with zero errors.
 
 ---
 
-## Item 1: "No Complete Circuit" Diagnostic Warning
+## Read first
+- `components/sidebar/PropertiesInspector.tsx` — full file, understand structure
+- `simulation/SimBridge.ts` — exports voltageView Float32Array
+- `store/circuitStore.ts` — selectedComponentId, components, nodes
+- `types/circuit.ts` — pin definitions, component types
 
-### Goal
-If the simulator has been running for >2 seconds and all net voltages are 0
-(no current flowing anywhere), show a diagnostic toast explaining the likely issue.
+---
 
-### Implementation
+## Implementation
 
-**`components/SimController.tsx`**:
-Add a check in the `useEffect` that runs the simulation status updates (or in the
-analog worker message handler):
+### Add `LiveReadings` section to PropertiesInspector
 
+At the bottom of the inspector (after all existing fields), add a "Live Readings" section.
+
+**Format helpers** (add near top of file):
 ```typescript
-// Track time since last non-zero voltage
-let allZeroSince: number | null = null;
-
-// In the interval that reads SAB or handles worker messages:
-const hasNonZeroVoltage = Array.from(voltageView).some(v => Math.abs(v) > 0.01);
-const componentCount = useCircuitStore.getState().components.length;
-
-if (componentCount >= 2 && !hasNonZeroVoltage) {
-  if (allZeroSince === null) allZeroSince = Date.now();
-  else if (Date.now() - allZeroSince > 2000) {
-    // Show diagnostic — but only once
-    toastStore.getState().showToast(
-      'No voltage detected. Check: is there a complete path from + to − through all components?',
-      'warn'
-    );
-    allZeroSince = null; // Don't spam
-  }
-} else {
-  allZeroSince = null;
+function fmtV(v: number): string {
+  const a = Math.abs(v);
+  if (a < 0.001) return '0 V';
+  if (a < 1) return `${(v * 1000).toFixed(1)} mV`;
+  return `${v.toFixed(3)} V`;
+}
+function fmtI(i: number): string {
+  const a = Math.abs(i);
+  if (a < 1e-6) return '0 A';
+  if (a < 0.001) return `${(i * 1e6).toFixed(1)} µA`;
+  if (a < 1) return `${(i * 1000).toFixed(2)} mA`;
+  return `${i.toFixed(3)} A`;
+}
+function fmtP(p: number): string {
+  const a = Math.abs(p);
+  if (a < 0.001) return `${(p * 1000).toFixed(2)} mW`;
+  return `${p.toFixed(3)} W`;
+}
+function fmtR(r: number): string {
+  if (r >= 1e6) return `${(r / 1e6).toFixed(2)}MΩ`;
+  if (r >= 1000) return `${(r / 1000).toFixed(2)}kΩ`;
+  return `${r.toFixed(0)}Ω`;
 }
 ```
 
-The toast uses the existing `toastStore` with `'warn'` severity.
-
-**Don't show if:**
-- 0 or 1 components (nothing to diagnose)
-- Circuit was just loaded (wait 2s)
-- SimStatus is 'error' (already showing an error)
-
----
-
-## Item 2: Polarity Indicator on 3D LED
-
-### Goal
-Show a small +/− marker on the 3D LED model so beginners know which end is anode vs cathode.
-This is the most critical polarity issue (reversed LED = no light, confusing).
-
-### Implementation
-
-**`components/canvas/parts/LED.tsx`**:
-
-The LED component already has `anchorPos` (the center of the LED on the breadboard).
-LED pins: `anode` (one side) and `cathode` (other side).
-
-Find where the LED body is rendered (likely a cylinder or sphere mesh).
-
-Add two small floating text labels in 3D space using `@react-three/drei`'s `<Text>` component:
+**LiveReadings component** (add inside PropertiesInspector.tsx file):
 ```tsx
-import { Text } from '@react-three/drei';
+import { voltageView } from '@/simulation/SimBridge';
 
-// Near the anode pin:
-<Text
-  position={[anodeLocalX, 0.15, 0]}  // slightly above anode end
-  fontSize={0.05}
-  color="#22ff88"
-  anchorX="center"
-  anchorY="bottom"
->
-  +
-</Text>
+interface Reading { label: string; value: string; formula?: string; warn?: boolean }
 
-// Near the cathode pin:
-<Text
-  position={[cathodeLocalX, 0.15, 0]}
-  fontSize={0.05}
-  color="#ff4444"
-  anchorX="center"
-  anchorY="bottom"
->
-  −
-</Text>
+function getPinVoltage(nodes: Record<string, { netId: number | null }>, nodeId: string): number {
+  const netId = nodes[nodeId]?.netId;
+  return netId != null ? (voltageView[netId] ?? 0) : 0;
+}
+
+function computeReadings(comp: PlacedComponent, nodes: Record<string, { netId: number | null }>): Reading[] {
+  const pinV = (name: string) => {
+    const pin = comp.pins.find(p => p.name === name);
+    return pin ? getPinVoltage(nodes, pin.nodeId) : 0;
+  };
+  const pin0V = comp.pins[0] ? getPinVoltage(nodes, comp.pins[0].nodeId) : 0;
+  const pin1V = comp.pins[1] ? getPinVoltage(nodes, comp.pins[1].nodeId) : 0;
+
+  switch (comp.type) {
+    case 'resistor': {
+      const R = typeof comp.props.resistance === 'number' ? comp.props.resistance : 1000;
+      const Vd = pin0V - pin1V;
+      const I = Vd / Math.max(R, 1e-9);
+      const P = Vd * I;
+      return [
+        { label: 'Voltage', value: fmtV(Vd) },
+        { label: 'Current', value: fmtI(I), formula: `I = V/R = ${fmtV(Math.abs(Vd))} ÷ ${fmtR(R)} = ${fmtI(Math.abs(I))}` },
+        { label: 'Power', value: fmtP(P), warn: P > 0.25, formula: P > 0.25 ? '⚠ Exceeds ¼W rating' : undefined },
+      ];
+    }
+    case 'led': {
+      const Va = pinV('anode');
+      const Vc = pinV('cathode');
+      const Vd = Va - Vc;
+      return [
+        { label: 'Forward V', value: fmtV(Math.max(0, Vd)) },
+        { label: 'State', value: Vd > 0.5 ? '✓ Conducting' : 'Off (reverse or zero)' },
+      ];
+    }
+    case 'battery': {
+      const Vp = pinV('positive');
+      const Vn = pinV('negative');
+      return [{ label: 'Terminal V', value: fmtV(Vp - Vn) }];
+    }
+    case 'capacitor': {
+      const Vd = pin0V - pin1V;
+      const C = typeof comp.props.capacitance === 'number' ? comp.props.capacitance : 1; // µF
+      return [
+        { label: 'Voltage', value: fmtV(Vd) },
+        { label: 'Charge', value: `${(C * Math.abs(Vd) * 1000).toFixed(2)} µC`, formula: `Q = C × V = ${C}µF × ${fmtV(Math.abs(Vd))}` },
+      ];
+    }
+    case 'bjt': {
+      const Vb = pinV('base');
+      const Vc2 = pinV('collector');
+      const Ve = pinV('emitter');
+      return [
+        { label: 'VBE', value: fmtV(Vb - Ve) },
+        { label: 'VCE', value: fmtV(Vc2 - Ve) },
+        { label: 'State', value: (Vb - Ve) > 0.55 ? '✓ Active (conducting)' : 'Off' },
+      ];
+    }
+    case 'diode':
+    case 'schottky':
+    case 'zener': {
+      const Va = pinV('anode');
+      const Vc2 = pinV('cathode');
+      const Vd = Va - Vc2;
+      return [
+        { label: 'V across', value: fmtV(Vd) },
+        { label: 'State', value: Vd > 0.2 ? '✓ Forward biased' : Vd < -0.1 ? 'Reverse biased' : 'Off' },
+      ];
+    }
+    case 'potentiometer': {
+      const Va = pinV('a');
+      const Vb2 = pinV('b');
+      const Vw = pinV('wiper');
+      return [
+        { label: 'V (a→b)', value: fmtV(Va - Vb2) },
+        { label: 'V at wiper', value: fmtV(Vw) },
+      ];
+    }
+    default: {
+      if (comp.pins.length >= 2) {
+        return [{ label: 'V across', value: fmtV(pin0V - pin1V) }];
+      }
+      return [];
+    }
+  }
+}
+
+function LiveReadings({ componentId }: { componentId: string }) {
+  const [readings, setReadings] = useState<Reading[]>([]);
+  const comp = useCircuitStore(s => s.components[componentId]);
+  const nodes = useCircuitStore(s => s.nodes);
+
+  useEffect(() => {
+    if (!comp) return;
+    const id = setInterval(() => {
+      setReadings(computeReadings(comp, nodes));
+    }, 100);
+    return () => clearInterval(id);
+  }, [comp, nodes]);
+
+  if (!readings.length) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.08]">
+      <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-2">
+        Live Readings
+      </p>
+      <div className="space-y-1.5">
+        {readings.map((r, i) => (
+          <div key={i}>
+            <div className="flex justify-between items-baseline">
+              <span className="text-white/40 text-xs">{r.label}</span>
+              <span className={`font-mono text-xs ${r.warn ? 'text-yellow-400' : 'text-white/80'}`}>
+                {r.value}
+              </span>
+            </div>
+            {r.formula && (
+              <p className="text-[10px] text-white/25 font-mono mt-0.5 leading-relaxed">{r.formula}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 ```
 
-Find the actual local X positions of anode and cathode from the LED component definition
-(check `types/circuit.ts` or the LED component file for pin offsets).
+### Integration
 
-The `+` should be green (`#22ff88`) and `−` should be red (`#ff4444`).
-Make them small but visible — `fontSize={0.04}` to `0.06`.
-
-Only show when `showDesignators` is true (same condition as designator labels) OR always show.
-Always-show is simpler and more beginner-friendly — do that.
-
----
-
-## Item 3: Toolbar Buttons for Common View Toggles
-
-### Goal
-Add visible toolbar buttons for the most useful view toggles so beginners don't need
-to discover keyboard shortcuts.
-
-### Current toolbar location
-Look in `components/sidebar/Sidebar.tsx` or `app/page.tsx` for any existing toolbar.
-If no toolbar exists, add a thin button row at the top of the sidebar panel or
-as a floating row above the canvas.
-
-### Buttons to add
-
-Add buttons for these currently keyboard-only actions:
-| Button | Icon | Action |
-|--------|------|--------|
-| Fit    | ⊡ (or ⤢) | zoom to fit (F key) — `uiStore.requestZoomToFit()` |
-| Labels | 🏷 | toggle designator labels (L key) — `uiStore.toggleDesignators()` |
-| Current | ⚡ | toggle current labels (I key) — `uiStore.toggleCurrentLabels()` |
-| Schematic | 📐 | toggle schematic view (S key) — `schematicStore.toggle()` |
-| Scope  | 📊 | toggle oscilloscope (O key) — `scopeStore.toggleOpen()` |
-| Help   | ? | toggle help overlay — `uiStore.toggleHelp()` |
-
-### Implementation
-
-Find the `StatusBar.tsx` in `components/sidebar/StatusBar.tsx` — it's at the bottom of the sidebar.
-Or look for where the status dot is rendered.
-
-**Option A: Add to StatusBar** (preferred — least invasive)
-Add icon buttons to the StatusBar alongside the existing sim status dot.
-
-**Option B: New toolbar strip**
-Add a `<Toolbar />` component in `components/Toolbar.tsx` and render it in `app/page.tsx`
-as a horizontal strip above the canvas (floating, semi-transparent).
-
-Either approach is fine — choose based on what fits better after reading the files.
-
-**Button style** (match existing):
+Find the return statement in `PropertiesInspector` where component fields are rendered.
+After all fields, add:
 ```tsx
-<button
-  onClick={action}
-  title="Zoom to fit (F)"
-  className="w-7 h-7 rounded flex items-center justify-center
-             text-white/40 hover:text-white/80 hover:bg-white/10
-             transition-colors text-xs"
->
-  ⊡
-</button>
+<LiveReadings componentId={selectedComponentId} />
 ```
 
-Add `title` attributes with keyboard shortcut shown: "Labels (L)", "Schematic (S)", etc.
+The `selectedComponentId` — find where it's read from the store in the file.
+The `useState` and `useEffect` imports — add if not already imported.
 
 ---
 
 ## Implementation Notes
-
-- Read the files before modifying — understand current structure
-- DO NOT add new npm packages
-- Use existing store actions — do NOT duplicate logic
-- The `Text` component from @react-three/drei is already used in the project (Wire.tsx current labels)
+- Read PropertiesInspector.tsx fully before editing — it's complex
+- `voltageView` is a module-level Float32Array — reads are synchronous and safe
+- The poll at 100ms is fast enough to feel live, cheap enough to not hurt perf
+- Pin names: check comp.pins array — names vary by component type
+- Handle missing pins gracefully (pin?.nodeId ?? fallback)
 - Run `pnpm build` — fix all TypeScript errors
-- If a store action doesn't exist yet (e.g. toggleCurrentLabels), add it to uiStore.ts
