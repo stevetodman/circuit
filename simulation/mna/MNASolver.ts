@@ -5,6 +5,8 @@
  *   - Resistors   (conductance stamp)
  *   - Voltage sources (KVL extra row/column — used for batteries)
  *   - Diodes / LEDs (Shockley model, Newton-Raphson linearisation)
+ *   - Capacitors (Backward-Euler companion model)
+ *   - BJT NPN (simplified Ebers-Moll linearised)
  *
  * Matrix form: G · x = b
  *   G  = (n + m) × (n + m) admittance/KVL matrix
@@ -18,10 +20,11 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface NetlistElement {
   id:    string;
-  kind:  'resistor' | 'vsource' | 'diode';
+  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt';
   netA:  number;   // positive terminal netId
   netB:  number;   // negative terminal netId (0 = ground)
   value: number;   // R (Ω), V (V), or forward voltage Vf for diode (informational)
+  netC?: number;   // collector (for bjt)
 }
 
 export interface Netlist {
@@ -81,7 +84,11 @@ function solve(G: Float64Array, b: Float64Array, n: number): Float64Array | null
 }
 
 // ── DC operating-point solver ──────────────────────────────────────────────────
-export function solveDC(netlist: Netlist): Float32Array | null {
+export function solveDC(
+  netlist: Netlist,
+  dt?: number,
+  prevVoltages?: Float32Array,
+): Float32Array | null {
   const { elements, netCount } = netlist;
 
   // Trivial cases
@@ -89,6 +96,8 @@ export function solveDC(netlist: Netlist): Float32Array | null {
 
   const vsources = elements.filter(e => e.kind === 'vsource');
   const diodes   = elements.filter(e => e.kind === 'diode');
+  const capacitors = elements.filter(e => e.kind === 'capacitor');
+  const bjts     = elements.filter(e => e.kind === 'bjt');
 
   const nonGround = netCount - 1;          // rows 0…nonGround-1  → netIds 1…
   const n         = nonGround + vsources.length;
@@ -100,6 +109,7 @@ export function solveDC(netlist: Netlist): Float32Array | null {
 
   // Newton-Raphson iteration (handles diodes; one pass for diode-free circuits)
   const Vd = new Float64Array(diodes.length).fill(0.65);
+  const Vbe = new Float64Array(bjts.length).fill(0.65);
   let   result: Float32Array | null = null;
 
   for (let iter = 0; iter < NR_ITER; iter++) {
@@ -113,6 +123,19 @@ export function solveDC(netlist: Netlist): Float32Array | null {
       stamp2(G, b, n, toRow(el.netA), toRow(el.netB), g, 0, 0);
     }
 
+    // ── Stamp capacitors (Backward Euler companion) ───────────────────────────
+    if (dt !== undefined) {
+      for (const el of capacitors) {
+        const rA = toRow(el.netA);
+        const rB = toRow(el.netB);
+        const geq = el.value / Math.max(dt, 1e-12);
+        const prevA = prevVoltages ? prevVoltages[el.netA] ?? 0 : 0;
+        const prevB = prevVoltages ? prevVoltages[el.netB] ?? 0 : 0;
+        const ih = geq * (prevA - prevB);
+        stamp2(G, b, n, rA, rB, geq, ih, -ih);
+      }
+    }
+
     // ── Stamp diodes (linearised Shockley) ───────────────────────────────────
     for (let di = 0; di < diodes.length; di++) {
       const el  = diodes[di];
@@ -122,6 +145,31 @@ export function solveDC(netlist: Netlist): Float32Array | null {
       const Id   = IS * (expV - 1);
       const Ieq  = Id - Geq * vd;
       stamp2(G, b, n, toRow(el.netA), toRow(el.netB), Geq, -Ieq, Ieq);
+    }
+
+    // ── Stamp BJTs (simplified Ebers-Moll linearisation) ────────────────────
+    for (let ti = 0; ti < bjts.length; ti++) {
+      const el = bjts[ti];
+      const netB = toRow(el.netB);
+      const netE = toRow(el.netC);
+      const netC = toRow(el.netA);
+      if (netB < 0 || netE < 0 || netC < 0) continue;
+      const vB = el.netB > 0 ? x[netB] : 0;
+      const vE = el.netC > 0 ? x[netE] : 0;
+      const vbe = Math.max(-5.0, Math.min(0.7, vB - vE));
+      const expV = Math.exp(vbe / VT);
+      const g = (IS / VT) * expV;
+      const ibe = IS * (expV - 1);
+      const ieq = ibe - g * vbe;
+      const hFE = Number.isFinite(el.value) ? Math.max(0, el.value) : 100;
+
+      stamp2(G, b, n, netB, netE, g, -ieq, ieq);
+
+      if (netC >= 0) {
+        if (netB >= 0) G[netC * n + netB] += hFE * g;
+        if (netE >= 0) G[netC * n + netE] -= hFE * g;
+        b[netC] -= hFE * ieq;
+      }
     }
 
     // ── Stamp voltage sources ────────────────────────────────────────────────
@@ -148,7 +196,7 @@ export function solveDC(netlist: Netlist): Float32Array | null {
     result = r;
 
     // ── Convergence check for diodes ─────────────────────────────────────────
-    if (diodes.length === 0) break;
+    if (diodes.length === 0 && bjts.length === 0) break;
     let converged = true;
     for (let di = 0; di < diodes.length; di++) {
       const el   = diodes[di];
@@ -157,6 +205,14 @@ export function solveDC(netlist: Netlist): Float32Array | null {
       const newVd = va - vb;
       if (Math.abs(newVd - Vd[di]) > NR_TOL) converged = false;
       Vd[di] = newVd;
+    }
+    for (let ti = 0; ti < bjts.length; ti++) {
+      const el = bjts[ti];
+      const vB = el.netB > 0 ? r[el.netB] : 0;
+      const vE = el.netC > 0 ? r[el.netC] : 0;
+      const newVbe = Math.max(-5.0, Math.min(0.7, vB - vE));
+      if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) converged = false;
+      Vbe[ti] = newVbe;
     }
     if (converged) break;
   }

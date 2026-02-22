@@ -27,6 +27,28 @@ export interface PinTemplate {
   offset: Vec3;
 }
 
+export interface Timer555Props {
+  r1: number;
+  r2: number;
+  capacitance: number;
+}
+
+export interface BJTProps {
+  hFE: number;
+}
+
+export interface MotorProps {
+  rpm: number;
+}
+
+export interface TactileSwitchProps {
+  normallyOpen: number;
+}
+
+export interface ArduinoProps {
+  clockMhz: number;
+}
+
 const PIN_PITCH = 0.254; // 2.54mm in Three.js units (1 unit = 10mm)
 const arduinoPins = [
   'd13',

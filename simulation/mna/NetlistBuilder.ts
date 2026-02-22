@@ -6,8 +6,10 @@
  *   resistor    → conductance stamp
  *   battery     → ideal voltage source
  *   led         → Shockley diode (NR-linearised)
- *   capacitor   → open circuit (DC)
- *   bjt / 555 / arduino / motor / tactileSwitch → skipped (future milestones)
+ *   capacitor   → transient companion (Backward Euler)
+ *   bjt         → simplified Ebers-Moll
+ *   motor       → winding resistance
+ *   555 / arduino / tactileSwitch → skipped (future milestones)
  */
 import type { CircuitNode, PlacedComponent } from '@/types/circuit';
 import type { NetlistElement, Netlist } from './MNASolver';
@@ -65,10 +67,37 @@ export function buildNetlist(
       }
 
       case 'capacitor':
-        // DC → open circuit; skip
+        // Backward-Euler model handled in transient solver
+      {
+        const netA = pinNet(comp, 'p1') ?? pinNet(comp, 'pos');
+        const netB = pinNet(comp, 'p2') ?? pinNet(comp, 'neg');
+        if (netA == null || netB == null || netA === netB) break;
+        const C = typeof props.capacitance === 'number' ? props.capacitance : 1e-6;
+        elements.push({ id: comp.id, kind: 'capacitor', netA, netB, value: C });
         break;
+      }
 
-      // bjt, timer555, arduino, motor, tactileSwitch: future milestones
+      case 'bjt': {
+        const netC = pinNet(comp, 'collector');
+        const netB = pinNet(comp, 'base');
+        const netE = pinNet(comp, 'emitter');
+        if (netC == null || netB == null || netE == null) break;
+        const hFE = typeof props.hFE === 'number' ? props.hFE : 100;
+        elements.push({ id: comp.id, kind: 'bjt', netA: netC, netB, netC: netE, value: hFE });
+        break;
+      }
+
+      case 'motor':
+        // Model as winding resistance only
+        {
+          const netA = pinNet(comp, 'p1');
+          const netB = pinNet(comp, 'p2');
+          if (netA == null || netB == null || netA === netB) break;
+          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: 10 });
+          break;
+        }
+
+      // timer555, arduino, tactileSwitch: future milestones
       default:
         break;
     }

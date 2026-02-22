@@ -39,8 +39,19 @@ const PROP_DEFS: Partial<Record<ComponentType, PropField[]>> = {
   bjt: [
     { kind: 'number', key: 'hFE', label: 'Current gain (β)', default: 100, min: 10, max: 1000 },
   ],
+  timer555: [
+    { kind: 'number', key: 'r1', label: 'R1', default: 1000, min: 100, max: 1_000_000, step: 100, unit: 'Ω' },
+    { kind: 'number', key: 'r2', label: 'R2', default: 1000, min: 100, max: 1_000_000, step: 100, unit: 'Ω' },
+    { kind: 'number', key: 'capacitance', label: 'Capacitance', default: 1e-6, min: 1e-9, max: 1e-3, step: 1e-7, unit: 'F' },
+  ],
   motor: [
-    { kind: 'number', key: 'resistance', label: 'Coil resistance', default: 10, min: 1, max: 1000, unit: 'Ω' },
+    { kind: 'number', key: 'rpm', label: 'Target RPM', default: 1000, min: 0, max: 10000, step: 100 },
+  ],
+  tactileSwitch: [
+    { kind: 'number', key: 'normallyOpen', label: 'State', default: 1, min: 0, max: 1, step: 1 },
+  ],
+  arduino: [
+    { kind: 'number', key: 'clockMhz', label: 'Clock', default: 16, min: 1, max: 20, step: 1, unit: 'MHz' },
   ],
 };
 

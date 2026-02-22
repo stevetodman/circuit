@@ -1,23 +1,23 @@
 /**
  * Analog simulation worker.
  *
- * Receives UPDATE_NETLIST messages from the main thread, runs the DC
- * operating-point solver, then writes net voltages into the SharedArrayBuffer
- * so the main thread can read them at 60 fps without postMessage overhead.
+ * Receives UPDATE_NETLIST messages from the main thread, runs a DC or
+ * transient operating-point solve, then writes net voltages into the shared
+ * buffer so the main thread can read them.
  *
  * Message protocol (main → worker):
  *   { type: 'UPDATE_NETLIST', nodes, components, sab }
  *
  * Message protocol (worker → main):
- *   { type: 'VOLTAGES_READY' }
+ *   { type: 'VOLTAGES_READY', singular?: false }
  *   { type: 'SIM_ERROR', message: string }
  */
 import { buildNetlist } from '../mna/NetlistBuilder';
-import { solveDC }      from '../mna/MNASolver';
+import { solveDC, type Netlist } from '../mna/MNASolver';
 import type { CircuitNode, PlacedComponent } from '../../types/circuit';
+import { MAX_NETS, SAB_TIMESTAMP_OFFSET, SAB_VOLTAGE_OFFSET } from '../../types/circuit';
 
-const MAX_NETS          = 256;
-const SAB_VOLTAGE_OFFSET = 0;
+const DT_MS = 1;
 
 interface UpdateNetlistMsg {
   type:       'UPDATE_NETLIST';
@@ -26,28 +26,158 @@ interface UpdateNetlistMsg {
   sab:        SharedArrayBuffer;
 }
 
+interface Timer555Model {
+  outNetId: number;
+  vccNetId: number;
+  frequency: number;
+  startedAt: number;
+}
+
+let intervalId: ReturnType<typeof setInterval> | null = null;
+let currentNetlist: Netlist | null = null;
+let netlistHasCapacitor = false;
+let prevVoltages: Float32Array | null = null;
+let timer555Components: Timer555Model[] = [];
+
 let voltageView: Float32Array | null = null;
+let timestampView: Float64Array | null = null;
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function pinNet(
+  nodes: Record<string, CircuitNode>,
+  comp: PlacedComponent,
+  pinName: string,
+): number | null {
+  const pin = comp.pins.find((p) => p.name === pinName);
+  if (!pin) return null;
+  const node = nodes[pin.nodeId];
+  return node?.netId ?? null;
+}
+
+function loadTimerModels(nodes: Record<string, CircuitNode>, components: Record<string, PlacedComponent>): Timer555Model[] {
+  const now = performance.now();
+  const timers: Timer555Model[] = [];
+
+  for (const comp of Object.values(components)) {
+    if (comp.type !== 'timer555') continue;
+
+    const outNetId = pinNet(nodes, comp, 'out');
+    const vccNetId = pinNet(nodes, comp, 'vcc');
+    if (outNetId == null || vccNetId == null) continue;
+
+    const r1 = asNumber(comp.props.r1, 1000);
+    const r2 = asNumber(comp.props.r2, 1000);
+    const capacitance = asNumber(comp.props.capacitance, 1e-6);
+
+    const denominator = (r1 + 2 * r2) * capacitance;
+    const frequency = denominator > 0 ? 1.44 / denominator : 0;
+
+    timers.push({ outNetId, vccNetId, frequency, startedAt: now });
+  }
+
+  return timers;
+}
+
+function writeVoltages(result: Float32Array | null): void {
+  if (!voltageView || !result) return;
+
+  voltageView.fill(0);
+  const len = Math.min(result.length, MAX_NETS);
+  for (let i = 0; i < len; i++) {
+    voltageView[i] = result[i];
+  }
+}
+
+function applyTimerOutputs(now: number): void {
+  if (!voltageView || timer555Components.length === 0) return;
+
+  for (const timer of timer555Components) {
+    if (timer.frequency <= 0) {
+      voltageView[timer.outNetId] = 0;
+      continue;
+    }
+
+    const periodMs = 1000 / timer.frequency;
+    const phase = (now - timer.startedAt) / periodMs;
+    const high = (phase % 1) > 0.5;
+    const vcc = timer.vccNetId >= 0 && timer.vccNetId < MAX_NETS ? voltageView[timer.vccNetId] : 0;
+    voltageView[timer.outNetId] = high ? vcc : 0;
+  }
+}
+
+function tick(): void {
+  if (!currentNetlist || !voltageView) return;
+
+  const now = performance.now();
+
+  if (netlistHasCapacitor) {
+    const result = solveDC(currentNetlist, DT_MS / 1000, prevVoltages);
+    if (!result) return;
+    prevVoltages = result;
+    writeVoltages(result);
+  } else if (prevVoltages) {
+    writeVoltages(prevVoltages);
+  }
+
+  applyTimerOutputs(now);
+
+  if (timestampView) {
+    timestampView[0] = now;
+  }
+
+  self.postMessage({ type: 'VOLTAGES_READY', singular: false });
+}
+
+function startLoop() {
+  if (intervalId) return;
+  intervalId = setInterval(tick, DT_MS);
+}
+
+function stopLoop() {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+}
 
 self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
   const msg = e.data;
   if (msg.type !== 'UPDATE_NETLIST') return;
 
-  // (Re)attach typed view to the shared buffer
   if (!voltageView || voltageView.buffer !== msg.sab) {
     voltageView = new Float32Array(msg.sab, SAB_VOLTAGE_OFFSET, MAX_NETS);
   }
+  if (!timestampView || timestampView.buffer !== msg.sab) {
+    timestampView = new Float64Array(msg.sab, SAB_TIMESTAMP_OFFSET, 1);
+  }
 
   try {
-    const netlist = buildNetlist(msg.nodes, msg.components);
-    const result  = solveDC(netlist);
+    currentNetlist = buildNetlist(msg.nodes, msg.components);
+    netlistHasCapacitor = currentNetlist.elements.some((el) => el.kind === 'capacitor');
+    timer555Components = loadTimerModels(msg.nodes, msg.components);
 
-    voltageView.fill(0);
+    const result = solveDC(currentNetlist);
+    prevVoltages = result;
+
     if (result) {
-      const len = Math.min(result.length, MAX_NETS);
-      for (let i = 0; i < len; i++) voltageView[i] = result[i];
+      writeVoltages(result);
+    } else {
+      voltageView?.fill(0);
+      prevVoltages = null;
     }
 
-    self.postMessage({ type: 'VOLTAGES_READY' });
+    applyTimerOutputs(performance.now());
+
+    if (netlistHasCapacitor || timer555Components.length > 0) {
+      startLoop();
+      tick();
+    } else {
+      stopLoop();
+      self.postMessage({ type: 'VOLTAGES_READY', singular: false });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     self.postMessage({ type: 'SIM_ERROR', message });
