@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { MODULES } from '@/features/modules/definitions';
 import { useModuleStore } from '@/store/moduleStore';
 
 const SPOTLIGHT_LABELS = {
@@ -16,13 +17,21 @@ export default function StepCard() {
   const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
   const activeStep = useModuleStore((s) => s.activeStep);
   const justCompleted = useModuleStore((s) => s.justCompleted);
+  const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
   const exitModule = useModuleStore((s) => s.exitModule);
+  const startModule = useModuleStore((s) => s.startModule);
   const [hintVisible, setHintVisible] = useState(false);
   const [completedModuleTitle, setCompletedModuleTitle] = useState<string | null>(null);
 
   useEffect(() => {
     setHintVisible(false);
   }, [activeModuleId, activeStepIndex]);
+
+  useEffect(() => {
+    if (!activeStep?.hint) return;
+    const timer = setTimeout(() => setHintVisible(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [activeModuleId, activeStepIndex, activeStep?.hint]);
 
   useEffect(() => {
     if (activeModule?.title) {
@@ -34,6 +43,9 @@ export default function StepCard() {
   if (!activeModule && !justCompleted) return null;
 
   const modTitle = activeModule?.title ?? completedModuleTitle ?? '';
+  const nextModule = MODULES.find(
+    (m) => !completedModuleIds.includes(m.id) && m.id !== activeModuleId
+  );
 
   if (justCompleted) {
     return (
@@ -42,6 +54,24 @@ export default function StepCard() {
           <div className="text-[#7c6fff] text-xl leading-none">✓</div>
           <p className="text-white/95 text-sm font-semibold mt-2">Module complete!</p>
           <p className="text-white/75 text-sm mt-1">{modTitle}</p>
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <button
+              type="button"
+              onClick={exitModule}
+              className="text-white/35 hover:text-white/60 text-xs transition-colors"
+            >
+              Done
+            </button>
+            {nextModule && (
+              <button
+                type="button"
+                onClick={() => startModule(nextModule.id)}
+                className="text-[#7c6fff] hover:text-[#9b8fff] text-xs font-medium transition-colors"
+              >
+                {nextModule.title} →
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
