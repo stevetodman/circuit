@@ -1,122 +1,142 @@
-# SPEC: Analog Simulation Pause / Resume
+# SPEC: Component Value Labels in 3D View
 
-Add a ⏸/▶ toggle to pause and resume the analog simulation transient loop,
-plus a spacebar shortcut. Pausing freezes the SAB so the oscilloscope and
-LED brightness hold their last values without flickering or resetting.
+Show the component's value (e.g. "220Ω", "100µF", "9V") as floating text
+in the 3D view, just below the designator label (R1, C2…).
+This makes the breadboard readable without having to click each component.
 
 ## Read First
-- `simulation/workers/analog.worker.ts` — look for `startLoop()`, `stopLoop()`,
-  and the `self.onmessage` handler block. No PAUSE message exists yet.
-- `store/uiStore.ts` — add `simPaused` + `toggleSimPaused` (pattern: simSpeed/setSimSpeed)
-- `components/SimController.tsx` — where to add the effect that forwards pause state to worker
-- `components/sidebar/StatusBar.tsx` — where to add the ⏸/▶ button
-- `components/KeyboardShortcuts.tsx` — where to bind spacebar
+- `components/canvas/parts/ComponentRenderer.tsx` — find the `showDesignators`
+  block that renders the `<Text>` designator (around line 290). The value label
+  goes in the same place, just below it.
+- `store/uiStore.ts` — `showDesignators` boolean is already there.
+  Add `showValueLabels: boolean` and `toggleValueLabels: () => void`.
+- `components/Toolbar.tsx` — add a "Ω Values" toggle button (key: `V` is taken
+  by wire voltage colours, use `W` for values).
+- `components/KeyboardShortcuts.tsx` — bind `W` key.
+- `components/HelpOverlay.tsx` — add `W` to the View shortcuts section.
 
-## Part 1: analog.worker.ts — handle PAUSE / RESUME
-
-Add a new union to the message type near the top where `SetSpeedMsg` is defined:
-```ts
-type PauseMsg = { type: 'PAUSE' };
-type ResumeMsg = { type: 'RESUME' };
-```
-
-Update `self.onmessage` signature to include the new types:
-```ts
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
-```
-
-In the message handler block, after the `SET_SPEED` handler and before the
-`UPDATE_NETLIST` guard, add:
-```ts
-if (msg.type === 'PAUSE') {
-  stopLoop();
-  return;
-}
-if (msg.type === 'RESUME') {
-  if (wasRunning) startLoop();
-  return;
-}
-```
-
-Add a module-level `let wasRunning = false;` just above the `startLoop` function.
-In `startLoop()`, set `wasRunning = true;` as the first line.
-In `stopLoop()`, capture `wasRunning = intervalId !== null;` BEFORE clearing intervalId.
-
-This ensures RESUME only restarts the loop when it was actually running (capacitor
-circuits), not for pure DC circuits where no interval was started.
-
-## Part 2: uiStore.ts — add simPaused
+## Part 1: uiStore.ts — showValueLabels
 
 Add to the interface and initial state:
 ```ts
-simPaused: boolean;
-toggleSimPaused: () => void;
+showValueLabels: boolean;
+toggleValueLabels: () => void;
 ```
-Initial: `simPaused: false`.
-Action: `toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused }))`.
+Initial: `showValueLabels: true` (on by default — very useful info).
+Action: `toggleValueLabels: () => set((s) => ({ showValueLabels: !s.showValueLabels }))`.
 
-## Part 3: SimController.tsx — forward pause/resume to worker
+## Part 2: ComponentRenderer.tsx — value Text label
 
-Read the existing file to find `workerRef` and the existing `simSpeed` effect (around line 267–270).
+Read the file carefully. Find where the `{showDesignators && ... <Text>...</Text>}` block is.
+The `component` object (PlacedComponent) has a `props` field with the value, and `type` for
+what kind of component it is.
 
-Add a selector and effect right after the simSpeed effect:
+Add a value label immediately after the designator Text:
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
+const showValueLabels = useUIStore((state) => state.showValueLabels);
 
-useEffect(() => {
-  if (!workerRef.current) return;
-  workerRef.current.postMessage({ type: simPaused ? 'PAUSE' : 'RESUME' });
-}, [simPaused]);
-```
-
-## Part 4: StatusBar.tsx — ⏸/▶ button
-
-Read the existing file. Find the speed chip buttons (the `[1, 2, 5, 10].map(...)` block).
-Add a ⏸/▶ button immediately BEFORE the speed chips:
-
-```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
-
-<button
-  type="button"
-  onClick={toggleSimPaused}
-  title={simPaused ? 'Resume simulation (Space)' : 'Pause simulation (Space)'}
-  className={`w-6 h-5 flex items-center justify-center rounded text-[11px] transition-colors ${
-    simPaused
-      ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-      : 'text-white/40 hover:text-white/70 hover:bg-white/10'
-  }`}
->
-  {simPaused ? '▶' : '⏸'}
-</button>
+{showValueLabels && !dragging && (
+  <Text
+    position={[0, 0.13, 0]}
+    fontSize={0.065}
+    color="#ffffff"
+    fillOpacity={0.40}
+    anchorX="center"
+    anchorY="middle"
+  >
+    {formatComponentValue(component)}
+  </Text>
+)}
 ```
 
-## Part 5: KeyboardShortcuts.tsx — spacebar
+The position `[0, 0.13, 0]` is just below the designator at `[0, 0.22, 0]`.
+Reduce if they overlap — 0.13 should clear the designator's 0.08 fontSize.
 
-Read the existing file. Find the section that handles single-key shortcuts (after
-the meta-key block, near the `key === 'f'` handler).
+### formatComponentValue helper
 
-Add:
+Define this function near the top of `ComponentRenderer.tsx`:
+
 ```tsx
-if (key === ' ') {
-  e.preventDefault();
-  useUIStore.getState().toggleSimPaused();
+function formatComponentValue(comp: PlacedComponent): string {
+  const p = comp.props as Record<string, unknown>;
+  switch (comp.type) {
+    case 'resistor': {
+      const r = Number(p.resistance ?? 220);
+      if (r >= 1_000_000) return `${(r / 1_000_000).toFixed(1)}MΩ`;
+      if (r >= 1_000) return `${(r / 1_000).toFixed(r % 1000 === 0 ? 0 : 1)}kΩ`;
+      return `${r}Ω`;
+    }
+    case 'capacitor': {
+      const c = Number(p.capacitance ?? 0.0001);
+      if (c >= 0.001) return `${(c * 1000).toFixed(0)}mF`;
+      if (c >= 1e-6)  return `${(c * 1e6).toFixed(0)}µF`;
+      return `${(c * 1e9).toFixed(0)}nF`;
+    }
+    case 'battery': {
+      const v = Number(p.voltage ?? 9);
+      return `${v}V`;
+    }
+    case 'inductor': {
+      const l = Number(p.inductance ?? 0.001);
+      if (l >= 1)     return `${l.toFixed(1)}H`;
+      if (l >= 0.001) return `${(l * 1000).toFixed(0)}mH`;
+      return `${(l * 1e6).toFixed(0)}µH`;
+    }
+    case 'led': return (p.color as string | undefined)?.replace(/^#/, '') ? '' : '';
+    default: return '';
+  }
+}
+```
+
+Return `''` for components where a value label adds no info (LED, BJT, switch, etc.).
+The `<Text>` won't render if the string is empty — but wrap in `{label && <Text>}` to be safe.
+
+## Part 3: Toolbar.tsx — W toggle button
+
+Read the Toolbar to find the existing button pattern (L, I, P, V toggles).
+Add a `W` button for value labels, same style:
+```tsx
+const showValueLabels = useUIStore((s) => s.showValueLabels);
+const toggleValueLabels = useUIStore((s) => s.toggleValueLabels);
+
+<ToolbarButton
+  onClick={toggleValueLabels}
+  active={showValueLabels}
+  title="Values (W)"
+  label="Ω"
+/>
+```
+
+Or use the exact button JSX pattern from the existing buttons.
+
+## Part 4: KeyboardShortcuts.tsx — W key
+
+Find the section with single-key handlers. Add:
+```tsx
+if (key === 'w') {
+  useUIStore.getState().toggleValueLabels();
   return;
 }
 ```
 
+## Part 5: HelpOverlay.tsx — W shortcut
+
+In the View section rows, add:
+```
+['W', 'Toggle component value labels (Ω, µF, V)'],
+```
+
 ## Zustand selector rule (CRITICAL)
-Always individual selectors — NEVER inline objects:
+Individual selectors only:
 ```tsx
-const simPaused = useUIStore(s => s.simPaused);         // CORRECT
-const { simPaused } = useUIStore(s => ({ ... }));       // WRONG — crash
+const showValueLabels = useUIStore((s) => s.showValueLabels);  // CORRECT
+const { showValueLabels } = useUIStore(s => ({ ... }));         // WRONG
 ```
 
 ## Important
-- Files: `simulation/workers/analog.worker.ts`, `store/uiStore.ts`,
-  `components/SimController.tsx`, `components/sidebar/StatusBar.tsx`,
-  `components/KeyboardShortcuts.tsx`
-- Pausing a DC-only circuit (no loop running) is harmless — the button still
-  toggles state, the worker ignores RESUME if wasRunning is false
+- Files: `store/uiStore.ts`, `components/canvas/parts/ComponentRenderer.tsx`,
+  `components/Toolbar.tsx`, `components/KeyboardShortcuts.tsx`,
+  `components/HelpOverlay.tsx`
+- Import `PlacedComponent` type if not already imported in ComponentRenderer
+- The label uses `fillOpacity={0.40}` so it's subtle — visible but not cluttered
 - Run `pnpm build` — must pass with zero TypeScript errors

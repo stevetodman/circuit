@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { Text } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { ComponentType, Vec3 } from '@/types/circuit';
+import type { ComponentType, PlacedComponent, Vec3 } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
 import LED from './LED';
@@ -39,6 +39,36 @@ interface ComponentRendererProps {
 }
 
 const ZERO: Vec3 = [0, 0, 0];
+
+function formatComponentValue(comp: PlacedComponent): string {
+  const p = comp.props as Record<string, unknown>;
+  switch (comp.type) {
+    case 'resistor': {
+      const r = Number(p.resistance ?? 220);
+      if (r >= 1_000_000) return `${(r / 1_000_000).toFixed(1)}MΩ`;
+      if (r >= 1_000) return `${(r / 1_000).toFixed(r % 1000 === 0 ? 0 : 1)}kΩ`;
+      return `${r}Ω`;
+    }
+    case 'capacitor': {
+      const c = Number(p.capacitance ?? 0.0001);
+      if (c >= 0.001) return `${(c * 1000).toFixed(0)}mF`;
+      if (c >= 1e-6) return `${(c * 1e6).toFixed(0)}µF`;
+      return `${(c * 1e9).toFixed(0)}nF`;
+    }
+    case 'battery': {
+      const v = Number(p.voltage ?? 9);
+      return `${v}V`;
+    }
+    case 'inductor': {
+      const l = Number(p.inductance ?? 0.001);
+      if (l >= 1) return `${l.toFixed(1)}H`;
+      if (l >= 0.001) return `${(l * 1000).toFixed(0)}mH`;
+      return `${(l * 1e6).toFixed(0)}µH`;
+    }
+    case 'led': return (p.color as string | undefined)?.replace(/^#/, '') ? '' : '';
+    default: return '';
+  }
+}
 
 function FallbackPart({ pinOffsets = [], selected, onClick }: {
   pinOffsets?: Vec3[];
@@ -93,7 +123,12 @@ export default function ComponentRenderer({
   const rotYRad = (rotationY * Math.PI) / 180;
   const dragging = useDragStore((state) => state.dragging);
   const showDesignators = useUIStore((state) => state.showDesignators);
+  const showValueLabels = useUIStore((state) => state.showValueLabels);
   const overloadIds = useUIStore((state) => state.overloadIds);
+  const componentValueLabel = formatComponentValue({
+    type,
+    props: componentProps ?? {},
+  } as PlacedComponent);
   const isOverloaded = overloadIds.includes(componentId);
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
 
@@ -297,6 +332,18 @@ export default function ComponentRenderer({
           anchorY="middle"
         >
           {designator}
+        </Text>
+      )}
+      {showValueLabels && !dragging && componentValueLabel && (
+        <Text
+          position={[0, 0.13, 0]}
+          fontSize={0.065}
+          color="#ffffff"
+          fillOpacity={0.40}
+          anchorX="center"
+          anchorY="middle"
+        >
+          {componentValueLabel}
         </Text>
       )}
       {isOverloaded && (
