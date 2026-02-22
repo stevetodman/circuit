@@ -9,6 +9,7 @@ interface BatteryProps {
   selected?: boolean;
   transparent?: boolean;
   pinOffsets?: Vec3[];
+  rotationY?: number;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }
 
@@ -31,12 +32,17 @@ function Battery({
   selected = false,
   transparent = false,
   pinOffsets = DEFAULT_PIN_OFFSETS,
+  rotationY = 0,
   onClick,
 }: BatteryProps) {
   const opacity = transparent ? 0.75 : 1;
 
   return (
-    <group position={anchorPos} onClick={onClick}>
+    <group
+      position={anchorPos}
+      rotation={[0, rotationY * Math.PI / 180, 0]}
+      onClick={onClick}
+    >
       <mesh position={[0, 0.075, 0]} castShadow>
         <cylinderGeometry args={[0.025, 0.025, 0.06, 16]} />
         <meshStandardMaterial color="#444" roughness={0.33} transparent={transparent} opacity={opacity} />

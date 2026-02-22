@@ -6,6 +6,7 @@ import ArduinoPanel from './ArduinoPanel';
 import StatusBar from './StatusBar';
 import ScopeButton from './ScopeButton';
 import ExportPanel from './ExportPanel';
+import ExampleLoader from '@/features/examples/ExampleLoader';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 import { useSchematicStore } from '@/store/schematicStore';
@@ -165,6 +166,7 @@ export default function Sidebar() {
           Insert Part
         </p>
         <ScopeButton />
+        <ExampleLoader />
         <div className="space-y-0.5 px-2">
           {PARTS.map((p) => (
             <ComponentTile

@@ -9,6 +9,7 @@ interface ResistorProps {
   selected?: boolean;
   transparent?: boolean;
   pinOffsets?: Vec3[];
+  rotationY?: number;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
 }
 
@@ -31,6 +32,7 @@ function Resistor({
   selected = false,
   transparent = false,
   pinOffsets = DEFAULT_PIN_OFFSETS,
+  rotationY = 0,
   onClick,
 }: ResistorProps) {
   const bodyOpacity = transparent ? 0.75 : 1;
@@ -38,7 +40,11 @@ function Resistor({
   const bandColors = ['#555', '#f8a03c', '#202020'];
 
   return (
-    <group position={anchorPos} rotation={[0, 0, Math.PI / 2]} onClick={onClick}>
+    <group
+      position={anchorPos}
+      rotation={[0, rotationY * Math.PI / 180, Math.PI / 2]}
+      onClick={onClick}
+    >
       <mesh position={[0, 0.065, 0]} castShadow>
         <cylinderGeometry args={[0.025, 0.025, 0.09, 12]} />
         <meshStandardMaterial color="#c8a060" roughness={0.7} transparent={transparent} opacity={bodyOpacity} />

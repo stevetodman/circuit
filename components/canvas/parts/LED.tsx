@@ -12,6 +12,7 @@ interface LEDProps {
   selected?:     boolean;
   transparent?:  boolean;
   pinOffsets?:   Vec3[];
+  rotationY?:    number;
   onClick?:      (e: ThreeEvent<MouseEvent>) => void;
   color?:        string;
   /** netId of the anode pin — supplied by Scene after BFS net analysis */
@@ -45,6 +46,7 @@ function LED({
   color          = '#ff2020',
   anodeNetId     = null,
   cathodeNetId   = null,
+  rotationY      = 0,
 }: LEDProps) {
   const bodyRef = useRef<THREE.Mesh>(null);
   const domeRef = useRef<THREE.Mesh>(null);
@@ -81,7 +83,11 @@ function LED({
   });
 
   return (
-    <group position={anchorPos} onClick={onClick}>
+    <group
+      position={anchorPos}
+      rotation={[0, rotationY * Math.PI / 180, 0]}
+      onClick={onClick}
+    >
       {/* Body cylinder */}
       <mesh ref={bodyRef} position={[0, 0.085 / 2, 0]} castShadow>
         <cylinderGeometry args={[0.03, 0.03, 0.085, 12]} />

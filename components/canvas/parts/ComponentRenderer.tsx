@@ -21,7 +21,6 @@ interface ComponentRendererProps {
 const ZERO: Vec3 = [0, 0, 0];
 
 function FallbackPart({ pinOffsets = [], selected, onClick }: {
-  anchorPos?: Vec3; // ignored — handled by wrapper group
   pinOffsets?: Vec3[];
   selected?: boolean;
   onClick?: (event: ThreeEvent<MouseEvent>) => void;

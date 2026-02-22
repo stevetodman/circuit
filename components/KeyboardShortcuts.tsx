@@ -5,6 +5,7 @@ import { useCircuitStore, useCircuitHistory } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
+import { useUIStore } from '@/store/uiStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -27,10 +28,13 @@ export default function KeyboardShortcuts() {
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
   const cancelDrag          = useDragStore((s) => s.cancel);
   const toggleSchematic     = useSchematicStore((s) => s.toggle);
+  const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
+  const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
 
       // Undo
       if (meta && !e.shiftKey && e.key === 'z') {
@@ -55,22 +59,33 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      // Zoom to fit
+      if (key === 'f') {
+        e.preventDefault();
+        requestZoomToFit();
+        return;
+      }
+
+      // Camera presets
+      if (key === '1') { e.preventDefault(); requestCameraPreset('default'); return; }
+      if (key === '2') { e.preventDefault(); requestCameraPreset('top');     return; }
+
       // Rotate selected component
-      if ((e.key === 'r' || e.key === 'R') && selectedComponentId) {
+      if (key === 'r' && selectedComponentId) {
         e.preventDefault();
         rotateComponent(selectedComponentId);
         return;
       }
 
       // Toggle oscilloscope
-      if (e.key.toLowerCase() === 'o') {
+      if (key === 'o') {
         e.preventDefault();
         useScopeStore.getState().toggle();
         return;
       }
 
       // Toggle schematic
-      if (e.key.toLowerCase() === 's') {
+      if (key === 's') {
         e.preventDefault();
         toggleSchematic();
         return;
@@ -86,7 +101,17 @@ export default function KeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [deleteSelected, rotateComponent, selectedComponentId, selectNode, selectComponent, cancelDrag, toggleSchematic]);
+  }, [
+    deleteSelected,
+    rotateComponent,
+    selectedComponentId,
+    selectNode,
+    selectComponent,
+    cancelDrag,
+    toggleSchematic,
+    requestZoomToFit,
+    requestCameraPreset,
+  ]);
 
   return null;
 }
