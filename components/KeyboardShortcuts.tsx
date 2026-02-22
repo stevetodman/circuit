@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useCircuitStore, useCircuitHistory } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
+import { useUIStore } from '@/store/uiStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -16,11 +17,16 @@ export default function KeyboardShortcuts() {
   const deleteSelected = useCircuitStore((s) => s.deleteSelected);
   const selectNode = useCircuitStore((s) => s.selectNode);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const rotateComponent = useCircuitStore((s) => s.rotateComponent);
+  const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const cancelDrag = useDragStore((s) => s.cancel);
+  const requestZoomToFit = useUIStore((s) => s.requestZoomToFit);
+  const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
 
       // Undo
       if (meta && !e.shiftKey && e.key === 'z') {
@@ -43,6 +49,30 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'f' && !isInputFocused()) {
+        e.preventDefault();
+        requestZoomToFit();
+        return;
+      }
+
+      if (key === '1' && !isInputFocused()) {
+        e.preventDefault();
+        requestCameraPreset('default');
+        return;
+      }
+
+      if (key === '2' && !isInputFocused()) {
+        e.preventDefault();
+        requestCameraPreset('top');
+        return;
+      }
+
+      if ((key === 'r') && selectedComponentId && !isInputFocused()) {
+        e.preventDefault();
+        rotateComponent(selectedComponentId);
+        return;
+      }
+
       // Escape — cancel drag / deselect
       if (e.key === 'Escape') {
         cancelDrag();
@@ -53,7 +83,16 @@ export default function KeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [deleteSelected, selectNode, selectComponent, cancelDrag]);
+  }, [
+    deleteSelected,
+    selectNode,
+    selectComponent,
+    cancelDrag,
+    requestZoomToFit,
+    requestCameraPreset,
+    rotateComponent,
+    selectedComponentId,
+  ]);
 
   return null;
 }

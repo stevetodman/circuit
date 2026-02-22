@@ -12,17 +12,19 @@ interface ComponentRendererProps {
   pinOffsets?:   Vec3[];
   selected?:     boolean;
   transparent?:  boolean;
+  rotationY?:    number;
   onClick?:      (event: ThreeEvent<MouseEvent>) => void;
   // Voltage props forwarded to LED
   anodeNetId?:   number | null;
   cathodeNetId?: number | null;
 }
 
-function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick }: {
+function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick, rotationY = 0 }: {
   anchorPos: Vec3;
   pinOffsets: Vec3[];
   selected?: boolean;
   onClick?: (event: ThreeEvent<MouseEvent>) => void;
+  rotationY?: number;
 }) {
   const offsets: Vec3[] = pinOffsets.length
     ? pinOffsets
@@ -32,7 +34,7 @@ function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick }: {
       ]);
 
   return (
-    <group position={anchorPos} onClick={onClick}>
+    <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
       <mesh position={[0, 0.065, 0]}>
         <boxGeometry args={[0.14, 0.06, 0.06]} />
         <meshStandardMaterial color="#7a7a7a" roughness={0.7} />
@@ -61,6 +63,7 @@ export default function ComponentRenderer({
   pinOffsets,
   selected,
   transparent,
+  rotationY = 0,
   onClick,
   anodeNetId,
   cathodeNetId,
@@ -69,6 +72,7 @@ export default function ComponentRenderer({
     case 'led':
       return (
         <LED
+          rotationY={rotationY}
           anchorPos={anchorPos}
           selected={selected}
           transparent={transparent}
@@ -81,6 +85,7 @@ export default function ComponentRenderer({
     case 'resistor':
       return (
         <Resistor
+          rotationY={rotationY}
           anchorPos={anchorPos}
           selected={selected}
           transparent={transparent}
@@ -91,6 +96,7 @@ export default function ComponentRenderer({
     case 'battery':
       return (
         <Battery
+          rotationY={rotationY}
           anchorPos={anchorPos}
           selected={selected}
           transparent={transparent}
@@ -105,6 +111,7 @@ export default function ComponentRenderer({
           pinOffsets={pinOffsets ?? []}
           selected={selected}
           onClick={onClick}
+          rotationY={rotationY}
         />
       );
   }

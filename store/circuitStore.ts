@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import type { CircuitNode, PlacedComponent, Wire, ComponentType, Vec3, PinConnection } from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
+import type { ExampleCircuit } from '@/features/examples/circuits';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
   rowZTop, rowZBot,
@@ -63,10 +64,12 @@ interface CircuitState extends TopologyState {
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
   setProperty(componentId: string, key: string, value: number | string): void;
+  rotateComponent: (componentId: string) => void;
   selectNode(id: string | null): void;
   selectComponent(id: string | null): void;
   toggleWiringMode(): void;
   deleteSelected(): void;
+  loadExample(circuit: ExampleCircuit): void;
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
@@ -133,6 +136,22 @@ export const useCircuitStore = create<CircuitState>()(
         }));
       },
 
+      rotateComponent(componentId) {
+        set((state) => {
+          const component = state.components[componentId];
+          if (!component) return state;
+          return {
+            components: {
+              ...state.components,
+              [componentId]: {
+                ...component,
+                rotationY: (component.rotationY + 90) % 360,
+              },
+            },
+          };
+        });
+      },
+
       selectNode(id) {
         set({ selectedNodeId: id });
       },
@@ -143,6 +162,16 @@ export const useCircuitStore = create<CircuitState>()(
 
       toggleWiringMode() {
         set((state) => ({ wiringMode: !state.wiringMode }));
+      },
+
+      loadExample(circuit) {
+        set((state) => ({
+          components: Object.fromEntries(circuit.components.map((component) => [component.id, component])),
+          wires: Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire])),
+          nodes: runNetAnalysis(state.nodes, Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire]))),
+          selectedComponentId: null,
+          selectedNodeId: null,
+        }));
       },
 
       deleteSelected() {

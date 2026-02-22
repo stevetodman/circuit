@@ -4,6 +4,7 @@ import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
 import ArduinoPanel from './ArduinoPanel';
 import StatusBar from './StatusBar';
+import ExampleLoader from '@/features/examples/ExampleLoader';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 
@@ -136,6 +137,7 @@ export default function Sidebar() {
         <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/25">
           Insert Part
         </p>
+        <ExampleLoader />
         <div className="space-y-0.5 px-2">
           {PARTS.map((p) => (
             <ComponentTile
