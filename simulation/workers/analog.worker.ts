@@ -21,6 +21,7 @@ import {
 } from '../../types/circuit';
 
 const DT_MS = 1;
+const MOTOR_KE = 0.01;
 
 interface UpdateNetlistMsg {
   type:       'UPDATE_NETLIST';
@@ -42,6 +43,7 @@ let currentNetlist: Netlist | null = null;
 let netlistNeedsTransientLoop = false;
 let prevVoltages: Float32Array | null = null;
 let prevInductorCurrents: Record<string, number> = {};
+const motorState: Map<string, { omega: number }> = new Map();
 let timer555Components: Timer555Model[] = [];
 // P1-12: cumulative sim time — avoids wall-clock drift under CPU load
 let simTimeMs = 0;
@@ -102,6 +104,19 @@ function writeBranchCurrents(currents: Float32Array): void {
   for (let i = 0; i < len; i++) branchCurrentView[i] = currents[i];
 }
 
+function updateMotorState(resultVoltages: Float32Array, netlist: Netlist): void {
+  for (const el of netlist.elements) {
+    if (el.kind !== 'motor') continue;
+    const vA = resultVoltages[el.netA] ?? 0;
+    const vB = resultVoltages[el.netB] ?? 0;
+    const omegaPrev = motorState.get(el.id)?.omega ?? 0;
+    const bemf = Math.max(0, omegaPrev) * MOTOR_KE;
+    const current = (vA - vB - bemf) / (el.value + 1e-6);
+    const omega = Math.max(0, current / MOTOR_KE);
+    motorState.set(el.id, { omega });
+  }
+}
+
 function applyTimerOutputs(now: number): void {
   if (!voltageView || timer555Components.length === 0) return;
 
@@ -132,8 +147,10 @@ function tick(): void {
       DT_MS / 1000,
       prevVoltages ?? undefined,
       prevInductorCurrents,
+      motorState,
     );
     if (!result) return;
+    updateMotorState(result.voltages, currentNetlist);
     prevVoltages = result.voltages;
     prevInductorCurrents = result.inductorCurrents ?? {};
     writeVoltages(result.voltages);
@@ -170,18 +187,20 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
   }
 
   try {
+    motorState.clear();
     simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
     netlistNeedsTransientLoop = currentNetlist.elements.some((el) =>
-      el.kind === 'capacitor' || el.kind === 'inductor',
+      el.kind === 'capacitor' || el.kind === 'inductor' || el.kind === 'motor',
     );
     timer555Components    = loadTimerModels(msg.nodes, msg.components);
 
-    const result  = solveDC(currentNetlist, undefined, undefined, undefined);
+    const result  = solveDC(currentNetlist, undefined, undefined, undefined, motorState);
     prevVoltages  = result ? result.voltages : null;
     prevInductorCurrents = result?.inductorCurrents ?? {};
 
     if (result) {
+      updateMotorState(result.voltages, currentNetlist);
       writeVoltages(result.voltages);
       writeBranchCurrents(result.branchCurrents);
       if (!result.converged) { // P1-15: surface NR non-convergence to main thread

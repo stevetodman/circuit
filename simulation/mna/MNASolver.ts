@@ -23,7 +23,7 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface NetlistElement {
   id:    string;
-  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt' | 'mosfet' | 'opamp' | 'inductor';
+  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt' | 'mosfet' | 'opamp' | 'inductor' | 'motor';
   netA:  number;   // positive terminal netId
   netB:  number;   // negative terminal netId (0 = ground)
   value: number;   // R (Ω), V (V), or forward voltage Vf for diode (informational)
@@ -45,6 +45,7 @@ const VD_MAX  = 1.2;      // clamp to prevent exp() overflow
 const VD_MIN  = -5.0;
 const NR_ITER = 60;
 const NR_TOL  = 1e-9;
+const MOTOR_KE = 0.01;
 
 // ── Gaussian elimination with partial pivoting ─────────────────────────────────
 function solve(G: Float64Array, b: Float64Array, n: number): Float64Array | null {
@@ -102,6 +103,7 @@ export function solveDC(
   dt?: number,
   prevVoltages?: Float32Array,
   prevInductorCurrents?: Record<string, number>,
+  motorState?: Map<string, { omega: number }>,
 ): SolveResult | null {
   const { elements, netCount } = netlist;
 
@@ -115,7 +117,7 @@ export function solveDC(
   }
 
   const vsources = elements.filter(e => e.kind === 'vsource');
-  const resistors = elements.filter(e => e.kind === 'resistor');
+  const resistors = elements.filter(e => e.kind === 'resistor' || e.kind === 'motor');
   const diodes   = elements.filter(e => e.kind === 'diode');
   const capacitors = elements.filter(e => e.kind === 'capacitor');
   const bjts     = elements.filter(e => e.kind === 'bjt');
@@ -151,12 +153,19 @@ export function solveDC(
     const G = new Float64Array(n * n);
     const b = new Float64Array(n);
 
-    // ── Stamp resistors ──────────────────────────────────────────────────────
-    for (const el of elements) {
-      if (el.kind !== 'resistor') continue;
-      const g = 1.0 / Math.max(el.value, 1e-9);
-      stamp2(G, b, n, toRow(el.netA), toRow(el.netB), g, 0, 0);
+  // ── Stamp linear resistive branches (motor uses a current injection companion) ────
+  for (const el of elements) {
+    if (el.kind !== 'resistor' && el.kind !== 'motor') continue;
+    const g = 1.0 / Math.max(el.value, 1e-9);
+    if (el.kind === 'motor') {
+      const omegaPrev = motorState?.get(el.id)?.omega ?? 0;
+      const bemf = Math.max(0, omegaPrev) * MOTOR_KE;
+      const iInj = -bemf * g;
+      stamp2(G, b, n, toRow(el.netA), toRow(el.netB), g, iInj, -iInj);
+      continue;
     }
+    stamp2(G, b, n, toRow(el.netA), toRow(el.netB), g, 0, 0);
+  }
 
     // ── Stamp capacitors (Backward Euler companion) ───────────────────────────
     if (dt !== undefined) {
@@ -251,7 +260,7 @@ export function solveDC(
       b[vsRow] = el.value;
     }
 
-    // ── Stamp op-amps as controlled sources (VCVS approximation) ──────────
+  // ── Stamp op-amps as controlled sources (VCVS approximation) ──────────
     for (let oi = 0; oi < opamps.length; oi++) {
       const el    = opamps[oi];
       const outRow = nonGroundNodeCount + vsources.length + oi;
@@ -338,8 +347,16 @@ export function solveDC(
   for (const resistor of resistors) {
     const vA = resistor.netA > 0 ? voltages[resistor.netA] : 0;
     const vB = resistor.netB > 0 ? voltages[resistor.netB] : 0;
+    if (resistor.kind === 'motor') {
+      const omegaPrev = motorState?.get(resistor.id)?.omega ?? 0;
+      const bemf = Math.max(0, omegaPrev) * MOTOR_KE;
+      branchCurrents[branchIndex++] = (vA - vB - bemf) / Math.max(resistor.value, 1e-9);
+      continue;
+    }
     branchCurrents[branchIndex++] = (vA - vB) / Math.max(resistor.value, 1e-9);
   }
+
+  // Motor resistor branch currents are included in `resistors` and share the same formula.
 
   // Vsource branch currents (MNA extra variable currents)
   for (let vi = 0; vi < vsources.length; vi++) {

@@ -621,19 +621,34 @@ export function Timer555Symbol({ x, y, w = 170, h = 90, selected }: SymbolProps)
   );
 }
 
-export function MotorSymbol({ x, y, w, h, selected }: SymbolProps): ReactElement {
+export function MotorSymbol({
+  x,
+  y,
+  w,
+  h,
+  selected,
+  valueLabel,
+}: SymbolProps & { valueLabel?: string }): ReactElement {
   const cx = x + (w ?? 130) / 2;
   const cy = y + (h ?? 70) / 2;
   const r = Math.min(w ?? 130, h ?? 70) / 2 - 4;
+  const leadColor = selected ? '#6cf' : '#555';
 
   return (
     <g>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={selected ? '#6cf' : '#555'} strokeWidth={1.5} />
+      <line x1={x} y1={cy} x2={cx - r - 4} y2={cy} stroke={leadColor} strokeWidth={1.5} />
+      <line x1={cx + r + 4} y1={cy} x2={x + (w ?? 130)} y2={cy} stroke={leadColor} strokeWidth={1.5} />
+      <circle cx={x} cy={cy} r={3.5} fill={leadColor} />
+      <circle cx={x + (w ?? 130)} cy={cy} r={3.5} fill={leadColor} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={leadColor} strokeWidth={1.5} />
       <text x={cx} y={cy + 4} textAnchor="middle" fill="#aaa" fontSize={14} fontFamily="monospace">
         M
       </text>
-      <line x1={cx - r} y1={cy} x2={x} y2={cy} stroke="#555" strokeWidth={1.5} />
-      <line x1={cx + r} y1={cy} x2={x + (w ?? 130)} y2={cy} stroke="#555" strokeWidth={1.5} />
+      {valueLabel && (
+        <text x={cx} y={cy + r + 15} textAnchor="middle" fill={leadColor} fontSize={10} fontFamily="monospace">
+          {valueLabel}
+        </text>
+      )}
     </g>
   );
 }

@@ -9,11 +9,12 @@
  *   capacitor   → transient companion (Backward Euler)
  *   bjt         → simplified Ebers-Moll
  *   diode       → plain diode (Shockley model)
- *   motor       → winding resistance
+ *   motor       → winding resistance + stateful back-EMF
  *   mosfet      → voltage-controlled switch (rdsOn / Roff)
  *   opamp       → behavioral gain clamp
  *   inductor    → DC short, transient companion
- *   555 / arduino / tactileSwitch → skipped (future milestones)
+ *   tactileSwitch → closed/open resistance model
+ *   555 / arduino → skipped (future milestones)
  */
 import type { CircuitNode, PlacedComponent, Wire } from '@/types/circuit';
 import { MAX_NETS } from '@/types/circuit';
@@ -220,15 +221,22 @@ export function buildNetlist(
       }
 
       case 'motor':
-        // Model as winding resistance only
         {
           const netA = pinNet(comp, 'p1');
           const netB = pinNet(comp, 'p2');
           if (netA == null || netB == null || netA === netB) break;
-          const R = typeof (props as { resistance?: number }).resistance === 'number'
-            ? Math.max(0.1, (props as { resistance?: number }).resistance ?? 10)
+          const resistance = typeof (props as { resistance?: number }).resistance === 'number'
+            ? (props as { resistance?: number }).resistance ?? 10
             : 10;
-          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: R });
+          const element: NetlistElement = {
+            id: comp.id,
+            kind: 'motor',
+            netA,
+            netB,
+            value: resistance,
+          };
+          elements.push(element);
+          branchElements.push(element);
           break;
         }
 
@@ -236,11 +244,11 @@ export function buildNetlist(
         const netA = pinNet(comp, 'p1');
         const netB = pinNet(comp, 'p2');
         if (netA == null || netB == null || netA === netB) break;
-        if ((props as { closed?: number }).closed === 1) {
-          // Closed: model as near-ideal short (0.01 Ω contact resistance)
-          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: 0.01 });
-        }
-        // Open: omit element entirely → open circuit
+        const closed = typeof props.closed === 'boolean'
+          ? props.closed
+          : (props as { closed?: number }).closed === 1;
+        const value = closed ? 0.001 : 1e9;
+        elements.push({ id: comp.id, kind: 'resistor', netA, netB, value });
         break;
       }
 

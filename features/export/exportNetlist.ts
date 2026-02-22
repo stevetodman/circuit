@@ -187,7 +187,10 @@ export function exportSPICE(
       const netB = pinNet(nodes, comp, 'p2');
       if (netA == null || netB == null || netA === netB) continue;
       const resistance = typeof comp.props.resistance === 'number' ? comp.props.resistance : 10;
-      lines.push(`R_MOTOR${motorIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} ${resistance} * DC Motor (modeled as resistor)`);
+      const mid = `MOTOR${motorIndex}`;
+      lines.push(`R${motorIndex}_Ra ${toSPICENet(netA)} ${mid} ${resistance}`);
+      lines.push(`V${motorIndex}_bemf ${mid} ${toSPICENet(netB)} 0`);
+      motorIndex += 1;
       continue;
     }
 
@@ -195,7 +198,11 @@ export function exportSPICE(
       const netA = pinNet(nodes, comp, 'p1');
       const netB = pinNet(nodes, comp, 'p2');
       if (netA == null || netB == null || netA === netB) continue;
-      lines.push(`SW${switchIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} SWITCH_CTRL 0 MYSW`);
+      const closed = typeof comp.props.closed === 'boolean'
+        ? comp.props.closed
+        : (comp.props.closed as number | undefined) === 1;
+      const value = closed ? 0.001 : 1e9;
+      lines.push(`R${switchIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} ${value}`);
       continue;
     }
   }
@@ -207,7 +214,6 @@ export function exportSPICE(
   lines.push('.model NMOS_SIMPLE NMOS(Level=1 VTO=2.0 Beta=1e-3 L=1u W=1u)');
   lines.push('.model NPN_GENERIC NPN(Is=1e-14 Bf=100)');
   lines.push('.model PNP_GENERIC PNP(Is=1e-14 Bf=100)');
-  lines.push('.model MYSW SW(Ron=0.01 Roff=1e9 Vt=0.5 Vh=0)');
   lines.push('.end');
 
   return `${lines.join('\n')}\n`;

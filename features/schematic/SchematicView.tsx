@@ -125,9 +125,9 @@ function componentValueLabel(component: PlacedComponent): string {
       return freq >= 1000 ? `${(freq / 1000).toFixed(1)}kHz` : `${freq.toFixed(1)}Hz`;
     }
     case 'motor':
-      return `${typeof p.rpm === 'number' ? p.rpm : 1000}rpm`;
+      return `Ra=${engVal(typeof p.resistance === 'number' ? p.resistance : 10, 'Ω')}`;
     case 'tactileSwitch':
-      return typeof p.closed === 'number' && p.closed === 1 ? 'ON' : 'OFF';
+      return p.closed ? 'ON' : 'OFF';
     default:
       return '';
   }
@@ -209,6 +209,7 @@ function symbolNode(
           w={size.width}
           h={size.height}
           selected={selected}
+          valueLabel={engVal(typeof props?.resistance === 'number' ? props.resistance : 10, 'Ω')}
         />
       );
     case 'arduino':

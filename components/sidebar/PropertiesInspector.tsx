@@ -98,7 +98,7 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   ],
   motor: [
     { kind: 'number', key: 'rpm', label: 'Target RPM', default: 1000, min: 0, max: 10000, step: 100, unit: 'rpm' },
-    { kind: 'number', key: 'resistance', label: 'Winding R', default: 10, min: 1, max: 1000, step: 1, unit: 'Ω' },
+    { kind: 'number', key: 'resistance', label: 'Winding R', default: 10, min: 0.1, max: 1000, step: 0.1, unit: 'Ω' },
   ],
   tactileSwitch: [
     { kind: 'toggle' as const, key: 'closed', label: 'Switch state', default: 0, onLabel: 'Closed (ON)', offLabel: 'Open (OFF)' },
