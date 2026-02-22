@@ -8,6 +8,8 @@ import { clearChannel } from '@/features/oscilloscope/scopeBuffer';
 
 export default function ExampleLoader() {
   const loadExample = useCircuitStore((state) => state.loadExample);
+  const components  = useCircuitStore((state) => state.components);
+  const wires       = useCircuitStore((state) => state.wires);
   const scopeChannels = useScopeStore((state) => state.channels);
   const removeScopeChannel = useScopeStore((state) => state.removeChannel);
   const [selectedIndex, setSelectedIndex] = useState('');
@@ -17,6 +19,15 @@ export default function ExampleLoader() {
     setSelectedIndex(index);
 
     if (!index) return;
+
+    // Confirm before overwriting a non-empty circuit
+    const hasContent = Object.keys(components).length > 0 || Object.keys(wires).length > 0;
+    if (hasContent) {
+      if (!window.confirm('Load example? This will clear your current circuit.')) {
+        setSelectedIndex('');
+        return;
+      }
+    }
 
     // Clear oscilloscope channels before loading to avoid stale probes
     for (const ch of scopeChannels) {

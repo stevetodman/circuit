@@ -31,8 +31,17 @@ interface LogNumberField {
   unit?: string;
 }
 
+interface ToggleField {
+  kind: 'toggle';
+  key: string;
+  label: string;
+  default: number; // 0 = off, 1 = on
+  onLabel?: string;
+  offLabel?: string;
+}
+
 type PropField = NumericField | ColorField;
-type PropOrLogField = PropField | LogNumberField;
+type PropOrLogField = PropField | LogNumberField | ToggleField;
 
 const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
@@ -74,7 +83,7 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
     { kind: 'number', key: 'resistance', label: 'Winding R', default: 10, min: 1, max: 1000, step: 1, unit: 'Ω' },
   ],
   tactileSwitch: [
-    { kind: 'number', key: 'closed', label: 'State', default: 0, min: 0, max: 1, step: 1, unit: '' },
+    { kind: 'toggle' as const, key: 'closed', label: 'Switch state', default: 0, onLabel: 'Closed (ON)', offLabel: 'Open (OFF)' },
   ],
   arduino: [
     { kind: 'number', key: 'clockMhz', label: 'Clock speed', default: 16, min: 1, max: 20, step: 1, unit: 'MHz' },
@@ -213,10 +222,36 @@ function ColorInput({
   );
 }
 
+function ToggleInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: ToggleField;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const isOn = value !== 0;
+  return (
+    <button
+      onClick={() => onChange(isOn ? 0 : 1)}
+      className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-[11px] font-semibold w-full transition-colors ${
+        isOn
+          ? 'bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25'
+          : 'bg-white/[0.05] text-white/40 border border-white/[0.1] hover:bg-white/[0.09]'
+      }`}
+    >
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isOn ? 'bg-green-400' : 'bg-white/20'}`} />
+      {isOn ? (field.onLabel ?? 'ON') : (field.offLabel ?? 'OFF')}
+    </button>
+  );
+}
+
 // ── Main inspector ─────────────────────────────────────────────────────────────
 function Inspector({ component }: { component: PlacedComponent }) {
   const setProperty    = useCircuitStore((s) => s.setProperty);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const deleteSelected  = useCircuitStore((s) => s.deleteSelected);
 
   const fields = PROP_DEFS[component.type] ?? [];
   const typeLabel = TYPE_LABELS[component.type] ?? component.type;
@@ -234,13 +269,22 @@ function Inspector({ component }: { component: PlacedComponent }) {
         <span className="text-[11px] font-semibold text-white/60 tracking-wide">
           {typeLabel}
         </span>
-        <button
-          onClick={() => selectComponent(null)}
-          className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
-          title="Deselect"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { deleteSelected(); selectComponent(null); }}
+            className="text-[10px] text-red-500/40 hover:text-red-400 font-mono transition-colors leading-none"
+            title="Delete component"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => selectComponent(null)}
+            className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
+            title="Deselect"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Property fields */}
@@ -274,6 +318,12 @@ function Inspector({ component }: { component: PlacedComponent }) {
                 </>
               ) : field.kind === 'log-number' ? (
                 <LogNumberInput
+                  field={field}
+                  value={getValue(field) as number}
+                  onChange={(v) => setProperty(component.id, field.key, v)}
+                />
+              ) : field.kind === 'toggle' ? (
+                <ToggleInput
                   field={field}
                   value={getValue(field) as number}
                   onChange={(v) => setProperty(component.id, field.key, v)}

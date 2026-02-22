@@ -78,6 +78,7 @@ export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
   const sabRef    = useRef<SharedArrayBuffer | null>(null);
   const readyRef  = useRef(false);   // true once worker is initialised
+  const lastFloatWarnRef = useRef(0); // throttle floating-net toasts
 
   const nodes         = useCircuitStore((s) => s.nodes);
   const components    = useCircuitStore((s) => s.components);
@@ -118,7 +119,12 @@ export default function SimController() {
       const { type, message } = e.data as { type: string; message?: string; singular?: boolean };
       if (type === 'VOLTAGES_READY') {
         if (e.data.singular) {
-          setSimStatus('error', 'Floating net');
+          setSimStatus('running');
+          const now = performance.now();
+          if (now - lastFloatWarnRef.current > 8000) {
+            addToast('Floating net — connect all components to a ground path', 'warn');
+            lastFloatWarnRef.current = now;
+          }
         } else {
           setSimStatus('running');
         }

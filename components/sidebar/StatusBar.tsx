@@ -70,7 +70,7 @@ export default function StatusBar() {
       {/* Mode + Sim status row */}
       <div className="flex items-center justify-between">
         <ModeChip label={modeLabel} color={modeColor} />
-        <span className="flex items-center gap-1 text-[9px] font-mono" style={{ color: dot.color }}>
+        <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: dot.color }}>
           <span
             className="w-1.5 h-1.5 rounded-full inline-block"
             style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 4px ${dot.color}` : 'none' }}
@@ -78,7 +78,7 @@ export default function StatusBar() {
           {dot.label}
         </span>
       </div>
-      <div className="text-[9px] font-mono text-white/50">⚡ {formatPower(power)}</div>
+      <div className="text-[10px] font-mono text-white/60">⚡ {formatPower(power)}</div>
       {simStatus === 'error' && (
         <span className="text-[10px] text-red-400 truncate max-w-[140px]" title={simError ?? ''}>
           {simError ?? 'Sim error'}
@@ -86,7 +86,7 @@ export default function StatusBar() {
       )}
 
       {/* Net count + hovered pin */}
-      <div className="flex items-center justify-between text-[9px] font-mono text-white/25">
+      <div className="flex items-center justify-between text-[10px] font-mono text-white/40">
         <span>{netCount} net{netCount !== 1 ? 's' : ''}</span>
         {selectedComponentIds.length > 1 && (
           <span className="text-white/50">{selectedComponentIds.length} selected</span>

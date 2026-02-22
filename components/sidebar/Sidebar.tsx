@@ -10,6 +10,8 @@ import ExampleLoader from '@/features/examples/ExampleLoader';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 import { useSchematicStore } from '@/store/schematicStore';
+import { useUIStore } from '@/store/uiStore';
+import { useToastStore } from '@/store/toastStore';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function Rect({ fill }: { fill: string }) {
@@ -160,23 +162,23 @@ function SchematicIcon({ active }: { active: boolean }) {
   );
 }
 
-// ── Component catalogue ───────────────────────────────────────────────────────
+// ── Component catalogue (beginner-first order) ────────────────────────────────
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode }[] = [
-  { type: 'arduino',       label: 'Arduino Uno',      icon: <Arduino /> },
+  { type: 'battery',       label: 'Battery',           icon: <Battery /> },
   { type: 'wire',          label: 'Wire',              icon: <WireIcon /> },
-  { type: 'diode',        label: 'Diode',             icon: <Diode /> },
-  { type: 'mosfet',       label: 'MOSFET',            icon: <MOSFET /> },
-  { type: 'opamp',        label: 'Op-Amp',            icon: <OpAmp /> },
-  { type: 'resistor',     label: 'Resistor',           icon: <Rect fill="#c8a060" /> },
-  { type: 'led',          label: 'LED',                icon: <LED /> },
-  { type: 'inductor',     label: 'Inductor',           icon: <Inductor /> },
-  { type: 'motor',        label: 'Motor',              icon: <Motor /> },
-  { type: 'timer555',     label: '555 Timer',          icon: <Timer555 /> },
-  { type: 'capacitor',    label: 'Capacitor',          icon: <Circle fill="#4488cc" /> },
-  { type: 'bjt',          label: 'NPN Transistor',     icon: <BJT /> },
-  { type: 'battery',      label: 'Battery',            icon: <Battery /> },
-  { type: 'potentiometer', label: 'Potentiometer',     icon: <Potentiometer /> },
+  { type: 'resistor',      label: 'Resistor',          icon: <Rect fill="#c8a060" /> },
+  { type: 'led',           label: 'LED',               icon: <LED /> },
+  { type: 'capacitor',     label: 'Capacitor',         icon: <Circle fill="#4488cc" /> },
+  { type: 'bjt',           label: 'NPN Transistor',    icon: <BJT /> },
+  { type: 'timer555',      label: '555 Timer',         icon: <Timer555 /> },
+  { type: 'motor',         label: 'Motor',             icon: <Motor /> },
   { type: 'tactileSwitch', label: 'Tactile Switch',    icon: <Circle fill="#666" /> },
+  { type: 'diode',         label: 'Diode',             icon: <Diode /> },
+  { type: 'mosfet',        label: 'MOSFET',            icon: <MOSFET /> },
+  { type: 'opamp',         label: 'Op-Amp',            icon: <OpAmp /> },
+  { type: 'inductor',      label: 'Inductor',          icon: <Inductor /> },
+  { type: 'potentiometer', label: 'Potentiometer',     icon: <Potentiometer /> },
+  { type: 'arduino',       label: 'Arduino Uno',       icon: <Arduino /> },
 ];
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -184,6 +186,8 @@ export default function Sidebar() {
   const startDrag = useDragStore((state) => state.startDrag);
   const schematicOpen = useSchematicStore((state) => state.open);
   const toggleSchematic = useSchematicStore((state) => state.toggle);
+  const toggleHelp = useUIStore((state) => state.toggleHelp);
+  const addToast = useToastStore((state) => state.addToast);
 
   return (
     <aside
@@ -204,16 +208,26 @@ export default function Sidebar() {
         <span className="text-[13px] font-semibold tracking-wide text-white/80">
           Circuit Sandbox
         </span>
-        <button
-          type="button"
-          onClick={toggleSchematic}
-          title={schematicOpen ? 'Hide schematic view' : 'Show schematic view'}
-          className="ml-auto h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/90 hover:bg-white/[0.08] grid place-items-center"
-          aria-pressed={schematicOpen}
-        >
-          <span className="sr-only">Schematic view</span>
-          <SchematicIcon active={schematicOpen} />
-        </button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleHelp}
+            title="Keyboard shortcuts (?)"
+            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/50 hover:text-white/80 hover:bg-white/[0.08] grid place-items-center text-[13px] font-semibold"
+          >
+            ?
+          </button>
+          <button
+            type="button"
+            onClick={toggleSchematic}
+            title={schematicOpen ? 'Hide schematic view' : 'Show schematic view'}
+            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/90 hover:bg-white/[0.08] grid place-items-center"
+            aria-pressed={schematicOpen}
+          >
+            <span className="sr-only">Schematic view</span>
+            <SchematicIcon active={schematicOpen} />
+          </button>
+        </div>
       </div>
 
       {/* ── Insert Part ── */}
@@ -232,7 +246,7 @@ export default function Sidebar() {
               icon={p.icon}
               onAdd={
                 p.type === 'wire'
-                  ? undefined
+                  ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
                   : () => startDrag(p.type as ComponentType)
               }
             />

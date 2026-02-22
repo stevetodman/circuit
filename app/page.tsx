@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
+import { useCircuitStore } from '@/store/circuitStore';
 import Sidebar from '@/components/sidebar/Sidebar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
@@ -23,6 +25,111 @@ const Scene = dynamic(() => import('@/components/canvas/Scene'), {
   ),
 });
 
+// ── Welcome card (shown once on first visit) ──────────────────────────────────
+const WELCOME_KEY = 'circuit-welcomed-v1';
+
+function WelcomeOverlay() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem(WELCOME_KEY)) {
+      setVisible(true);
+    }
+  }, []);
+
+  if (!visible) return null;
+
+  function dismiss() {
+    localStorage.setItem(WELCOME_KEY, '1');
+    setVisible(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+      <div className="bg-[#111113] border border-white/[0.12] rounded-xl p-8 max-w-sm w-full shadow-2xl mx-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-full bg-[#7c6fff]/20 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="7" stroke="#7c6fff" strokeWidth="1.5" />
+              <circle cx="8" cy="8" r="3" fill="#7c6fff" />
+            </svg>
+          </div>
+          <h2 className="text-white font-semibold text-base">Welcome to Circuit Sandbox</h2>
+        </div>
+        <p className="text-white/50 text-sm leading-relaxed mb-5">
+          Build and simulate analog circuits on a virtual breadboard.
+        </p>
+        <ol className="space-y-3 mb-6">
+          {[
+            ['1', 'Drag a part from the left panel onto the board'],
+            ['2', 'Click a pin to start a wire, then click another pin to connect them'],
+            ['3', 'Press ? anytime to see all keyboard shortcuts'],
+          ].map(([n, text]) => (
+            <li key={n} className="flex items-start gap-3 text-sm">
+              <span className="w-5 h-5 rounded-full bg-[#7c6fff]/20 text-[#7c6fff] text-[11px] font-bold flex-shrink-0 flex items-center justify-center mt-0.5">
+                {n}
+              </span>
+              <span className="text-white/60 leading-snug">{text}</span>
+            </li>
+          ))}
+        </ol>
+        <button
+          onClick={dismiss}
+          className="w-full py-2 rounded-lg bg-[#7c6fff] hover:bg-[#9d8fff] text-white text-sm font-semibold transition-colors"
+        >
+          Get started
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Wiring hint pill (shown while drawing a wire) ─────────────────────────────
+function WiringHint() {
+  const wiringMode     = useCircuitStore((s) => s.wiringMode);
+  const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
+
+  if (!wiringMode && !selectedNodeId) return null;
+
+  const message = selectedNodeId
+    ? 'Click another pin to connect — Escape to cancel'
+    : 'Click any pin to start a wire';
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+      <div className="bg-black/80 border border-[#2299cc]/40 text-[#5bb8e8] text-[12px] font-mono px-4 py-2 rounded-full backdrop-blur-sm whitespace-nowrap">
+        {message}
+      </div>
+    </div>
+  );
+}
+
+// ── Camera hint (fades out after 5 s on first load) ───────────────────────────
+function CameraHint() {
+  const [fading, setFading] = useState(false);
+  const [gone,   setGone]   = useState(false);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setFading(true), 4000);
+    const t2 = setTimeout(() => setGone(true),   5500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  if (gone) return null;
+
+  return (
+    <div
+      className="fixed bottom-6 right-4 z-20 pointer-events-none transition-opacity duration-1000"
+      style={{ opacity: fading ? 0 : 0.55 }}
+    >
+      <span className="text-white/50 text-[11px] font-mono">
+        Scroll to zoom · Drag to orbit
+      </span>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const { open: scopeOpen, channels, toggle: scopeToggle, addChannel, removeChannel } = useScopeStore((state) => ({
     open: state.open,
@@ -40,12 +147,15 @@ export default function Home() {
     >
       <SimController />
       <Toast />
+      <WelcomeOverlay />
       <HelpOverlay />
       <ContextMenu />
       <KeyboardShortcuts />
       <ErrorBoundary><Sidebar /></ErrorBoundary>
       <main className="relative flex-1 min-w-0 h-full">
         <Scene />
+        <WiringHint />
+        <CameraHint />
         <ErrorBoundary>
           <Oscilloscope
             open={scopeOpen}
