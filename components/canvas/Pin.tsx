@@ -22,6 +22,7 @@ export default function PinGrid() {
   const setHovered    = useUIStore((s) => s.setHoveredNode);
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
+  const hitMeshRef = useRef<THREE.InstancedMesh>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // Stable ordered list — only recomputes when topology changes
@@ -38,6 +39,18 @@ export default function PinGrid() {
   // ── Instance matrices — set once per topology change ─────────────────────
   useEffect(() => {
     const mesh = meshRef.current;
+    if (!mesh) return;
+    const dummy = new THREE.Object3D();
+    nodeList.forEach(({ worldPos }, i) => {
+      dummy.position.set(worldPos[0], worldPos[1] + 0.012, worldPos[2]);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [nodeList]);
+
+  useEffect(() => {
+    const mesh = hitMeshRef.current;
     if (!mesh) return;
     const dummy = new THREE.Object3D();
     nodeList.forEach(({ worldPos }, i) => {
@@ -112,18 +125,27 @@ export default function PinGrid() {
     [nodeList, selectedId, addWire, selectNode, gl],
   );
 
+  if (count === 0) return null;
+
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, count]}
-      onPointerMove={onMove}
-      onPointerOut={onOut}
-      onClick={onClick}
-      renderOrder={2}
-    >
-      {/* Flat metallic disk — looks like the pin ring visible in Diode */}
-      <cylinderGeometry args={[0.052, 0.052, 0.008, 10]} />
-      <meshStandardMaterial roughness={0.25} metalness={0.7} />
-    </instancedMesh>
+    <>
+      <instancedMesh ref={meshRef} args={[undefined, undefined, count]} renderOrder={2}>
+        {/* Flat metallic disk — looks like the pin ring visible in Diode */}
+        <cylinderGeometry args={[0.052, 0.052, 0.008, 10]} />
+        <meshStandardMaterial roughness={0.25} metalness={0.7} />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={hitMeshRef}
+        args={[undefined, undefined, count]}
+        onPointerMove={onMove}
+        onPointerOut={onOut}
+        onClick={onClick}
+        renderOrder={1}
+      >
+        <cylinderGeometry args={[0.10, 0.10, 0.04, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </instancedMesh>
+    </>
   );
 }
