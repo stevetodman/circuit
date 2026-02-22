@@ -1,73 +1,103 @@
-# SPEC: Net Glow on Hover
+# SPEC: Top-Down Camera Default + Circuit Health Checker
 
-## Goal
-When a pin/node is hovered, highlight ALL pins sharing the same net with a
-distinct colored ring. Makes breadboard connectivity visible without documentation.
-
+## Two independent changes — implement both.
 Run `pnpm build` — must pass with zero errors.
 
 ---
 
-## Current state
-- `uiStore.hoveredNodeId` — the nodeId of the hovered pin
-- `circuitStore.nodes` — Record<nodeId, { netId: number | null, ... }>
-- `components/canvas/Pin.tsx` — InstancedMesh, sets per-instance colors
+## Change 1: Top-Down Camera as Default View
 
-## Implementation
+### Goal
+New users find the perspective 3D view disorienting. Physical breadboards are
+always viewed from above. Make top-down (orthographic/perspective looking straight
+down) the default camera position.
 
-### `components/canvas/Pin.tsx`
+### Implementation
 
-Read this file fully first to understand the InstancedMesh pattern.
+Read `components/canvas/Scene.tsx` fully first.
 
-The existing code already:
-1. Colors hovered pin (bright)
-2. Colors selected/wiring-mode pins
-3. Colors net-highlighted pins differently
+Find where the camera is initialized or where OrbitControls sets its initial position.
 
-**Add net-glow behavior:**
+Change the initial camera setup:
+- Position: directly above center, looking down: `[0, 15, 0]` or similar
+- Target: `[0, 0, 0]` (center of breadboard)
+- Rotation: straight down
 
-When `hoveredNodeId` changes, find all nodes that share the same `netId`,
-then highlight them all with a distinct color (e.g. `#22ddff` — cyan/teal).
+In R3F with OrbitControls, this is usually done via the camera `position` prop
+on the Canvas or PerspectiveCamera, OR via `OrbitControls` target + initial state.
 
-```typescript
-// In the color update loop (where setColorAt is called):
-const hoveredNetId = nodes[hoveredNodeId]?.netId ?? null;
-
-for each pin instance i:
-  const nodeId = nodeIdForInstance[i];  // the mapping from instance index to nodeId
-  const node = nodes[nodeId];
-  const netId = node?.netId;
-  
-  if (hoveredNetId != null && netId === hoveredNetId && nodeId !== hoveredNodeId) {
-    // Same net as hovered pin — show net glow color
-    color.set('#22ddff');  // or '#4af' or similar teal
-    alpha = 0.6;  // slightly dimmer than the actual hovered pin
-  }
+Look for:
+```tsx
+<PerspectiveCamera makeDefault position={[x, y, z]} />
+// or
+camera={{ position: [x, y, z] }}
 ```
 
-The net glow color should be distinct from:
-- Hovered pin color (bright white/yellow)
-- Selected pin color
-- Wire preview color
-- Default pin color
+Change to a top-down position. The breadboard is at y=0, roughly 13 units wide.
+A good top-down position: `position={[0, 12, 0.01]}` (the tiny z offset prevents gimbal lock).
 
-Use `#22ccee` (cyan) for net glow — readable on the dark breadboard.
+The OrbitControls should allow the user to still orbit to 3D view.
 
-### Pulse animation (optional but nice)
-If the existing code uses `useFrame` for any animation:
-- Net-glow pins can pulse at 0.5 Hz (sin wave on emissive intensity)
-- Keep it subtle — don't make it distracting
+Also update the `1` / `2` key shortcuts in `components/KeyboardShortcuts.tsx`:
+- `1` → perspective view (3D, at a nice angle like `[8, 8, 8]`)
+- `2` → top-down view (the new default)
 
-### Wire drawing mode
-During wiring mode (selectedNodeId is set):
-- Highlight all pins that share the source net in a different color (e.g. amber `#ffaa00`)
-  so the user can see what's already connected to the source pin
+Currently `2` is top and `1` is perspective — keep this and just swap which is default.
 
 ---
 
-## Implementation Notes
-- Read Pin.tsx completely before modifying
-- The InstancedMesh instance-to-node mapping already exists — find and use it
-- `instanceColor.needsUpdate = true` must be called after any color change
-- Do NOT create new meshes — only color existing instances
-- Run `pnpm build` — fix all TypeScript errors
+## Change 2: Circuit Health Checker (Enhanced)
+
+The basic all-zero diagnostic was added in a previous branch. Enhance it with
+specific checks.
+
+### Location
+Add health check logic to `components/SimController.tsx` or a new
+`components/CircuitHealthChecker.tsx` component.
+
+### Checks to implement
+
+Read `store/circuitStore.ts` and `store/netAnalysis.ts` to understand how to
+query topology.
+
+**Check 1: No complete circuit (already exists — improve message)**
+- Condition: components >= 2, battery exists, all voltages near 0
+- Message: "No current flowing — check that battery + and − both connect to the circuit"
+
+**Check 2: LED without current-limiting resistor**
+- Condition: LED exists, no resistor shares a net with the LED
+- Implementation:
+  ```typescript
+  const leds = components where type === 'led'
+  const resistors = components where type === 'resistor'
+  for each led:
+    const ledNetIds = led.pins.map(p => nodes[p.nodeId]?.netId).filter(Boolean)
+    const hasResistor = resistors.some(r =>
+      r.pins.some(p => ledNetIds.includes(nodes[p.nodeId]?.netId))
+    )
+    if (!hasResistor) → warn "LED needs a current-limiting resistor in series"
+  ```
+- Message: "LED connected without a resistor — add a 220–470Ω resistor to limit current"
+
+**Check 3: Short circuit (battery terminals directly connected)**
+- Condition: battery's positive and negative pins share the same net
+- Message: "Short circuit detected — battery + and − are directly connected"
+
+**Check 4: Floating net (component pin with netId = null)**
+- Condition: any component pin has netId = null (not connected to anything)
+- Skip: don't report freshly placed components that haven't been wired yet (wait 3s)
+- Message: "Some component pins aren't connected — check all pins have wires"
+
+### Rate limiting
+- Check at most once every 3 seconds
+- Don't show the same warning twice in a row
+- Clear warnings when circuit changes
+
+### Display
+Use existing `toastStore` with severity `'warn'`.
+OR: add a small persistent indicator in `StatusBar.tsx` (bottom of sidebar).
+
+The StatusBar approach is better — a persistent indicator that doesn't auto-dismiss.
+Add a yellow dot + short message in StatusBar when there's an active health warning.
+
+Read StatusBar.tsx first.
