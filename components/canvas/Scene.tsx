@@ -1,11 +1,12 @@
 'use client';
 
-import { Component, type ReactNode, useState } from 'react';
+import { Component, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Breadboard from './Breadboard';
 import PinGrid from './Pin';
 import WireLayer from './WireLayer';
+import WirePreview from './WirePreview';
 import DragManager from './DragManager';
 import ComponentRenderer from './parts/ComponentRenderer';
 import { useCircuitStore } from '@/store/circuitStore';
@@ -35,8 +36,9 @@ class SceneErrorBoundary extends Component<
 }
 
 export default function Scene() {
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-  const components = useCircuitStore((state) => Object.values(state.components));
+  const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
+  const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const components          = useCircuitStore((s) => Object.values(s.components));
 
   return (
     <SceneErrorBoundary>
@@ -54,6 +56,7 @@ export default function Scene() {
         {/* Scene geometry */}
         <Breadboard />
         <WireLayer />
+        <WirePreview />
         <PinGrid />
         <DragManager />
 
@@ -67,7 +70,7 @@ export default function Scene() {
             selected={selectedComponentId === component.id}
             onClick={(event) => {
               event.stopPropagation();
-              setSelectedComponentId((prev) => (prev === component.id ? null : component.id));
+              selectComponent(selectedComponentId === component.id ? null : component.id);
             }}
           />
         ))}

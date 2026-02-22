@@ -1,6 +1,7 @@
 'use client';
 
 import ComponentTile from './ComponentTile';
+import PropertiesInspector from './PropertiesInspector';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 
@@ -158,11 +159,14 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* ── Properties Inspector (shown when a component is selected) ── */}
+      <PropertiesInspector />
+
       {/* ── Footer ── */}
       <div className="px-4 py-3 border-t border-white/[0.05]">
         <p className="text-[10px] text-white/20 leading-relaxed">
-          Hover a pin → gold highlight<br />
-          Click a pin → logs node ID<br />
+          Click pin → start wire · Click again → complete<br />
+          Right-click wire → remove · Delete key → remove selected<br />
           Orbit · Pan · Zoom with mouse
         </p>
       </div>
