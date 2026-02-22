@@ -165,7 +165,7 @@ export const MODULES: Module[] = [
         id: 'build-switch-circuit',
         instruction: 'Build: Battery → Switch → Resistor (470Ω) → LED → Battery−',
         hint: 'Place all four components and wire them in series.',
-        validate: (s) => hasComponent(s, 'switch') && hasCurrentLimitingResistor(s),
+        validate: (s) => hasComponent(s, 'tactileSwitch') && hasCurrentLimitingResistor(s),
       },
       {
         id: 'toggle-switch',

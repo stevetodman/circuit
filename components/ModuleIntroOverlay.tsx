@@ -5,10 +5,8 @@ import { useModuleStore } from '@/store/moduleStore';
 import { MODULES } from '@/features/modules/definitions';
 
 export default function ModuleIntroOverlay() {
-  const { activeModuleId, activeStepIndex } = useModuleStore((s) => ({
-    activeModuleId: s.activeModuleId,
-    activeStepIndex: s.activeStepIndex,
-  }));
+  const activeModuleId = useModuleStore((s) => s.activeModuleId);
+  const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
   const [dismissed, setDismissed] = useState(false);
 
   // Reset dismissed state when a new module starts

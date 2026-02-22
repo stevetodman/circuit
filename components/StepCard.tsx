@@ -4,11 +4,9 @@ import { useModuleStore } from '@/store/moduleStore';
 import { MODULES } from '@/features/modules/definitions';
 
 export default function StepCard() {
-  const { activeModuleId, activeStepIndex, exitModule } = useModuleStore((s) => ({
-    activeModuleId: s.activeModuleId,
-    activeStepIndex: s.activeStepIndex,
-    exitModule: s.exitModule,
-  }));
+  const activeModuleId = useModuleStore((s) => s.activeModuleId);
+  const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
+  const exitModule = useModuleStore((s) => s.exitModule);
 
   if (!activeModuleId) return null;
   const mod = MODULES.find((m) => m.id === activeModuleId);

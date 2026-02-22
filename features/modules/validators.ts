@@ -78,7 +78,7 @@ export function potIsAdjusted(state: ValidatorState): boolean {
 /** True if switch is toggled (closed) */
 export function switchIsClosed(state: ValidatorState): boolean {
   return Object.values(state.components).some(
-    (c) => c.type === 'switch' && Boolean(c.props.closed),
+    (c) => (c.type === 'switch' || c.type === 'tactileSwitch') && Boolean(c.props.closed),
   );
 }
 

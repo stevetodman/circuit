@@ -4,12 +4,10 @@ import { useModuleStore } from '@/store/moduleStore';
 import { MODULES, isModuleUnlocked } from '@/features/modules/definitions';
 
 export default function LearnPanel() {
-  const { completedModuleIds, activeModuleId, startModule, exitModule } = useModuleStore((s) => ({
-    completedModuleIds: s.completedModuleIds,
-    activeModuleId: s.activeModuleId,
-    startModule: s.startModule,
-    exitModule: s.exitModule,
-  }));
+  const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
+  const activeModuleId = useModuleStore((s) => s.activeModuleId);
+  const startModule = useModuleStore((s) => s.startModule);
+  const exitModule = useModuleStore((s) => s.exitModule);
 
   return (
     <div className="flex flex-col gap-1 p-2">

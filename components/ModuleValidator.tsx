@@ -8,11 +8,9 @@ import { voltageView } from '@/simulation/SimBridge';
 import { MODULES } from '@/features/modules/definitions';
 
 export default function ModuleValidator() {
-  const { activeModuleId, activeStepIndex, advanceStep } = useModuleStore((s) => ({
-    activeModuleId: s.activeModuleId,
-    activeStepIndex: s.activeStepIndex,
-    advanceStep: s.advanceStep,
-  }));
+  const activeModuleId = useModuleStore((s) => s.activeModuleId);
+  const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
+  const advanceStep = useModuleStore((s) => s.advanceStep);
   const stepRef = useRef({ moduleId: activeModuleId, stepIndex: activeStepIndex });
   stepRef.current = { moduleId: activeModuleId, stepIndex: activeStepIndex };
 
