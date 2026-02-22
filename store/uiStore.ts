@@ -17,6 +17,7 @@ interface UIState {
   hoveredNodeId: string | null;
   simStatus: 'idle' | 'running' | 'error';
   simError: string | null;
+  simErrorDismissed: boolean;
   power: number;
   showCurrentLabels: boolean;
   sab: SharedArrayBuffer | null;
@@ -35,7 +36,7 @@ interface UIState {
   setHoveredNode:      (id: string | null) => void;
   setSimStatus:        (status: 'idle' | 'running' | 'error', error?: string | null) => void;
   setPower:            (power: number) => void;
-  toggleCurrentLabels: () => void;
+  toggleCurrentLabels:  () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
   toggleDesignators:   () => void;
@@ -48,6 +49,7 @@ interface UIState {
   startBoxSelect:      (startX: number, startY: number) => void;
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
+  dismissSimError:     () => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -60,6 +62,7 @@ export const useUIStore = create<UIState>()((set) => ({
   hoveredNodeId: null,
   simStatus:     'idle',
   simError:      null,
+  simErrorDismissed: false,
   power:         0,
   showCurrentLabels: false,
   sab:           null,
@@ -72,7 +75,8 @@ export const useUIStore = create<UIState>()((set) => ({
   boxSelectRect:  null,
 
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
-  setSimStatus:   (status, error = undefined) => set({ simStatus: status, simError: error ?? null }),
+  setSimStatus:   (status, error = undefined) =>
+    set({ simStatus: status, simError: error ?? null, simErrorDismissed: false }),
   setPower:      (power) => set({ power }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setSAB:         (sab) => set({ sab }),
@@ -95,4 +99,5 @@ export const useUIStore = create<UIState>()((set) => ({
       return { boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) };
     }),
   clearBoxSelect: () => set({ boxSelect: null, boxSelectRect: null }),
+  dismissSimError: () => set({ simErrorDismissed: true }),
 }));
