@@ -4,6 +4,7 @@ import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
 import ArduinoPanel from './ArduinoPanel';
 import StatusBar from './StatusBar';
+import ExportPanel from './ExportPanel';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 
@@ -158,6 +159,9 @@ export default function Sidebar() {
 
       {/* ── Arduino panel (shown when Arduino is selected) ── */}
       <ArduinoPanel />
+
+      {/* ── Export panel (SPICE) ── */}
+      <ExportPanel />
 
       {/* ── Status bar ── */}
       <StatusBar />
