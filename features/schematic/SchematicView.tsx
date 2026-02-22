@@ -10,12 +10,16 @@ import {
   BJTSymbol,
   BatterySymbol,
   CapacitorSymbol,
+  MotorSymbol,
   GenericSymbol,
   LEDSymbol,
   ResistorSymbol,
   getSymbolSize,
   getSymbolTerminalOffset,
   hasSymbolTerminalOffset,
+  TactileSwitchSymbol,
+  Timer555Symbol,
+  ArduinoSymbol,
   symbolForTypeName,
 } from './symbols';
 
@@ -79,6 +83,7 @@ function symbolNode(
   y: number,
   selected: boolean,
 ) {
+  const size = getSymbolSize(type);
   switch (type) {
     case 'resistor':
       return <ResistorSymbol x={x} y={y} selected={selected} />;
@@ -90,6 +95,46 @@ function symbolNode(
       return <CapacitorSymbol x={x} y={y} selected={selected} />;
     case 'bjt':
       return <BJTSymbol x={x} y={y} selected={selected} />;
+    case 'timer555':
+      return (
+        <Timer555Symbol
+          x={x - size.width / 2}
+          y={y - size.height / 2}
+          w={size.width}
+          h={size.height}
+          selected={selected}
+        />
+      );
+    case 'motor':
+      return (
+        <MotorSymbol
+          x={x - size.width / 2}
+          y={y - size.height / 2}
+          w={size.width}
+          h={size.height}
+          selected={selected}
+        />
+      );
+    case 'arduino':
+      return (
+        <ArduinoSymbol
+          x={x - size.width / 2}
+          y={y - size.height / 2}
+          w={size.width}
+          h={size.height}
+          selected={selected}
+        />
+      );
+    case 'tactileSwitch':
+      return (
+        <TactileSwitchSymbol
+          x={x - size.width / 2}
+          y={y - size.height / 2}
+          w={size.width}
+          h={size.height}
+          selected={selected}
+        />
+      );
     default:
       return <GenericSymbol x={x} y={y} selected={selected} label={symbolForTypeName(type)} />;
   }

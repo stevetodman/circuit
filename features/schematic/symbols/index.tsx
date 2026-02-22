@@ -9,6 +9,14 @@ export interface SchematicSymbolSize {
 const GLOW = '#f1fcff';
 const STROKE = '#d7dee9';
 
+interface SymbolProps {
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  selected?: boolean;
+}
+
 export const SYMBOL_SIZES: Record<ComponentType, SchematicSymbolSize> = {
   resistor: { width: 180, height: 80 },
   led: { width: 130, height: 80 },
@@ -284,6 +292,103 @@ export function GenericSymbol({
       <text x="0" y="6" textAnchor="middle" fontSize="13" fill="#d8e2ff" fontFamily="Arial, sans-serif" fontWeight="700">
         {title}
       </text>
+    </g>
+  );
+}
+
+export function Timer555Symbol({ x, y, w = 170, h = 90, selected }: SymbolProps): ReactElement {
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <rect
+        width={w}
+        height={h}
+        rx={3}
+        fill={selected ? '#1a1a2e' : '#111'}
+        stroke={selected ? '#6cf' : '#555'}
+        strokeWidth={1.5}
+      />
+      <text x={w / 2} y={h / 2 + 4} textAnchor="middle" fill="#aaa" fontSize={11} fontFamily="monospace">
+        555
+      </text>
+      <text x={4} y={16} fill="#666" fontSize={8} fontFamily="monospace">
+        GND
+      </text>
+      <text x={4} y={h - 4} fill="#666" fontSize={8} fontFamily="monospace">
+        OUT
+      </text>
+      <text x={w - 4} y={16} textAnchor="end" fill="#666" fontSize={8} fontFamily="monospace">
+        VCC
+      </text>
+    </g>
+  );
+}
+
+export function MotorSymbol({ x, y, w, h, selected }: SymbolProps): ReactElement {
+  const cx = x + (w ?? 130) / 2;
+  const cy = y + (h ?? 70) / 2;
+  const r = Math.min(w ?? 130, h ?? 70) / 2 - 4;
+
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={selected ? '#6cf' : '#555'} strokeWidth={1.5} />
+      <text x={cx} y={cy + 4} textAnchor="middle" fill="#aaa" fontSize={14} fontFamily="monospace">
+        M
+      </text>
+      <line x1={cx - r} y1={cy} x2={x} y2={cy} stroke="#555" strokeWidth={1.5} />
+      <line x1={cx + r} y1={cy} x2={x + (w ?? 130)} y2={cy} stroke="#555" strokeWidth={1.5} />
+    </g>
+  );
+}
+
+export function ArduinoSymbol({ x, y, w = 240, h = 90, selected }: SymbolProps): ReactElement {
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={4}
+        fill={selected ? '#003333' : '#001a1a'}
+        stroke={selected ? '#6cf' : '#00979c'}
+        strokeWidth={1.5}
+      />
+      <text
+        x={x + w / 2}
+        y={y + h / 2 - 4}
+        textAnchor="middle"
+        fill="#00979c"
+        fontSize={10}
+        fontFamily="monospace"
+        fontWeight="bold"
+      >
+        ARDUINO
+      </text>
+      <text
+        x={x + w / 2}
+        y={y + h / 2 + 8}
+        textAnchor="middle"
+        fill="#006666"
+        fontSize={8}
+        fontFamily="monospace"
+      >
+        UNO
+      </text>
+    </g>
+  );
+}
+
+export function TactileSwitchSymbol({ x, y, w = 140, h = 60, selected }: SymbolProps): ReactElement {
+  const mid = y + h / 2;
+  const stroke = selected ? '#6cf' : '#555';
+
+  return (
+    <g>
+      <line x1={x} y1={mid} x2={x + w * 0.35} y2={mid} stroke={stroke} strokeWidth={1.5} />
+      <line x1={x + w * 0.65} y1={mid} x2={x + w} y2={mid} stroke={stroke} strokeWidth={1.5} />
+      <line x1={x + w * 0.35} y1={mid - 6} x2={x + w * 0.35} y2={mid + 6} stroke={stroke} strokeWidth={1.5} />
+      <line x1={x + w * 0.35} y1={mid - 8} x2={x + w * 0.65} y2={mid - 8} stroke={stroke} strokeWidth={1.5} strokeDasharray="2,2" />
+      <line x1={x + w * 0.65} y1={mid - 6} x2={x + w * 0.65} y2={mid + 6} stroke={stroke} strokeWidth={1.5} />
     </g>
   );
 }

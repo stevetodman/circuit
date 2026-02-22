@@ -40,18 +40,19 @@ const PROP_DEFS: Partial<Record<ComponentType, PropField[]>> = {
     { kind: 'number', key: 'hFE', label: 'Current gain (β)', default: 100, min: 10, max: 1000 },
   ],
   timer555: [
-    { kind: 'number', key: 'r1', label: 'R1', default: 1000, min: 100, max: 1_000_000, step: 100, unit: 'Ω' },
-    { kind: 'number', key: 'r2', label: 'R2', default: 1000, min: 100, max: 1_000_000, step: 100, unit: 'Ω' },
+    { kind: 'number', key: 'r1', label: 'R1 (timing)', default: 1000, min: 100, max: 1e6, step: 100, unit: 'Ω' },
+    { kind: 'number', key: 'r2', label: 'R2 (timing)', default: 1000, min: 100, max: 1e6, step: 100, unit: 'Ω' },
     { kind: 'number', key: 'capacitance', label: 'Capacitance', default: 1e-6, min: 1e-9, max: 1e-3, step: 1e-7, unit: 'F' },
   ],
   motor: [
-    { kind: 'number', key: 'rpm', label: 'Target RPM', default: 1000, min: 0, max: 10000, step: 100 },
+    { kind: 'number', key: 'rpm', label: 'Target RPM', default: 1000, min: 0, max: 10000, step: 100, unit: 'rpm' },
+    { kind: 'number', key: 'resistance', label: 'Winding R', default: 10, min: 1, max: 1000, step: 1, unit: 'Ω' },
   ],
   tactileSwitch: [
-    { kind: 'number', key: 'normallyOpen', label: 'State', default: 1, min: 0, max: 1, step: 1 },
+    { kind: 'number', key: 'closed', label: 'State', default: 0, min: 0, max: 1, step: 1, unit: '' },
   ],
   arduino: [
-    { kind: 'number', key: 'clockMhz', label: 'Clock', default: 16, min: 1, max: 20, step: 1, unit: 'MHz' },
+    { kind: 'number', key: 'clockMhz', label: 'Clock speed', default: 16, min: 1, max: 20, step: 1, unit: 'MHz' },
   ],
 };
 const E12_VALUES = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000];
