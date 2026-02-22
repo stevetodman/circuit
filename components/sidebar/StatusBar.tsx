@@ -9,7 +9,7 @@ import { useDragStore } from '@/store/dragStore';
 function ModeChip({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded"
+      className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded"
       style={{ background: color + '22', color }}
     >
       {label}
@@ -40,14 +40,14 @@ export default function StatusBar() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
 
-  const { simStatus, simError, simErrorDismissed, hoveredNodeId, power } = useUIStore(useShallow((s) => ({
+  const { simStatus, simError, hoveredNodeId, power, simErrorDismissed, dismissSimError } = useUIStore(useShallow((s) => ({
     simStatus: s.simStatus,
     simError: s.simError,
-    simErrorDismissed: s.simErrorDismissed,
     hoveredNodeId: s.hoveredNodeId,
     power: s.power,
+    simErrorDismissed: s.simErrorDismissed,
+    dismissSimError: s.dismissSimError,
   })));
-  const dismissSimError = useUIStore((s) => s.dismissSimError);
 
   // Count non-null distinct nets (for net count display)
   const netCount = useCircuitStore((s) => {
@@ -68,45 +68,52 @@ export default function StatusBar() {
 
   const dot = SIM_DOT[simStatus];
 
+  let contextText = '';
+  let contextTextClass = 'text-[10px]';
+  if (dragging) {
+    contextText = 'Esc to cancel';
+    contextTextClass = 'text-[10px] text-white/35 font-mono';
+  } else if (wiringMode || selectedNodeId) {
+    contextText = 'Click to connect';
+  } else if (selectedComponentIds.length > 1) {
+    contextText = `${selectedComponentIds.length} selected`;
+  } else if (hoveredNodeId) {
+    contextText = hoveredNodeId;
+  } else {
+    contextText = `${netCount} net${netCount !== 1 ? 's' : ''}`;
+  }
+
   return (
-    <div className="px-3 py-2 border-t border-white/[0.06] space-y-1.5">
-      {/* Mode + Sim status row */}
-      <div className="flex items-center justify-between">
-        <ModeChip label={modeLabel} color={modeColor} />
-        <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: dot.color }}>
+    <div className="border-t border-white/[0.06]">
+      <div className="flex items-center justify-between px-3 pt-2 pb-1">
+        <span className="flex items-center gap-2">
           <span
-            className={`w-1.5 h-1.5 rounded-full inline-block ${simStatus === 'error' ? 'animate-pulse' : ''}`}
-            style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 4px ${dot.color}` : 'none' }}
+            className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${simStatus === 'running' ? 'animate-pulse' : ''}`}
+            style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 6px ${dot.color}` : 'none' }}
           />
-          {dot.label}
+          <span className="font-medium text-white">{dot.label}</span>
         </span>
+        <span className="text-[10px] font-mono text-white/50">⚡ {formatPower(power)}</span>
       </div>
-      <div className="text-[10px] font-mono text-white/60">⚡ {formatPower(power)}</div>
+
+      <div className="flex items-center gap-2 px-3 pb-2 min-h-[20px]">
+        <ModeChip label={modeLabel} color={modeColor} />
+        <span className={contextTextClass}>{contextText}</span>
+      </div>
+
       {simStatus === 'error' && !simErrorDismissed && (
-        <div className="flex items-start gap-2 mt-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-1.5">
-          <span className="text-[10px] text-red-400 flex-1 leading-tight" title={simError ?? ''}>
-            {simError ?? 'Simulation error'}
-          </span>
+        <div className="mx-3 mb-2 flex items-start gap-2 rounded border border-red-500/25 bg-red-950/40 px-2 py-1.5">
+          <span className="text-[9px] text-red-400 flex-1 leading-tight font-mono">{simError ?? 'Sim error'}</span>
           <button
             onClick={dismissSimError}
-            className="text-red-400/50 hover:text-red-300 text-[12px] leading-none flex-shrink-0 mt-0.5"
+            type="button"
+            className="text-red-400/40 hover:text-red-300 text-[11px] leading-none flex-shrink-0"
             title="Dismiss"
           >
             ✕
           </button>
         </div>
       )}
-
-      {/* Net count + hovered pin */}
-      <div className="flex items-center justify-between text-[10px] font-mono text-white/40">
-        <span>{netCount} net{netCount !== 1 ? 's' : ''}</span>
-        {selectedComponentIds.length > 1 && (
-          <span className="text-white/50">{selectedComponentIds.length} selected</span>
-        )}
-        {hoveredNodeId && !selectedComponentIds.length && (
-          <span className="text-white/40">{hoveredNodeId}</span>
-        )}
-      </div>
     </div>
   );
 }

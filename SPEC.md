@@ -1,73 +1,86 @@
-# SPEC: P0.4 Persistent Error Badge + F6.4 Worker Crash Toasts
+# SPEC: P2.6 Status Bar Redesign
 
 ## Context
 Circuit Sandbox — React/Next.js/Tailwind. Run `pnpm build` to verify.
+File to change: `components/sidebar/StatusBar.tsx`
 
-Key files:
-- `store/uiStore.ts` — holds `simStatus`, `simError`, `setSimError`
-- `store/toastStore.ts` — `addToast(message, severity)` where severity = 'error' | 'warn' | 'info'
-- `components/SimController.tsx` — listens to worker messages, calls setSimStatus/setSimError
-- `simulation/workers/analog.worker.ts` — posts SIM_WARN messages
-- `components/sidebar/StatusBar.tsx` — displays sim status
+## Problem
+The current StatusBar is a stack of rows that gets cramped and hard to read.
+It mixes mode, sim status, power, error, net count, and hovered pin into
+a small vertical space with poor visual hierarchy.
 
-## Problems to Fix
+## New Design
 
-### P0.4 — Persistent Error Badge
-Currently, simulation errors only show in the StatusBar at the bottom of the
-sidebar if `simStatus === 'error'`, and toasts auto-dismiss. If a user isn't
-looking at the sidebar, they miss the error entirely.
+Redesign the StatusBar into two clearly segmented rows:
 
-Fix: Add a dismissible error banner/badge that stays until explicitly dismissed.
-
-### F6.4 — Worker Crash Toasts
-When the analog or arduino worker crashes (throws unhandled error), nothing
-is shown to the user. Workers may fail silently.
-
-## Changes
-
-### `store/uiStore.ts`
-Read this file first. Add a `simErrorDismissed: boolean` field (default: false)
-and a `dismissSimError()` action that sets it to true.
-Also ensure `setSimError(error)` resets `simErrorDismissed` to false when a
-new non-null error is set.
-
-### `components/sidebar/StatusBar.tsx`
-Read this file. After the existing `simStatus === 'error'` block:
-- Import `dismissSimError` from uiStore
-- Show the error badge only when `simStatus === 'error' && !simErrorDismissed`
-- Replace the existing error span with a styled dismissible banner:
-```tsx
-{simStatus === 'error' && !simErrorDismissed && (
-  <div className="flex items-start gap-2 mt-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-1.5">
-    <span className="text-[10px] text-red-400 flex-1 leading-tight" title={simError ?? ''}>
-      {simError ?? 'Simulation error'}
-    </span>
-    <button
-      onClick={dismissSimError}
-      className="text-red-400/50 hover:text-red-300 text-[12px] leading-none flex-shrink-0 mt-0.5"
-      title="Dismiss"
-    >
-      ✕
-    </button>
-  </div>
-)}
+**Row 1** — Simulation status (always visible):
 ```
-- Also show a small persistent red dot in the mode row when `simStatus === 'error'` even after dismissal:
-  In the sim status indicator, when error: add `animate-pulse` to the dot.
-
-### `components/SimController.tsx`
-Read this file. Find where worker `onerror` or `messageerror` is handled (or where it's NOT handled).
-Add error handlers for both `analogWorker` and `arduinoWorker` (if they exist):
-```tsx
-analogWorker.onerror = (e) => {
-  setSimStatus('error');
-  setSimError(`Simulation worker crashed: ${e.message}`);
-};
+[●] Running      ⚡ 12.3mW
 ```
-Also in the worker `onmessage` handler, if a message type `SIM_WARN` is received,
-call `addToast(payload.message, 'warn')` — check if this already happens and add it if not.
+- Left: sim dot + label
+- Right: power display
+
+**Row 2** — Context info (changes based on mode/state):
+```
+[PLACE]   Esc to cancel
+  or
+[SELECT]  R1 selected
+  or
+[WIRE]    Click to connect
+  or just: 3 nets
+```
+
+**Row 3 (conditional)** — Error banner (only on error):
+```
+[!] Sim error message     [×]
+```
+
+### Segment styles
+
+All rows live in a `border-t border-white/[0.06]` container.
+
+Row 1: `flex items-center justify-between px-3 pt-2 pb-1`
+Row 2: `flex items-center gap-2 px-3 pb-2 min-h-[20px]`
+
+**Sim status dot with glow animation:**
+```tsx
+<span
+  className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${simStatus === 'running' ? 'animate-pulse' : ''}`}
+  style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 6px ${dot.color}` : 'none' }}
+/>
+```
+
+**Mode chip** — keep `ModeChip` component but with slightly larger text `text-[10px]` → `text-[11px]`
+
+**Context line** — show the most relevant info:
+- `dragging` → `text-[10px] text-white/35 font-mono` "Esc to cancel"
+- `wiringMode || selectedNodeId` → "Click to connect"
+- `selectedComponentIds.length > 1` → `{n} selected`
+- `hoveredNodeId` → hovered pin ID
+- Otherwise → `{netCount} net{s}`
+
+**Power** — right-aligned in row 1, `text-[10px] font-mono text-white/50`
+Format: use the existing `formatPower()` function unchanged.
+
+**Error banner** — only shown when `simStatus === 'error'` AND `!simErrorDismissed`:
+
+```tsx
+<div className="mx-3 mb-2 flex items-start gap-2 rounded border border-red-500/25 bg-red-950/40 px-2 py-1.5">
+  <span className="text-[9px] text-red-400 flex-1 leading-tight font-mono">{simError ?? 'Sim error'}</span>
+  <button onClick={dismissSimError} className="text-red-400/40 hover:text-red-300 text-[11px] leading-none flex-shrink-0" title="Dismiss">✕</button>
+</div>
+```
+
+Note: `simErrorDismissed` and `dismissSimError` come from uiStore — import them.
+If uiStore doesn't have `simErrorDismissed` yet, add it (boolean, default false)
+and `dismissSimError` action (sets it true). Also: `setSimError` should reset it to false.
+
+## Implementation Notes
+
+Rewrite `StatusBar.tsx` entirely from scratch using the design above.
+Keep all the same store imports and logic, just restructure the JSX.
+Remove the old nested `space-y-1.5` structure.
 
 ## Rules
-- Only modify the files listed above
-- Do NOT change simulation logic
-- Run `pnpm build` at the end and fix any TypeScript errors
+- Only change `components/sidebar/StatusBar.tsx` and `store/uiStore.ts` (if needed)
+- Run `pnpm build` and fix all TypeScript errors
