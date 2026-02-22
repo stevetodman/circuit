@@ -85,6 +85,7 @@ export default function SimController() {
   const wires         = useCircuitStore((s) => s.wires);
   const loadFromJSON  = useCircuitStore((s) => s.loadFromJSON);
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
+  const setSimError   = useUIStore((s) => s.setSimError);
   const setPower      = useUIStore((s) => s.setPower);
   const addToast      = useToastStore((s) => s.addToast);
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
@@ -114,6 +115,27 @@ export default function SimController() {
       new URL('../simulation/workers/analog.worker.ts', import.meta.url),
     );
     workerRef.current = worker;
+
+    const handleWorkerError = (message: string) => {
+      setSimStatus('error');
+      setSimError(message);
+      setPower(0);
+    };
+
+    const handleWorkerMessageError = () => {
+      handleWorkerError('Simulation worker crashed: failed to deserialize worker message');
+    };
+
+    const attachCrashHandlers = (workerInstance: Worker, label: string) => {
+      workerInstance.onerror = (e) => {
+        handleWorkerError(`Simulation ${label.toLowerCase()} worker crashed: ${e.message}`);
+      };
+      workerInstance.onmessageerror = () => {
+        handleWorkerMessageError();
+      };
+    };
+
+    attachCrashHandlers(worker, 'Analog');
 
     worker.onmessage = (e) => {
       const { type, message } = e.data as { type: string; message?: string; singular?: boolean };
@@ -149,7 +171,8 @@ export default function SimController() {
         }
       } else if (type === 'SIM_ERROR') {
         console.warn('[Sim] Solver error:', message);
-        setSimStatus('error', message);
+        setSimStatus('error');
+        setSimError(typeof message === 'string' ? message : 'Simulation error');
         setPower(0);
         if (typeof message === 'string') addToast(message, 'error');
       } else if (type === 'SIM_WARN') {
@@ -157,9 +180,10 @@ export default function SimController() {
       }
     };
 
-    worker.onerror = (err) => {
-      console.error('[SimController] Worker crashed:', err.message);
-    };
+    const arduinoWorker = (window as { arduinoWorker?: Worker }).arduinoWorker;
+    if (arduinoWorker) {
+      attachCrashHandlers(arduinoWorker, 'Arduino');
+    }
 
     readyRef.current = true;
 
