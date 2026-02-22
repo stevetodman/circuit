@@ -17,6 +17,7 @@ interface UIState {
   hoveredNodeId: string | null;
   simStatus: 'idle' | 'running' | 'error';
   simError: string | null;
+  simErrorDismissed: boolean;
   power: number;
   showCurrentLabels: boolean;
   sab: SharedArrayBuffer | null;
@@ -34,6 +35,8 @@ interface UIState {
 
   setHoveredNode:      (id: string | null) => void;
   setSimStatus:        (status: 'idle' | 'running' | 'error', error?: string | null) => void;
+  setSimError:         (error: string | null) => void;
+  dismissSimError:     () => void;
   setPower:            (power: number) => void;
   toggleCurrentLabels: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
@@ -60,6 +63,7 @@ export const useUIStore = create<UIState>()((set) => ({
   hoveredNodeId: null,
   simStatus:     'idle',
   simError:      null,
+  simErrorDismissed: false,
   power:         0,
   showCurrentLabels: false,
   sab:           null,
@@ -72,7 +76,16 @@ export const useUIStore = create<UIState>()((set) => ({
   boxSelectRect:  null,
 
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
-  setSimStatus:   (status, error = undefined) => set({ simStatus: status, simError: error ?? null }),
+  setSimStatus:   (status, error = undefined) => set({
+    simStatus: status,
+    simError: error ?? null,
+    ...(status === 'error' && error != null ? { simErrorDismissed: false } : {}),
+  }),
+  setSimError:    (error) => set({
+    simError: error,
+    ...(error != null ? { simErrorDismissed: false } : {}),
+  }),
+  dismissSimError: () => set({ simErrorDismissed: true }),
   setPower:      (power) => set({ power }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setSAB:         (sab) => set({ sab }),

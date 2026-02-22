@@ -40,12 +40,14 @@ export default function StatusBar() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
 
-  const { simStatus, simError, hoveredNodeId, power } = useUIStore(useShallow((s) => ({
+  const { simStatus, simError, simErrorDismissed, hoveredNodeId, power } = useUIStore(useShallow((s) => ({
     simStatus: s.simStatus,
     simError: s.simError,
+    simErrorDismissed: s.simErrorDismissed,
     hoveredNodeId: s.hoveredNodeId,
     power: s.power,
   })));
+  const dismissSimError = useUIStore((s) => s.dismissSimError);
 
   // Count non-null distinct nets (for net count display)
   const netCount = useCircuitStore((s) => {
@@ -73,17 +75,26 @@ export default function StatusBar() {
         <ModeChip label={modeLabel} color={modeColor} />
         <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: dot.color }}>
           <span
-            className="w-1.5 h-1.5 rounded-full inline-block"
+            className={`w-1.5 h-1.5 rounded-full inline-block ${simStatus === 'error' ? 'animate-pulse' : ''}`}
             style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 4px ${dot.color}` : 'none' }}
           />
           {dot.label}
         </span>
       </div>
       <div className="text-[10px] font-mono text-white/60">⚡ {formatPower(power)}</div>
-      {simStatus === 'error' && (
-        <span className="text-[10px] text-red-400" title={simError ?? ''}>
-          {simError ?? 'Sim error'}
-        </span>
+      {simStatus === 'error' && !simErrorDismissed && (
+        <div className="flex items-start gap-2 mt-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-1.5">
+          <span className="text-[10px] text-red-400 flex-1 leading-tight" title={simError ?? ''}>
+            {simError ?? 'Simulation error'}
+          </span>
+          <button
+            onClick={dismissSimError}
+            className="text-red-400/50 hover:text-red-300 text-[12px] leading-none flex-shrink-0 mt-0.5"
+            title="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* Net count + hovered pin */}
