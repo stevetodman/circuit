@@ -75,6 +75,8 @@ export default function Oscilloscope({
 
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const clearChannels = useScopeStore((s) => s.clearChannels);
+  const frozen = useScopeStore((s) => s.frozen);
+  const toggleFrozen = useScopeStore((s) => s.toggleFrozen);
   const hoveredNetId  = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
   );
@@ -175,6 +177,7 @@ export default function Oscilloscope({
 
   useEffect(() => {
     if (!open) return;
+    if (frozen) return; // leave canvas as-is when paused
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -306,7 +309,7 @@ export default function Oscilloscope({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [open]);
+  }, [open, frozen]);
 
   if (!open) return null;
 
@@ -368,6 +371,17 @@ export default function Oscilloscope({
       )}
 
       <div className="absolute top-1.5 right-2 z-10 flex items-center gap-1">
+        <button
+          onClick={toggleFrozen}
+          className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${
+            frozen
+              ? 'border-amber-400/60 text-amber-300'
+              : 'border-white/20 text-white/65 hover:text-white/90'
+          }`}
+          title={frozen ? 'Resume (▶)' : 'Freeze waveform (⏸)'}
+        >
+          {frozen ? '▶' : '⏸'}
+        </button>
         <button
           onClick={() => setAutoScale((prev) => !prev)}
           className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${autoScale ? 'border-cyan-300 text-cyan-200' : 'border-white/20 text-white/65'}`}

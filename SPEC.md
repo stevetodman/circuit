@@ -1,47 +1,63 @@
-# Circuit Sandbox — Feature Wave Log
+# SPEC: Oscilloscope Freeze / Pause
 
-Tracks completed feature waves. Each wave was implemented via parallel Codex agents in git worktrees.
+Add a ⏸/▶ freeze toggle to the oscilloscope so users can pause the waveform display and inspect a captured snapshot.
 
----
+## Read First
+- `store/scopeStore.ts` — add `frozen` + `toggleFrozen`
+- `features/oscilloscope/Oscilloscope.tsx` — add freeze button; gate RAF loop on `frozen`
 
-## Wave 4 (merged)
+## Part 1: scopeStore.ts — add frozen state
 
-| Branch | Feature |
-|---|---|
-| `module-link` | `autoLoadId` on all 11 module steps → auto-loads starter circuit when entering a module |
-| `polarity` | +/− polarity labels on LED, Battery, Capacitor; `P` key toggle |
-| `module-spotlight` | `spotlightTarget` directional hint pill in StepCard; `highlightComponent` pulse ring on ComponentTile; sidebar glow |
-| `wire-autocolor` | Wire voltage colouring (red >2.5V, dark <0.3V); `V` key toggle |
+Add to the interface and initial state:
+```ts
+frozen: boolean;
+toggleFrozen: () => void;
+```
+Initial: `frozen: false`. Action: `toggleFrozen: () => set((s) => ({ frozen: !s.frozen }))`.
 
----
+## Part 2: Oscilloscope.tsx — pause the render loop when frozen
 
-## Wave 5 (merged)
+Read the existing `useEffect` that starts the `window.requestAnimationFrame(render)` loop (the one that depends on `[open]`).
 
-| Branch | Feature |
-|---|---|
-| `diode-pol` | +/− polarity labels on Diode; missing − label added to Capacitor |
-| `part-descriptions` | Short description text under each sidebar tile (`PART_DESCRIPTIONS` constant) |
-| `circuit-name` | Editable circuit name input in sidebar; syncs `document.title`; persisted in JSON |
-| `scope-ux` | 📊 "Add to Scope" button per pin in PropertiesInspector; live voltage in scope channel labels via RAF; "✕ all" clear-all button |
+Import `frozen` and `toggleFrozen` from `useScopeStore`:
+```tsx
+const frozen = useScopeStore((s) => s.frozen);
+const toggleFrozen = useScopeStore((s) => s.toggleFrozen);
+```
 
----
+Add `frozen` to the useEffect dependency array. At the very top of the effect body, before starting the RAF loop, bail out if frozen:
+```tsx
+if (frozen) return; // leave canvas as-is when paused
+```
 
-## Wave 6 (merged)
+This means when the user hits ⏸, `frozen` becomes true, the effect re-runs, bails immediately (no new RAF loop started), and the canvas stays frozen at whatever frame it last rendered.
 
-| Branch | Feature |
-|---|---|
-| _(inline)_ | HelpOverlay updated with P/V shortcuts |
-| `breadboard-labels` | Floating 3D Text: a–j row letters left of board + column numbers (1,5,10…60) below board |
-| `learn-polish` | Progress bar (X/11) at top of Learn tab; ✓ completion badges on module cards; violet left-border on active module; "Reset progress" button |
-| `new-circuit` | "＋ New Circuit" dashed button in sidebar with inline Confirm/Cancel; `circuitStore.newCircuit()` clears board + undo history |
-| `canvas-toolbar` | `CanvasOverlay.tsx`: floating zoom +/−/fit buttons (bottom-right); component count badge; `zoomInRequested`/`zoomOutRequested` wired to Scene.tsx |
+## Part 3: Oscilloscope.tsx — freeze button in the top-right controls
 
----
+In the top-right control row (the `div` containing Auto, +, ✕ all, × buttons), add a freeze button **before** the existing `Auto` button:
 
-## Known agent pitfalls
+```tsx
+<button
+  onClick={toggleFrozen}
+  className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${
+    frozen
+      ? 'border-amber-400/60 text-amber-300'
+      : 'border-white/20 text-white/65 hover:text-white/90'
+  }`}
+  title={frozen ? 'Resume (▶)' : 'Freeze waveform (⏸)'}
+>
+  {frozen ? '▶' : '⏸'}
+</button>
+```
 
-- `resetModules()` → actual method is `resetProgress()` in moduleStore
-- `wires` field in circuitStore is `Record<string, Wire>` not an array
-- Zustand inline object selectors crash React 18 — always use individual selectors or `useShallow`
-- SPEC.md always conflicts during merge — resolve with `git checkout --ours SPEC.md`
-- When two branches both add to uiStore/Toolbar/KeyboardShortcuts — manually merge to keep BOTH
+## Zustand selector rule (CRITICAL)
+Always individual selectors — NEVER inline objects:
+```tsx
+const frozen = useScopeStore(s => s.frozen);       // CORRECT
+const { frozen } = useScopeStore(s => ({ ... }));  // WRONG — crash
+```
+
+## Important
+- Files: `store/scopeStore.ts`, `features/oscilloscope/Oscilloscope.tsx`
+- When frozen, the canvas keeps showing the last rendered frame (no clearing, no redraw)
+- Run `pnpm build` — must pass with zero TypeScript errors
