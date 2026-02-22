@@ -9,6 +9,8 @@ export default function LearnPanel() {
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
   const startModule = useModuleStore((s) => s.startModule);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const totalModules = MODULES.length;
+  const progressPercent = ((completedModuleIds.length / totalModules) * 100).toFixed(1);
 
   const toggleExpanded = (modId: string) => {
     setExpandedModuleId((prev) => (prev === modId ? null : modId));
@@ -19,6 +21,17 @@ export default function LearnPanel() {
       <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-2 px-1">
         Guided Modules
       </p>
+      <div className="px-1 pb-2">
+        <p className="text-[10px] text-white/40 mb-1">
+          {completedModuleIds.length} / {totalModules} modules complete
+        </p>
+        <div className="w-full bg-white/8 rounded h-1.5 overflow-hidden">
+          <div
+            className="h-1.5 bg-violet-500 rounded transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
       {MODULES.map((mod) => {
         const done = completedModuleIds.includes(mod.id);
         const active = activeModuleId === mod.id;
@@ -27,7 +40,17 @@ export default function LearnPanel() {
         const actionLabel = active ? 'Continue →' : 'Start →';
 
         return (
-          <div key={mod.id} className="space-y-0.5">
+          <div
+            key={mod.id}
+            className={`relative space-y-0.5 border-l-2 ${
+              active ? 'border-violet-400' : 'border-transparent'
+            }`}
+          >
+            {done && (
+              <span className="absolute right-2 top-2 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] flex items-center justify-center">
+                ✓
+              </span>
+            )}
             <button
               type="button"
               disabled={!unlocked}
@@ -73,6 +96,15 @@ export default function LearnPanel() {
           </div>
         );
       })}
+      <button
+        type="button"
+        onClick={() => {
+          useModuleStore.getState().resetProgress();
+        }}
+        className="text-[10px] text-white/20 hover:text-white/50 self-start px-1 mt-1"
+      >
+        Reset progress
+      </button>
     </div>
   );
 }
