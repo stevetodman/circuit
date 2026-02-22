@@ -205,7 +205,7 @@ export default function Sidebar() {
           <circle cx="8" cy="8" r="7" stroke="#7c6fff" strokeWidth="1.5" />
           <circle cx="8" cy="8" r="3" fill="#7c6fff" />
         </svg>
-        <span className="text-[13px] font-semibold tracking-wide text-white/80">
+        <span className="text-[13px] font-semibold tracking-wide text-white/90">
           Circuit Sandbox
         </span>
         <div className="ml-auto flex items-center gap-1.5">
@@ -213,7 +213,7 @@ export default function Sidebar() {
             type="button"
             onClick={toggleHelp}
             title="Keyboard shortcuts (?)"
-            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/50 hover:text-white/80 hover:bg-white/[0.08] grid place-items-center text-[13px] font-semibold"
+            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/50 hover:text-white/80 hover:bg-white/[0.08] grid place-items-center text-[13px] font-semibold focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
           >
             ?
           </button>
@@ -221,7 +221,7 @@ export default function Sidebar() {
             type="button"
             onClick={toggleSchematic}
             title={schematicOpen ? 'Hide schematic view' : 'Show schematic view'}
-            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/90 hover:bg-white/[0.08] grid place-items-center"
+            className="h-7 w-7 rounded border border-white/[0.2] bg-white/[0.04] text-white/90 hover:bg-white/[0.08] grid place-items-center focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
             aria-pressed={schematicOpen}
           >
             <span className="sr-only">Schematic view</span>
@@ -232,7 +232,7 @@ export default function Sidebar() {
 
       {/* ── Insert Part ── */}
       <div className="flex-1 overflow-y-auto py-2">
-        <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/25">
+        <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
           Insert Part
         </p>
         <ScopeButton />

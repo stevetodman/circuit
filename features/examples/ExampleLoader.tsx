@@ -42,13 +42,13 @@ export default function ExampleLoader() {
 
   return (
     <div className="px-2 pb-2">
-      <label className="px-2 block text-[11px] font-semibold uppercase tracking-wide text-white/25 mb-1">
+      <label className="px-2 block text-[11px] font-semibold uppercase tracking-wide text-white/40 mb-1">
         Load Example
       </label>
       <select
         value={selectedIndex}
         onChange={onChange}
-        className="w-full rounded border border-white/15 bg-[#1b1b1d] text-white px-2 py-1.5 text-sm"
+        className="w-full rounded border border-white/15 bg-[#1b1b1d] text-white px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none focus-visible:border-[#7c6fff]/60"
       >
         <option value="" className="text-black">Select example…</option>
         {EXAMPLE_CIRCUITS.map((example, index) => (
@@ -58,7 +58,7 @@ export default function ExampleLoader() {
         ))}
       </select>
       {selectedIndex && (
-        <p className="px-1 pt-1.5 text-[11px] text-white/55 leading-tight">
+        <p className="px-1 pt-1.5 text-[11px] text-white/65 leading-tight">
           {EXAMPLE_CIRCUITS[Number(selectedIndex)]?.description}
         </p>
       )}

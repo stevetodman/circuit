@@ -120,7 +120,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
 // ── Sub-components ────────────────────────────────────────────────────────────
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[10px] font-medium text-white/40 leading-none">
+    <span className="text-[11px] font-medium text-white/55 leading-none">
       {children}
     </span>
   );
@@ -149,11 +149,11 @@ function NumberInput({
         }}
         className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
                    rounded px-2 py-1 border border-white/[0.08]
-                   focus:outline-none focus:border-[#7c6fff]/60
+                   focus:outline-none focus:border-[#7c6fff]/60 focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none
                    [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
       />
       {field.unit && (
-        <span className="text-[10px] text-white/30 font-mono w-5 text-right flex-shrink-0">
+        <span className="text-[10px] text-white/45 font-mono w-5 text-right flex-shrink-0">
           {field.unit}
         </span>
       )}
@@ -215,7 +215,7 @@ function ColorInput({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-7 h-7 rounded border border-white/[0.12] bg-transparent cursor-pointer p-0.5"
+        className="w-7 h-7 rounded border border-white/[0.12] bg-transparent cursor-pointer p-0.5 focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
       />
       <span className="text-[11px] font-mono text-white/40">{value}</span>
     </div>
@@ -235,7 +235,7 @@ function ToggleInput({
   return (
     <button
       onClick={() => onChange(isOn ? 0 : 1)}
-      className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-[11px] font-semibold w-full transition-colors ${
+      className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-[11px] font-semibold w-full transition-colors focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:outline-none ${
         isOn
           ? 'bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25'
           : 'bg-white/[0.05] text-white/40 border border-white/[0.1] hover:bg-white/[0.09]'
@@ -272,14 +272,14 @@ function Inspector({ component }: { component: PlacedComponent }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => { deleteSelected(); selectComponent(null); }}
-            className="text-[10px] text-red-500/40 hover:text-red-400 font-mono transition-colors leading-none"
+            className="text-[10px] text-red-500/40 hover:text-red-400 font-mono transition-colors leading-none focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
             title="Delete component"
           >
             Delete
           </button>
           <button
             onClick={() => selectComponent(null)}
-            className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
+            className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
             title="Deselect"
           >
             ✕
@@ -289,7 +289,7 @@ function Inspector({ component }: { component: PlacedComponent }) {
 
       {/* Property fields */}
       {fields.length === 0 ? (
-        <p className="px-4 pb-3 text-[10px] text-white/20 italic">No configurable properties</p>
+        <p className="px-4 pb-3 text-[10px] text-white/40 italic">No configurable properties</p>
       ) : (
         <div className="px-4 pb-4 space-y-3">
           {fields.map((field) => (
@@ -379,8 +379,8 @@ function Inspector({ component }: { component: PlacedComponent }) {
           <div className="mt-1.5 space-y-0.5">
             {component.pins.map((pin) => (
               <div key={pin.name} className="flex justify-between text-[10px] font-mono">
-                <span className="text-white/30">{pin.name}</span>
-                <span className="text-white/20">{pin.nodeId}</span>
+                <span className="text-white/45">{pin.name}</span>
+                <span className="text-white/35">{pin.nodeId}</span>
               </div>
             ))}
           </div>

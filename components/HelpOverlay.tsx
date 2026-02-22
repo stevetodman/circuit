@@ -55,7 +55,13 @@ export default function HelpOverlay() {
       >
         <div className="flex items-center justify-between mb-5">
           <span className="text-white/80 text-sm font-semibold">Keyboard Shortcuts</span>
-          <button onClick={toggleHelp} className="text-white/40 hover:text-white/80 text-lg leading-none">×</button>
+          <button
+            type="button"
+            onClick={toggleHelp}
+            className="text-white/40 hover:text-white/80 text-lg leading-none focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+          >
+            ×
+          </button>
         </div>
         {SECTIONS.map(({ heading, rows }) => (
           <div key={heading} className="mb-4 last:mb-0">

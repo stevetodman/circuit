@@ -79,7 +79,7 @@ export default function StatusBar() {
           {dot.label}
         </span>
       </div>
-      <div className="text-[10px] font-mono text-white/60">⚡ {formatPower(power)}</div>
+      <div className="text-[10px] font-mono text-white/70">⚡ {formatPower(power)}</div>
       {simStatus === 'error' && (
         <span className="text-[10px] text-red-400" title={simError ?? ''}>
           {simError ?? 'Sim error'}
@@ -87,13 +87,13 @@ export default function StatusBar() {
       )}
 
       {/* Net count + hovered pin */}
-      <div className="flex items-center justify-between text-[10px] font-mono text-white/40">
+      <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
         <span>{netCount} net{netCount !== 1 ? 's' : ''}</span>
         {selectedComponentIds.length > 1 && (
           <span className="text-white/50">{selectedComponentIds.length} selected</span>
         )}
         {hoveredNodeId && !selectedComponentIds.length && (
-          <span className="text-white/40">{hoveredNodeId}</span>
+          <span className="text-white/50">{hoveredNodeId}</span>
         )}
       </div>
     </div>

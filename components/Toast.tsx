@@ -27,7 +27,7 @@ export default function Toast() {
           <span className="min-w-0 flex-1 text-left">{toast.message}</span>
           <button
             type="button"
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/20 text-sm font-bold leading-none transition hover:bg-black/30"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/20 text-sm font-bold leading-none transition hover:bg-black/30 focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
             onClick={() => removeToast(toast.id)}
             aria-label="Dismiss toast"
           >
