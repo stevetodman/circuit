@@ -1,161 +1,167 @@
-# SPEC: Wiring Mode Banner + Pin Voltage Tooltip on Hover
+# SPEC: UX Polish — Polarity Indicator + Circuit Diagnostic + Toolbar Buttons
 
 ## Priority
-🔴 HIGHEST — implement both items.
+🟡 HIGH — implement all three items.
 Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## Item 1: Persistent Wiring Mode Banner
+## Item 1: "No Complete Circuit" Diagnostic Warning
 
 ### Goal
-When the user is in wiring mode (clicked a pin and is about to click a second pin),
-show a persistent banner above the canvas explaining what to do and how to cancel.
-
-### Current wiring mode state
-- `circuitStore.wiringMode` — boolean
-- `circuitStore.selectedNodeId` — the first pin that was clicked (source pin)
+If the simulator has been running for >2 seconds and all net voltages are 0
+(no current flowing anywhere), show a diagnostic toast explaining the likely issue.
 
 ### Implementation
 
-**`components/WiringBanner.tsx`** (new small component):
-```tsx
-'use client';
-import { useCircuitStore } from '@/store/circuitStore';
+**`components/SimController.tsx`**:
+Add a check in the `useEffect` that runs the simulation status updates (or in the
+analog worker message handler):
 
-export default function WiringBanner() {
-  const { wiringMode, selectedNodeId } = useCircuitStore(s => ({
-    wiringMode: s.wiringMode,
-    selectedNodeId: s.selectedNodeId,
-  }));
+```typescript
+// Track time since last non-zero voltage
+let allZeroSince: number | null = null;
 
-  if (!wiringMode) return null;
+// In the interval that reads SAB or handles worker messages:
+const hasNonZeroVoltage = Array.from(voltageView).some(v => Math.abs(v) > 0.01);
+const componentCount = useCircuitStore.getState().components.length;
 
-  return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3
-                    bg-[#7c6fff]/20 border border-[#7c6fff]/60 rounded-full
-                    px-5 py-2 text-sm text-white/90 backdrop-blur-sm shadow-lg
-                    pointer-events-none select-none">
-      <span className="w-2 h-2 rounded-full bg-[#7c6fff] animate-pulse" />
-      Wiring — click a destination pin to connect
-      <span className="text-white/40 ml-2">Esc to cancel</span>
-    </div>
-  );
+if (componentCount >= 2 && !hasNonZeroVoltage) {
+  if (allZeroSince === null) allZeroSince = Date.now();
+  else if (Date.now() - allZeroSince > 2000) {
+    // Show diagnostic — but only once
+    toastStore.getState().showToast(
+      'No voltage detected. Check: is there a complete path from + to − through all components?',
+      'warn'
+    );
+    allZeroSince = null; // Don't spam
+  }
+} else {
+  allZeroSince = null;
 }
 ```
 
-**`app/page.tsx`**: import and render `<WiringBanner />` alongside other overlays.
+The toast uses the existing `toastStore` with `'warn'` severity.
 
-The banner:
-- Fixed position, centered at top of screen
-- Uses the existing purple accent color (#7c6fff)
-- Pulsing purple dot to indicate active state
-- Pointer-events-none (doesn't block canvas interaction)
-- Disappears immediately when wiringMode becomes false
+**Don't show if:**
+- 0 or 1 components (nothing to diagnose)
+- Circuit was just loaded (wait 2s)
+- SimStatus is 'error' (already showing an error)
 
 ---
 
-## Item 2: Pin Voltage Tooltip on Hover
+## Item 2: Polarity Indicator on 3D LED
 
 ### Goal
-When hovering a pin/node on the breadboard, show the voltage at that net in a small
-tooltip near the cursor. The voltage data is already in the SAB `voltageView`.
-
-### Current hover state
-- `uiStore.hoveredNodeId` — the node ID of the currently hovered pin
-- `circuitStore.nodes` — map of nodeId → { netId, ... }
-- `SimBridge.voltageView` — Float32Array of voltages indexed by netId
+Show a small +/− marker on the 3D LED model so beginners know which end is anode vs cathode.
+This is the most critical polarity issue (reversed LED = no light, confusing).
 
 ### Implementation
 
-**`components/canvas/PinTooltip.tsx`** (new component):
+**`components/canvas/parts/LED.tsx`**:
 
-This is an HTML overlay (not Three.js), positioned using CSS fixed positioning.
-It needs the mouse position, which is available from `uiStore` or we track it separately.
+The LED component already has `anchorPos` (the center of the LED on the breadboard).
+LED pins: `anode` (one side) and `cathode` (other side).
 
-**Step 1: Track mouse position in uiStore**
-In `store/uiStore.ts`, add:
-```typescript
-mouseX: number;
-mouseY: number;
-setMousePos(x: number, y: number): void;
-```
+Find where the LED body is rendered (likely a cylinder or sphere mesh).
 
-**Step 2: Update mouse position on canvas mousemove**
-In `components/canvas/Scene.tsx` (or wherever the canvas pointer events are handled),
-on `onPointerMove`:
-```typescript
-useUIStore.getState().setMousePos(e.clientX, e.clientY);
-```
-This is already happening for other things — just add the store update.
-
-**Step 3: PinTooltip component**
+Add two small floating text labels in 3D space using `@react-three/drei`'s `<Text>` component:
 ```tsx
-'use client';
-import { useUIStore } from '@/store/uiStore';
-import { useCircuitStore } from '@/store/circuitStore';
-import { voltageView } from '@/simulation/SimBridge';
+import { Text } from '@react-three/drei';
 
-export default function PinTooltip() {
-  const { hoveredNodeId, mouseX, mouseY } = useUIStore(s => ({
-    hoveredNodeId: s.hoveredNodeId,
-    mouseX: s.mouseX,
-    mouseY: s.mouseY,
-  }));
-  const nodes = useCircuitStore(s => s.nodes);
+// Near the anode pin:
+<Text
+  position={[anodeLocalX, 0.15, 0]}  // slightly above anode end
+  fontSize={0.05}
+  color="#22ff88"
+  anchorX="center"
+  anchorY="bottom"
+>
+  +
+</Text>
 
-  if (!hoveredNodeId) return null;
-
-  const node = nodes[hoveredNodeId];
-  if (!node || node.netId == null) return null;
-
-  const voltage = voltageView[node.netId] ?? 0;
-  const label = Math.abs(voltage) < 0.001
-    ? '0 V'
-    : `${voltage.toFixed(2)} V`;
-
-  return (
-    <div
-      style={{ left: mouseX + 12, top: mouseY - 28 }}
-      className="fixed z-50 pointer-events-none
-                 bg-[#1a1a2e] border border-white/20 rounded px-2 py-1
-                 text-xs text-white/90 font-mono shadow-lg"
-    >
-      {label}
-      <span className="text-white/40 ml-1.5">{hoveredNodeId}</span>
-    </div>
-  );
-}
+// Near the cathode pin:
+<Text
+  position={[cathodeLocalX, 0.15, 0]}
+  fontSize={0.05}
+  color="#ff4444"
+  anchorX="center"
+  anchorY="bottom"
+>
+  −
+</Text>
 ```
 
-**`app/page.tsx`**: import and render `<PinTooltip />`.
+Find the actual local X positions of anode and cathode from the LED component definition
+(check `types/circuit.ts` or the LED component file for pin offsets).
 
-### Important: voltageView is a SAB-backed typed array
-- Import from `@/simulation/SimBridge` — it's a Float32Array
-- Read it synchronously in render — it's always fresh from the SAB
-- No need for useFrame or subscriptions — React re-render on hoveredNodeId change is enough
+The `+` should be green (`#22ff88`) and `−` should be red (`#ff4444`).
+Make them small but visible — `fontSize={0.04}` to `0.06`.
 
-### Voltage display format
-- |V| < 0.001 → "0 V"
-- |V| < 1.0 → "420 mV"
-- Otherwise → "3.30 V"
+Only show when `showDesignators` is true (same condition as designator labels) OR always show.
+Always-show is simpler and more beginner-friendly — do that.
 
-Implement proper engineering notation:
-```typescript
-function formatVoltage(v: number): string {
-  const abs = Math.abs(v);
-  if (abs < 0.001) return '0 V';
-  if (abs < 1) return `${(v * 1000).toFixed(0)} mV`;
-  return `${v.toFixed(2)} V`;
-}
+---
+
+## Item 3: Toolbar Buttons for Common View Toggles
+
+### Goal
+Add visible toolbar buttons for the most useful view toggles so beginners don't need
+to discover keyboard shortcuts.
+
+### Current toolbar location
+Look in `components/sidebar/Sidebar.tsx` or `app/page.tsx` for any existing toolbar.
+If no toolbar exists, add a thin button row at the top of the sidebar panel or
+as a floating row above the canvas.
+
+### Buttons to add
+
+Add buttons for these currently keyboard-only actions:
+| Button | Icon | Action |
+|--------|------|--------|
+| Fit    | ⊡ (or ⤢) | zoom to fit (F key) — `uiStore.requestZoomToFit()` |
+| Labels | 🏷 | toggle designator labels (L key) — `uiStore.toggleDesignators()` |
+| Current | ⚡ | toggle current labels (I key) — `uiStore.toggleCurrentLabels()` |
+| Schematic | 📐 | toggle schematic view (S key) — `schematicStore.toggle()` |
+| Scope  | 📊 | toggle oscilloscope (O key) — `scopeStore.toggleOpen()` |
+| Help   | ? | toggle help overlay — `uiStore.toggleHelp()` |
+
+### Implementation
+
+Find the `StatusBar.tsx` in `components/sidebar/StatusBar.tsx` — it's at the bottom of the sidebar.
+Or look for where the status dot is rendered.
+
+**Option A: Add to StatusBar** (preferred — least invasive)
+Add icon buttons to the StatusBar alongside the existing sim status dot.
+
+**Option B: New toolbar strip**
+Add a `<Toolbar />` component in `components/Toolbar.tsx` and render it in `app/page.tsx`
+as a horizontal strip above the canvas (floating, semi-transparent).
+
+Either approach is fine — choose based on what fits better after reading the files.
+
+**Button style** (match existing):
+```tsx
+<button
+  onClick={action}
+  title="Zoom to fit (F)"
+  className="w-7 h-7 rounded flex items-center justify-center
+             text-white/40 hover:text-white/80 hover:bg-white/10
+             transition-colors text-xs"
+>
+  ⊡
+</button>
 ```
+
+Add `title` attributes with keyboard shortcut shown: "Labels (L)", "Schematic (S)", etc.
 
 ---
 
 ## Implementation Notes
 
+- Read the files before modifying — understand current structure
 - DO NOT add new npm packages
-- `voltageView` is module-level in SimBridge — safe to import and read directly
-- The tooltip must NOT cause React re-renders on every frame — only on hoveredNodeId change
-- Keep the tooltip small and unobtrusive
+- Use existing store actions — do NOT duplicate logic
+- The `Text` component from @react-three/drei is already used in the project (Wire.tsx current labels)
 - Run `pnpm build` — fix all TypeScript errors
+- If a store action doesn't exist yet (e.g. toggleCurrentLabels), add it to uiStore.ts
