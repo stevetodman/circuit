@@ -271,8 +271,9 @@ export function solveDC(
       b[outRow] = opVNext[oi];
     }
 
-    // ── Small regularisation — prevents singular matrix for floating nets ─────
-    for (let i = 0; i < nonGroundNodeCount; i++) G[i * n + i] += 1e-12;
+    // ── Gmin stepping — 1e-9 S across every node prevents singular matrix ────
+    // Standard SPICE technique; negligible effect on connected circuits
+    for (let i = 0; i < nonGroundNodeCount; i++) G[i * n + i] += 1e-9;
 
     // ── Solve ────────────────────────────────────────────────────────────────
     const x = solve(G, b, n);
@@ -291,8 +292,11 @@ export function solveDC(
       const va   = el.netA > 0 ? r[el.netA] : 0;
       const vb   = el.netB > 0 ? r[el.netB] : 0;
       const newVd = va - vb;
-      if (Math.abs(newVd - Vd[di]) > NR_TOL) iterConverged = false;
-      Vd[di] = newVd;
+      // Clamp update step to ±2 V per iteration to prevent Shockley exp() runaway
+      const delta = Math.max(-2.0, Math.min(2.0, newVd - Vd[di]));
+      const clampedVd = Vd[di] + delta;
+      if (Math.abs(delta) > NR_TOL) iterConverged = false;
+      Vd[di] = clampedVd;
     }
     for (let ti = 0; ti < bjts.length; ti++) {
       const el = bjts[ti];

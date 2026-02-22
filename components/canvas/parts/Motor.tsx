@@ -43,24 +43,39 @@ function Motor({
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.05, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, 0.1, 24]} />
-        <meshStandardMaterial color="#505050" roughness={0.42} transparent={transparent} opacity={bodyOpacity} />
+      {/* DC hobby motor can — ~20 mm dia × 25 mm long at 1:1 scale */}
+      <mesh position={[0, 0.28, 0]} castShadow>
+        <cylinderGeometry args={[0.35, 0.35, 0.56, 24]} />
+        <meshStandardMaterial color="#505050" roughness={0.42} metalness={0.3} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      <mesh position={[-0.03, 0.06, 0.062]} rotation={[0, 0, Math.PI / 6]}>
-        <boxGeometry args={[0.032, 0.01, 0.004]} />
-        <meshStandardMaterial color="#9a9a9a" roughness={0.25} transparent={transparent} opacity={bodyOpacity} />
+      {/* Front end cap */}
+      <mesh position={[0, 0.56, 0]}>
+        <cylinderGeometry args={[0.35, 0.35, 0.04, 24]} />
+        <meshStandardMaterial color="#3a3a3a" roughness={0.3} metalness={0.4} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      <mesh position={[0, 0.06, 0.062]}>
-        <boxGeometry args={[0.008, 0.016, 0.004]} />
-        <meshStandardMaterial color="#f5f5f5" roughness={0.25} transparent={transparent} opacity={bodyOpacity} />
+      {/* Output shaft */}
+      <mesh position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.18, 12]} />
+        <meshStandardMaterial color="#c0c0c0" roughness={0.15} metalness={0.9} />
       </mesh>
 
-      <mesh position={[0.03, 0.06, 0.062]} rotation={[0, 0, -Math.PI / 6]}>
-        <boxGeometry args={[0.032, 0.01, 0.004]} />
-        <meshStandardMaterial color="#9a9a9a" roughness={0.25} transparent={transparent} opacity={bodyOpacity} />
+      {/* Rear end cap with brush assembly */}
+      <mesh position={[0, 0, 0]}>
+        <cylinderGeometry args={[0.35, 0.35, 0.04, 24]} />
+        <meshStandardMaterial color="#3a3a3a" roughness={0.3} metalness={0.4} transparent={transparent} opacity={bodyOpacity} />
+      </mesh>
+
+      {/* Terminal tabs */}
+      <mesh position={[-0.15, 0, 0.30]} rotation={[0, 0, Math.PI / 5]}>
+        <boxGeometry args={[0.16, 0.05, 0.02]} />
+        <meshStandardMaterial color="#9a9a9a" roughness={0.25} metalness={0.5} transparent={transparent} opacity={bodyOpacity} />
+      </mesh>
+
+      <mesh position={[0.15, 0, 0.30]} rotation={[0, 0, -Math.PI / 5]}>
+        <boxGeometry args={[0.16, 0.05, 0.02]} />
+        <meshStandardMaterial color="#9a9a9a" roughness={0.25} metalness={0.5} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
       {pinOffsets.map((offset, index) => (
@@ -72,8 +87,8 @@ function Motor({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.125, 0]}>
-          <ringGeometry args={[0.078, 0.096, 20]} />
+        <mesh position={[0, 0.70, 0]}>
+          <ringGeometry args={[0.42, 0.48, 20]} />
           <meshBasicMaterial color="#f2ffe2" transparent opacity={0.45} />
         </mesh>
       )}

@@ -14,7 +14,7 @@ interface ArduinoUnoProps {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = PIN_TEMPLATES.arduino.map((pin) => pin.offset);
-const BOARD_HALF_WIDTH = 0.2;
+const BOARD_HALF_WIDTH = 0.8;
 
 function HeaderPin({
   position,
@@ -52,28 +52,32 @@ function ArduinoUno({
 
   return (
     <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
-      <mesh position={[0, 0.01, centerZ]} castShadow>
-        <boxGeometry args={[0.4, 0.02, boardDepth]} />
+      {/* PCB board — ~45 mm × dynamic depth × 1.6 mm thick at realistic scale */}
+      <mesh position={[0, 0.015, centerZ]} castShadow>
+        <boxGeometry args={[BOARD_HALF_WIDTH * 2, 0.06, boardDepth]} />
         <meshStandardMaterial color="#2db39a" roughness={0.65} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[0, 0.022, centerZ - boardDepth / 2 + 0.06]}>
-        <boxGeometry args={[0.4, 0.003, 0.03]} />
+      {/* PCB silkscreen stripe near edge */}
+      <mesh position={[0, 0.046, centerZ - boardDepth / 2 + 0.06]}>
+        <boxGeometry args={[BOARD_HALF_WIDTH * 2, 0.012, 0.08]} />
         <meshStandardMaterial color="#0f6252" roughness={0.5} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[-BOARD_HALF_WIDTH, 0.03, centerZ]}>
-        <boxGeometry args={[0.002, 0.004, boardDepth]} />
+      {/* Board edge rails */}
+      <mesh position={[-BOARD_HALF_WIDTH, 0.04, centerZ]}>
+        <boxGeometry args={[0.008, 0.016, boardDepth]} />
         <meshStandardMaterial color="#163d37" />
       </mesh>
 
-      <mesh position={[BOARD_HALF_WIDTH, 0.03, centerZ]}>
-        <boxGeometry args={[0.002, 0.004, boardDepth]} />
+      <mesh position={[BOARD_HALF_WIDTH, 0.04, centerZ]}>
+        <boxGeometry args={[0.008, 0.016, boardDepth]} />
         <meshStandardMaterial color="#163d37" />
       </mesh>
 
-      <mesh position={[0, 0.0175, usbZ]}>
-        <boxGeometry args={[0.14, 0.015, 0.055]} />
+      {/* USB-B connector */}
+      <mesh position={[0, 0.06, usbZ]}>
+        <boxGeometry args={[0.45, 0.065, 0.18]} />
         <meshStandardMaterial color="#333" roughness={0.3} transparent={transparent} opacity={opacity} />
       </mesh>
 
@@ -89,8 +93,8 @@ function ArduinoUno({
       })}
 
       {selected && (
-        <mesh position={[0, 0.14, centerZ]}>
-          <ringGeometry args={[0.2, 0.23, 16]} />
+        <mesh position={[0, 0.25, centerZ]}>
+          <ringGeometry args={[0.9, 1.0, 16]} />
           <meshBasicMaterial color="#9cf2ff" transparent opacity={0.44} />
         </mesh>
       )}

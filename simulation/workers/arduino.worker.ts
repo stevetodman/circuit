@@ -21,11 +21,13 @@ import {
   CPU,
   AVRTimer,
   AVRIOPort,
+  AVRADC,
   AVRUSART,
   portDConfig,
   portBConfig,
   portCConfig,
   timer0Config,
+  adcConfig,
   usart0Config,
   PinState,
 } from 'avr8js';
@@ -53,11 +55,23 @@ const UNO_PIN_MAP: Record<number, { port: 'B' | 'C' | 'D'; bit: number }> = {
 // Logic HIGH threshold — 5V Arduino logic: anything above 2.5V is HIGH
 const LOGIC_THRESHOLD = 2.5;
 
+// ── PWM-capable pins: Arduino pin → timer register addresses ──────────────────
+// tccrAddr = TCCR*A address; comShift = bit shift for COM bits; ocrAddr = OCR address
+const PWM_PINS: Record<number, { tccrAddr: number; comShift: number; ocrAddr: number }> = {
+  3:  { tccrAddr: 0xB0, comShift: 4, ocrAddr: 0xB4 }, // Timer2B, COM2B=[5:4]
+  5:  { tccrAddr: 0x44, comShift: 4, ocrAddr: 0x48 }, // Timer0B, COM0B=[5:4]
+  6:  { tccrAddr: 0x44, comShift: 6, ocrAddr: 0x47 }, // Timer0A, COM0A=[7:6]
+  9:  { tccrAddr: 0x80, comShift: 6, ocrAddr: 0x88 }, // Timer1A, COM1A=[7:6]
+  10: { tccrAddr: 0x80, comShift: 4, ocrAddr: 0x8A }, // Timer1B, COM1B=[5:4]
+  11: { tccrAddr: 0xB0, comShift: 6, ocrAddr: 0xB3 }, // Timer2A, COM2A=[7:6]
+};
+
 // ── Worker state ───────────────────────────────────────────────────────────────
 let cpu:             CPU        | null = null;
 let portB:           AVRIOPort  | null = null;
 let portC:           AVRIOPort  | null = null;
 let portD:           AVRIOPort  | null = null;
+let adc:             AVRADC     | null = null;
 let voltageView:     Float32Array | null = null; // SAB net voltages (read for inputs)
 let digitalStateView: Uint8Array  | null = null; // SAB digital states (write for outputs)
 let running     = false;
@@ -89,9 +103,10 @@ function parseHex(hexString: string): Uint8Array {
 
 // ── GPIO → SAB bridge ──────────────────────────────────────────────────────────
 function syncGPIO() {
-  if (!digitalStateView || !voltageView) return;
+  if (!digitalStateView || !voltageView || !cpu) return;
 
-  // Write AVR output pin states to shared memory (digital HIGH/LOW)
+  // Write AVR output pin states to shared memory (digital HIGH/LOW + analog voltage).
+  // Also writes voltageView so LED.tsx useFrame() sees the correct voltage.
   for (const [pinStr, netIdx] of Object.entries(pinToNetIdx)) {
     if (netIdx < 0 || netIdx >= MAX_NETS) continue;
     const pin  = Number(pinStr);
@@ -101,6 +116,26 @@ function syncGPIO() {
     if (!port) continue;
     const state = port.pinState(map.bit);
     digitalStateView[netIdx] = state === PinState.High ? 1 : 0;
+
+    // Write voltage for output pins so LEDs respond to PWM/digital drive
+    if (state === PinState.High || state === PinState.Low) {
+      const pwm = PWM_PINS[pin];
+      if (pwm) {
+        const com = (cpu.data[pwm.tccrAddr] >> pwm.comShift) & 0x3;
+        if (com !== 0) {
+          // PWM active: compute duty-cycle voltage
+          const ocr = cpu.data[pwm.ocrAddr];
+          voltageView[netIdx] = com === 3
+            ? ((255 - ocr) / 255) * 5.0  // inverting mode
+            : (ocr / 255) * 5.0;          // non-inverting mode (com=1 or 2)
+        } else {
+          voltageView[netIdx] = state === PinState.High ? 5.0 : 0.0;
+        }
+      } else {
+        voltageView[netIdx] = state === PinState.High ? 5.0 : 0.0;
+      }
+    }
+    // Input pins: leave voltageView untouched — analog worker writes circuit voltage there
   }
 
   // Read net voltages from SAB and feed as AVR digital input pin state.
@@ -114,6 +149,17 @@ function syncGPIO() {
     const port = mapping.port === 'B' ? portB : mapping.port === 'C' ? portC : portD;
     if (!port) continue;
     port.setPin(mapping.bit, voltage > LOGIC_THRESHOLD);
+  }
+
+  // Feed analog voltages to ADC channels for A0–A5 (Arduino pins 14–19).
+  // AVRADC converts 0–5V → 0–1023 when analogRead() is called in the sketch.
+  if (adc) {
+    for (let ch = 0; ch < 6; ch++) {
+      const netIdx = pinToNetIdx[14 + ch];
+      if (netIdx !== undefined && netIdx >= 0 && netIdx < MAX_NETS) {
+        adc.channelValues[ch] = voltageView[netIdx];
+      }
+    }
   }
 }
 
@@ -155,6 +201,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       running = false;
       paused = false;
       cpu = null;
+      adc = null;
       serialBuffer = ''; // P1-16: clear stale serial data
 
       // Attach SAB views — voltage for reading inputs, digital for writing outputs
@@ -169,6 +216,9 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       portB = new AVRIOPort(cpu, portBConfig);
       portC = new AVRIOPort(cpu, portCConfig);
       portD = new AVRIOPort(cpu, portDConfig);
+
+      // Attach ADC — enables analogRead() to return live circuit voltages
+      adc = new AVRADC(cpu, adcConfig);
 
       // Attach timer + USART (needed for most sketches)
       new AVRTimer(cpu, timer0Config);
@@ -220,6 +270,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       running = false;
       paused = false;
       cpu = null;
+      adc = null;
       break;
   }
 };

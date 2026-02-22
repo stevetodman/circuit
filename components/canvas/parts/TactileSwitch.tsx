@@ -52,13 +52,15 @@ function TactileSwitch({
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.025, 0]} castShadow>
-        <boxGeometry args={[0.1, 0.05, 0.1]} />
+      {/* 6 mm tact switch body at 1:1 scale */}
+      <mesh position={[0, 0.175, 0]} castShadow>
+        <boxGeometry args={[0.55, 0.30, 0.55]} />
         <meshStandardMaterial color="#151515" roughness={0.54} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      <mesh position={[0, 0.07, 0]} castShadow>
-        <sphereGeometry args={[0.03, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+      {/* Dome button */}
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <sphereGeometry args={[0.16, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial color={domeColor} roughness={0.28} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
@@ -78,8 +80,8 @@ function TactileSwitch({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.135, 0]}>
-          <ringGeometry args={[0.08, 0.098, 16]} />
+        <mesh position={[0, 0.52, 0]}>
+          <ringGeometry args={[0.35, 0.41, 16]} />
           <meshBasicMaterial color="#a8ffbf" transparent opacity={0.45} />
         </mesh>
       )}

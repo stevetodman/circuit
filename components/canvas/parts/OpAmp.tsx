@@ -42,29 +42,22 @@ function OpAmp({
 
   return (
     <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
-      <mesh position={[0, 0.07, -0.004]} castShadow>
-        <boxGeometry args={[0.18, 0.07, 0.14]} />
-        <meshStandardMaterial color="#4a4d62" roughness={0.42} transparent={transparent} opacity={opacity} />
+      {/* DIP-8 black plastic body — op-amps are physically identical to 555 timers */}
+      <mesh position={[0, 0.175, 0]} castShadow>
+        <boxGeometry args={[0.75, 0.30, 0.62]} />
+        <meshStandardMaterial color="#1a1a2e" roughness={0.42} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[0, 0.07, 0]}>
-        <coneGeometry args={[0.065, 0.07, 3]} />
-        <meshStandardMaterial color="#a0a3bb" roughness={0.45} transparent={transparent} opacity={opacity} />
+      {/* Pin-1 notch / semicircle indent at left end */}
+      <mesh position={[-0.375, 0.175, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 0.32, 12, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color="#2a2a3e" roughness={0.4} />
       </mesh>
 
-      <mesh position={[0, 0.11, 0]}>
-        <boxGeometry args={[0.004, 0.03, 0.004]} />
-        <meshStandardMaterial color="#555" />
-      </mesh>
-
-      <mesh position={[0.095, 0.07, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <cylinderGeometry args={[0.005, 0.005, 0.08, 10]} />
-        <meshStandardMaterial color="#3e3e3e" />
-      </mesh>
-
-      <mesh position={[-0.09, 0.07, -0.004]} rotation={[Math.PI / 2, 0, 0]}>
-        <boxGeometry args={[0.018, 0.01, 0.012]} />
-        <meshStandardMaterial color="#ccc" />
+      {/* Top label stripe — LM741 or similar */}
+      <mesh position={[0, 0.33, 0]}>
+        <boxGeometry args={[0.50, 0.02, 0.28]} />
+        <meshStandardMaterial color="#a0a3bb" roughness={0.3} />
       </mesh>
 
       {pinOffsets.map((offset, index) => (
@@ -72,8 +65,8 @@ function OpAmp({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.14, 0]}>
-          <ringGeometry args={[0.1, 0.118, 20]} />
+        <mesh position={[0, 0.50, 0]}>
+          <ringGeometry args={[0.52, 0.58, 20]} />
           <meshBasicMaterial color="#a7edff" transparent opacity={0.46} />
         </mesh>
       )}

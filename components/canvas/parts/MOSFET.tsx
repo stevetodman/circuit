@@ -40,28 +40,28 @@ function MOSFET({
 
   return (
     <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
-      <mesh position={[0, 0.07, 0]} castShadow>
-        <boxGeometry args={[0.19, 0.055, 0.11]} />
+      {/* TO-220 black plastic body — ~15 × 10 × 4.5 mm at 1:1 scale */}
+      <mesh position={[0, 0.40, 0]} castShadow>
+        <boxGeometry args={[1.10, 0.45, 0.85]} />
         <meshStandardMaterial color="#2a2a2a" roughness={0.5} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
-      <mesh position={[0, 0.12, 0]}>
-        <boxGeometry args={[0.11, 0.02, 0.08]} />
-        <meshStandardMaterial color="#a8f4ff" roughness={0.25} transparent={transparent} opacity={Math.min(1, bodyOpacity + 0.04)} />
+
+      {/* Metal heatsink tab — the defining TO-220 feature */}
+      <mesh position={[0, 0.55, -0.50]}>
+        <boxGeometry args={[1.10, 0.70, 0.08]} />
+        <meshStandardMaterial color="#aaa" roughness={0.2} metalness={0.8} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      <mesh position={[-0.075, 0.07, -0.055]}>
-        <boxGeometry args={[0.005, 0.08, 0.005]} />
-        <meshStandardMaterial color="#444" roughness={0.2} />
+      {/* Mounting hole on tab */}
+      <mesh position={[0, 0.55, -0.55]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.10, 12]} />
+        <meshStandardMaterial color="#888" roughness={0.3} metalness={0.6} />
       </mesh>
 
-      <mesh position={[0, 0.07, -0.055]}>
-        <boxGeometry args={[0.005, 0.08, 0.005]} />
-        <meshStandardMaterial color="#444" roughness={0.2} />
-      </mesh>
-
-      <mesh position={[0.075, 0.07, -0.055]}>
-        <boxGeometry args={[0.005, 0.08, 0.005]} />
-        <meshStandardMaterial color="#444" roughness={0.2} />
+      {/* Gate label stripe */}
+      <mesh position={[0, 0.68, 0]}>
+        <boxGeometry args={[0.85, 0.16, 0.65]} />
+        <meshStandardMaterial color="#1e1e1e" roughness={0.4} transparent={transparent} opacity={Math.min(1, bodyOpacity + 0.04)} />
       </mesh>
 
       {pinOffsets.map((offset, index) => (
@@ -69,8 +69,8 @@ function MOSFET({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.14, 0]}>
-          <ringGeometry args={[0.085, 0.1, 16]} />
+        <mesh position={[0, 0.90, 0]}>
+          <ringGeometry args={[0.62, 0.70, 16]} />
           <meshBasicMaterial color="#a7fff8" transparent opacity={0.42} />
         </mesh>
       )}

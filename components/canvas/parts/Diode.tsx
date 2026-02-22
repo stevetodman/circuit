@@ -29,8 +29,8 @@ function DiodeLeg({ position, selected }: { position: Vec3; selected: boolean })
 
 function CathodeBand({ selected, selectedOffset = 0.06 }: { selected: boolean; selectedOffset?: number }) {
   return (
-    <mesh position={[selectedOffset, 0.065, 0]}>
-      <torusGeometry args={[0.024, 0.01, 12, 24, Math.PI]} />
+    <mesh position={[selectedOffset, 0.32, 0]}>
+      <torusGeometry args={[0.12, 0.05, 12, 24, Math.PI]} />
       <meshStandardMaterial color={selected ? '#ffeec9' : '#333'} roughness={0.28} metalness={0.7} />
     </mesh>
   );
@@ -45,29 +45,33 @@ function Diode({ anchorPos, selected = false, transparent = false, pinOffsets = 
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.065, 0]}>
-        <cylinderGeometry args={[0.018, 0.018, 0.082, 14]} />
+      {/* Glass body — ~2 mm dia × 4 mm long at 1:1 scale, standing upright */}
+      <mesh position={[0, 0.32, 0]}>
+        <cylinderGeometry args={[0.09, 0.09, 0.41, 14]} />
         <meshStandardMaterial color="#1c1c1c" roughness={0.45} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[-0.02, 0.065, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.014, 0.014, 0.02, 8]} />
+      {/* Lead caps at top and bottom of glass body */}
+      <mesh position={[-0.09, 0.32, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 0.10, 8]} />
         <meshStandardMaterial color="#7f7f7f" roughness={0.4} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[0.02, 0.065, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.014, 0.014, 0.02, 8]} />
+      <mesh position={[0.09, 0.32, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 0.10, 8]} />
         <meshStandardMaterial color="#7f7f7f" roughness={0.4} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[0, 0.073, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.022, 0.028, 16]} />
+      {/* Direction indicator dot */}
+      <mesh position={[0, 0.365, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.11, 0.14, 16]} />
         <meshStandardMaterial color="#444" roughness={0.5} />
       </mesh>
 
-      <CathodeBand selected={selected} selectedOffset={0.08} />
-      <mesh position={[0.08, 0.065, 0]}>
-        <cylinderGeometry args={[0.01, 0.01, 0.08, 16]} />
+      {/* Cathode band */}
+      <CathodeBand selected={selected} selectedOffset={0.18} />
+      <mesh position={[0.18, 0.32, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.41, 16]} />
         <meshStandardMaterial color="#7d7d7d" />
       </mesh>
 
@@ -76,8 +80,8 @@ function Diode({ anchorPos, selected = false, transparent = false, pinOffsets = 
       ))}
 
       {selected && (
-        <mesh position={[0, 0.12, 0]}>
-          <ringGeometry args={[0.078, 0.092, 20]} />
+        <mesh position={[0, 0.55, 0]}>
+          <ringGeometry args={[0.17, 0.22, 20]} />
           <meshBasicMaterial color="#ffe4a7" transparent opacity={0.48} />
         </mesh>
       )}

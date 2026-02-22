@@ -36,7 +36,8 @@ function Resistor({
   onClick,
 }: ResistorProps) {
   const bodyOpacity = transparent ? 0.75 : 1;
-  const bandPositions = [-0.022, 0, 0.022];
+  // Band Z positions scaled 5× from original ±0.022 → ±0.11
+  const bandPositions = [-0.11, 0, 0.11];
   const bandColors = ['#555', '#f8a03c', '#202020'];
 
   return (
@@ -45,14 +46,15 @@ function Resistor({
       rotation={[0, rotationY * Math.PI / 180, Math.PI / 2]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.065, 0]} castShadow>
-        <cylinderGeometry args={[0.025, 0.025, 0.09, 12]} />
+      {/* 1/4W carbon film resistor body — ~2 mm dia × 6 mm long at 1:1 scale */}
+      <mesh position={[0, 0.26, 0]} castShadow>
+        <cylinderGeometry args={[0.10, 0.10, 0.48, 14]} />
         <meshStandardMaterial color="#c8a060" roughness={0.7} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
       {bandPositions.map((bandPos, index) => (
-        <mesh key={`${anchorPos.join('-')}-${index}`} position={[bandPos, 0.065, 0]}>
-          <torusGeometry args={[0.025, 0.009, 8, 18]} />
+        <mesh key={`${anchorPos.join('-')}-${index}`} position={[bandPos, 0.26, 0]}>
+          <torusGeometry args={[0.10, 0.038, 8, 18]} />
           <meshStandardMaterial color={bandColors[index]} roughness={0.45} />
         </mesh>
       ))}
@@ -62,8 +64,8 @@ function Resistor({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.125, 0]}>
-          <ringGeometry args={[0.07, 0.082, 20]} />
+        <mesh position={[0, 0.52, 0]}>
+          <ringGeometry args={[0.155, 0.175, 20]} />
           <meshBasicMaterial color="#7dffbe" transparent opacity={0.5} />
         </mesh>
       )}

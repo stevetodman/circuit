@@ -43,33 +43,39 @@ function Battery({
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.075, 0]} castShadow>
-        <cylinderGeometry args={[0.025, 0.025, 0.06, 16]} />
-        <meshStandardMaterial color="#444" roughness={0.33} transparent={transparent} opacity={opacity} />
+      {/* 9 V battery block body */}
+      <mesh position={[0, 0.28, 0]} castShadow>
+        <boxGeometry args={[0.42, 0.46, 0.22]} />
+        <meshStandardMaterial color="#222" roughness={0.5} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[-0.06, 0.1, 0]}>
-        <boxGeometry args={[0.045, 0.012, 0.03]} />
+      {/* Label area */}
+      <mesh position={[0, 0.28, 0.115]}>
+        <boxGeometry args={[0.40, 0.42, 0.004]} />
         <meshStandardMaterial color="#c00" roughness={0.5} />
       </mesh>
 
-      <mesh position={[-0.06, 0.13, 0]}>
-        <boxGeometry args={[0.002, 0.01, 0.024]} />
+      {/* Negative terminal cap */}
+      <mesh position={[-0.12, 0.55, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 0.04, 16]} />
+        <meshStandardMaterial color="#888" roughness={0.25} metalness={0.6} />
+      </mesh>
+      <mesh position={[-0.12, 0.56, 0]}>
+        <boxGeometry args={[0.008, 0.04, 0.10]} />
         <meshStandardMaterial color="#fff" roughness={0.2} />
       </mesh>
 
-      <mesh position={[0.06, 0.1, 0]}>
-        <boxGeometry args={[0.045, 0.012, 0.03]} />
-        <meshStandardMaterial color="#333" roughness={0.5} />
+      {/* Positive terminal cap */}
+      <mesh position={[0.12, 0.55, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 0.04, 16]} />
+        <meshStandardMaterial color="#888" roughness={0.25} metalness={0.6} />
       </mesh>
-
-      <mesh position={[0.06, 0.13, 0]}>
-        <boxGeometry args={[0.002, 0.01, 0.024]} />
+      <mesh position={[0.12, 0.56, 0]}>
+        <boxGeometry args={[0.008, 0.04, 0.10]} />
         <meshStandardMaterial color="#fff" roughness={0.2} />
       </mesh>
-
-      <mesh position={[0.06, 0.13, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <boxGeometry args={[0.002, 0.01, 0.024]} />
+      <mesh position={[0.12, 0.56, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <boxGeometry args={[0.008, 0.04, 0.10]} />
         <meshStandardMaterial color="#fff" roughness={0.2} />
       </mesh>
 
@@ -78,8 +84,8 @@ function Battery({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.13, 0]}>
-          <ringGeometry args={[0.08, 0.092, 20]} />
+        <mesh position={[0, 0.60, 0]}>
+          <ringGeometry args={[0.26, 0.30, 20]} />
           <meshBasicMaterial color="#a8edff" transparent opacity={0.5} />
         </mesh>
       )}

@@ -55,7 +55,7 @@ function LED({
   const opacity = transparent ? 0.75 : 1;
   const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
   const cathodeSide = cathodeX >= 0 ? 1 : -1;
-  const cathodeMarkerPos: Vec3 = [cathodeSide * 0.03, 0.0425, 0];
+  const cathodeMarkerPos: Vec3 = [cathodeSide * 0.21, 0.295, 0];
 
   // ── Voltage-driven glow — runs every frame, no React re-renders ────────────
   useFrame(() => {
@@ -92,9 +92,9 @@ function LED({
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      {/* Body cylinder */}
-      <mesh ref={bodyRef} position={[0, 0.085 / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.03, 0.03, 0.085, 12]} />
+      {/* Body cylinder — 5mm LED at correct 1:1 scale (1 TU = 10 mm) */}
+      <mesh ref={bodyRef} position={[0, 0.295, 0]} castShadow>
+        <cylinderGeometry args={[0.21, 0.21, 0.59, 16]} />
         <meshStandardMaterial
           color={color}
           roughness={0.3}
@@ -105,8 +105,8 @@ function LED({
       </mesh>
 
       {/* Dome */}
-      <mesh ref={domeRef} position={[0, 0.085, 0]}>
-        <sphereGeometry args={[0.03, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+      <mesh ref={domeRef} position={[0, 0.59, 0]}>
+        <sphereGeometry args={[0.21, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial
           color={color}
           transparent
@@ -114,8 +114,9 @@ function LED({
         />
       </mesh>
 
+      {/* Cathode flat-side marker */}
       <mesh position={cathodeMarkerPos}>
-        <boxGeometry args={[0.001, 0.018, 0.038]} />
+        <boxGeometry args={[0.006, 0.13, 0.26]} />
         <meshStandardMaterial color="#1e1e1e" roughness={0.95} />
       </mesh>
 
@@ -130,8 +131,8 @@ function LED({
 
       {/* Selection ring */}
       {selected && (
-        <mesh position={[0, 0.12, 0]}>
-          <ringGeometry args={[0.065, 0.08, 24]} />
+        <mesh position={[0, 0.65, 0]}>
+          <ringGeometry args={[0.25, 0.30, 24]} />
           <meshBasicMaterial color="#fff7a0" transparent opacity={0.55} />
         </mesh>
       )}

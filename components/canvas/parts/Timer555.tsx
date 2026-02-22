@@ -67,18 +67,20 @@ function Timer555({
 
   return (
     <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
-      <mesh position={[0, 0.02, 0]} castShadow>
-        <boxGeometry args={[0.15, 0.04, 0.08]} />
+      {/* DIP-8 black plastic body — ~9.5 × 6.5 × 3.5 mm at 1:1 scale */}
+      <mesh position={[0, 0.175, 0]} castShadow>
+        <boxGeometry args={[0.75, 0.30, 0.60]} />
         <meshStandardMaterial color="#111" roughness={0.45} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      <mesh position={[-0.08, 0.02, -0.055]}>
-        <boxGeometry args={[0.02, 0.004, 0.02]} />
+      {/* Pin-1 notch marker */}
+      <mesh position={[-0.375, 0.175, -0.35]}>
+        <boxGeometry args={[0.10, 0.025, 0.10]} />
         <meshStandardMaterial color="#f8e08a" roughness={0.2} />
       </mesh>
 
-      <mesh position={[-0.08, 0.025, -0.055]}>
-        <sphereGeometry args={[0.004, 8, 8]} />
+      <mesh position={[-0.375, 0.195, -0.35]}>
+        <sphereGeometry args={[0.025, 8, 8]} />
         <meshStandardMaterial color="#ffefbf" roughness={0.2} />
       </mesh>
 
@@ -92,8 +94,8 @@ function Timer555({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.08, 0]}>
-          <ringGeometry args={[0.095, 0.11, 16]} />
+        <mesh position={[0, 0.50, 0]}>
+          <ringGeometry args={[0.52, 0.58, 16]} />
           <meshBasicMaterial color="#9dffce" transparent opacity={0.45} />
         </mesh>
       )}

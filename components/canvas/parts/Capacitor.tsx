@@ -43,13 +43,15 @@ function Capacitor({
       rotation={[0, rotationY * Math.PI / 180, 0]}
       onClick={onClick}
     >
-      <mesh position={[0, 0.06, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, 0.12, 24, 1, false, 0, Math.PI]} />
+      {/* Electrolytic capacitor — ~5 mm dia × 10 mm height at 1:1 scale */}
+      <mesh position={[0, 0.30, 0]} castShadow>
+        <cylinderGeometry args={[0.26, 0.26, 0.60, 24, 1, false, 0, Math.PI]} />
         <meshStandardMaterial color="#1f3f7a" roughness={0.3} transparent={transparent} opacity={opacity} />
       </mesh>
 
-      <mesh position={[-0.06, 0.06, 0]}>
-        <boxGeometry args={[0.002, 0.04, 0.03]} />
+      {/* Polarity stripe on negative side */}
+      <mesh position={[-0.26, 0.30, 0]}>
+        <boxGeometry args={[0.008, 0.20, 0.15]} />
         <meshStandardMaterial color="#e9f5ff" roughness={0.2} />
       </mesh>
 
@@ -62,8 +64,8 @@ function Capacitor({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.13, 0]}>
-          <ringGeometry args={[0.07, 0.084, 20]} />
+        <mesh position={[0, 0.65, 0]}>
+          <ringGeometry args={[0.32, 0.37, 20]} />
           <meshBasicMaterial color="#9ff5ff" transparent opacity={0.5} />
         </mesh>
       )}

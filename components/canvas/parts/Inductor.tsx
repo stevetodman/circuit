@@ -39,15 +39,17 @@ function Inductor({
 
   return (
     <group position={anchorPos} rotation={[0, rotationY * Math.PI / 180, 0]} onClick={onClick}>
-      <mesh position={[0, 0.065, 0]} castShadow>
-        <cylinderGeometry args={[0.02, 0.02, 0.02, 14]} />
+      {/* Ferrite core — ~4 mm dia at 1:1 scale */}
+      <mesh position={[0, 0.325, 0]} castShadow>
+        <cylinderGeometry args={[0.10, 0.10, 0.10, 14]} />
         <meshStandardMaterial color="#1e1e1e" roughness={0.48} transparent={transparent} opacity={bodyOpacity} />
       </mesh>
 
-      {[-0.06, -0.02, 0.02, 0.06].map((x) => (
-        <mesh key={`${anchorPos.join('-')}-loop-${x}`} position={[x, 0.07, 0]}>
-          <torusGeometry args={[0.016, 0.008, 8, 16]} />
-          <meshStandardMaterial color="#4b4b4b" roughness={0.35} transparent={transparent} opacity={bodyOpacity} />
+      {/* Wire coil loops — 5× larger */}
+      {[-0.18, -0.06, 0.06, 0.18].map((x) => (
+        <mesh key={`${anchorPos.join('-')}-loop-${x}`} position={[x, 0.35, 0]}>
+          <torusGeometry args={[0.08, 0.04, 8, 16]} />
+          <meshStandardMaterial color="#b87333" roughness={0.35} transparent={transparent} opacity={bodyOpacity} />
         </mesh>
       ))}
 
@@ -56,8 +58,8 @@ function Inductor({
       ))}
 
       {selected && (
-        <mesh position={[0, 0.122, 0]}>
-          <ringGeometry args={[0.09, 0.104, 18]} />
+        <mesh position={[0, 0.50, 0]}>
+          <ringGeometry args={[0.28, 0.33, 18]} />
           <meshBasicMaterial color="#ffd9a5" transparent opacity={0.42} />
         </mesh>
       )}
