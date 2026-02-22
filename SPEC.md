@@ -1,47 +1,51 @@
-# Circuit Sandbox — Feature Wave Log
+# SPEC: Net Glow — Hovered Net Wire Highlight
 
-Tracks completed feature waves. Each wave was implemented via parallel Codex agents in git worktrees.
+When the user hovers a pin on the breadboard, all wires on the same net glow brighter.
 
----
+## Read First
+- `components/canvas/Wire.tsx` — look for the `useFrame` callback that sets `matRef.current.emissiveIntensity`. Currently it's `0.06 + 0.14 * pulse` for normal wires.
+- `store/uiStore.ts` — look for `hoveredNodeId: string | null`.
+- `store/circuitStore.ts` — look for `nodes: Record<string, { netId: number | null, ... }>`.
 
-## Wave 4 (merged)
+## Implementation — Wire.tsx only (no store changes needed)
 
-| Branch | Feature |
-|---|---|
-| `module-link` | `autoLoadId` on all 11 module steps → auto-loads starter circuit when entering a module |
-| `polarity` | +/− polarity labels on LED, Battery, Capacitor; `P` key toggle |
-| `module-spotlight` | `spotlightTarget` directional hint pill in StepCard; `highlightComponent` pulse ring on ComponentTile; sidebar glow |
-| `wire-autocolor` | Wire voltage colouring (red >2.5V, dark <0.3V); `V` key toggle |
+At the top of the `Wire` component function, after the existing `fromNetId` selector, add two more selectors:
 
----
+```tsx
+const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+const hoveredNetId  = useCircuitStore((s) =>
+  hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? -1) : -1
+);
+```
 
-## Wave 5 (merged)
+In the `useFrame` callback, after computing `pulse` and before the overload check, determine if this wire's net is hovered:
 
-| Branch | Feature |
-|---|---|
-| `diode-pol` | +/− polarity labels on Diode; missing − label added to Capacitor |
-| `part-descriptions` | Short description text under each sidebar tile (`PART_DESCRIPTIONS` constant) |
-| `circuit-name` | Editable circuit name input in sidebar; syncs `document.title`; persisted in JSON |
-| `scope-ux` | 📊 "Add to Scope" button per pin in PropertiesInspector; live voltage in scope channel labels via RAF; "✕ all" clear-all button |
+```tsx
+const isNetHovered = hoveredNetId >= 0 && fromNetId === hoveredNetId;
+```
 
----
+Then at the point where `emissiveIntensity` is assigned (the final assignment before the frame ends, NOT inside the overload branch), replace the existing assignment:
 
-## Wave 6 (merged)
+```tsx
+// OLD:
+matRef.current.emissiveIntensity = 0.06 + 0.14 * pulse;
 
-| Branch | Feature |
-|---|---|
-| _(inline)_ | HelpOverlay updated with P/V shortcuts |
-| `breadboard-labels` | Floating 3D Text: a–j row letters left of board + column numbers (1,5,10…60) below board |
-| `learn-polish` | Progress bar (X/11) at top of Learn tab; ✓ completion badges on module cards; violet left-border on active module; "Reset progress" button |
-| `new-circuit` | "＋ New Circuit" dashed button in sidebar with inline Confirm/Cancel; `circuitStore.newCircuit()` clears board + undo history |
-| `canvas-toolbar` | `CanvasOverlay.tsx`: floating zoom +/−/fit buttons (bottom-right); component count badge; `zoomInRequested`/`zoomOutRequested` wired to Scene.tsx |
+// NEW:
+matRef.current.emissiveIntensity = isNetHovered
+  ? 0.35 + 0.20 * pulse   // hovered net: much brighter glow
+  : 0.06 + 0.14 * pulse;  // normal
+```
 
----
+## Zustand selector rule (CRITICAL)
+Always individual selectors — NEVER inline objects:
+```tsx
+const hoveredNodeId = useUIStore(s => s.hoveredNodeId);    // CORRECT
+const hoveredNetId = useCircuitStore(s => ...);             // CORRECT (separate line)
+```
 
-## Known agent pitfalls
-
-- `resetModules()` → actual method is `resetProgress()` in moduleStore
-- `wires` field in circuitStore is `Record<string, Wire>` not an array
-- Zustand inline object selectors crash React 18 — always use individual selectors or `useShallow`
-- SPEC.md always conflicts during merge — resolve with `git checkout --ours SPEC.md`
-- When two branches both add to uiStore/Toolbar/KeyboardShortcuts — manually merge to keep BOTH
+## Important
+- File: `components/canvas/Wire.tsx` only — no store changes needed
+- The overload path already sets its own color and emissive values and returns early — do NOT change it; the net-glow only applies to the normal (non-overloaded) path
+- The `fromNetId` variable already exists in Wire.tsx; use it for the net comparison
+- `hoveredNetId` must be `>= 0` before comparing (netId -1 means unconnected)
+- Run `pnpm build` — must pass with zero TypeScript errors
