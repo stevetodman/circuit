@@ -2,26 +2,15 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import type { CircuitNode, PlacedComponent, Wire, ComponentType, Vec3, PinConnection } from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
+import {
+  PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
+  rowZTop, rowZBot,
+} from '@/constants/breadboard';
 
-export const PITCH = 0.254;        // 2.54mm in Three.js units (1 unit = 10mm)
-export const CENTER_GAP = 0.508;   // gap between rows e and f
-export const GRID_UNIT = PITCH;    // alias used in snap calculations
+// Re-export constants needed by other modules (dragStore, Pin.tsx, etc.)
+export { PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES, rowZTop, rowZBot };
+export const GRID_UNIT = PITCH;
 export const SNAP_THRESHOLD = GRID_UNIT * 0.68; // ~0.173 units — matches Diode
-export const COLS = 63;
-export const ROWS = 5;             // rows per side (a-e and f-j)
-export const BOARD_TOP_Y = 0.15;   // top surface of board (board height = 0.3)
-export const RAIL_GAP = PITCH * 2; // gap between main grid and power rail
-export const RAIL_HOLES = 25;      // holes per power rail strip
-
-/** Row z position for top half (row 0=a farthest, row 4=e closest to gap) */
-export function rowZTop(rowIndex: number): number {
-  return -(CENTER_GAP / 2 + (ROWS - 1 - rowIndex) * PITCH);
-}
-
-/** Row z position for bottom half (row 0=f closest to gap, row 4=j farthest) */
-export function rowZBot(rowIndex: number): number {
-  return CENTER_GAP / 2 + rowIndex * PITCH;
-}
 
 function seedBreadboardNodes(): Record<string, CircuitNode> {
   const nodes: Record<string, CircuitNode> = {};

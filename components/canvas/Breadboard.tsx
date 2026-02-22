@@ -2,25 +2,10 @@
 
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-
-// ── constants ─────────────────────────────────────────────────────────────────
-export const PITCH = 0.254;       // 2.54 mm → Three.js units (1 unit = 10 mm)
-export const CENTER_GAP = 0.508;  // gap between rows e and f
-export const COLS = 63;
-export const ROWS = 5;            // per side (a–e  and  f–j)
-export const RAIL_HOLES = 25;
-export const RAIL_GAP = PITCH * 2;
-export const BOARD_TOP_Y = 0.15; // board is 0.30 thick, top surface at y = 0.15
-
-// ── geometry helpers ──────────────────────────────────────────────────────────
-export function rowZTop(rowIndex: number): number {
-  // row 0 = a (farthest from center), row 4 = e (closest)
-  return -(CENTER_GAP / 2 + (ROWS - 1 - rowIndex) * PITCH);
-}
-export function rowZBot(rowIndex: number): number {
-  // row 0 = f (closest to center), row 4 = j (farthest)
-  return CENTER_GAP / 2 + rowIndex * PITCH;
-}
+import {
+  PITCH, CENTER_GAP, COLS, ROWS, RAIL_HOLES, RAIL_GAP, BOARD_TOP_Y,
+  rowZTop, rowZBot,
+} from '@/constants/breadboard';
 
 interface HolePos { x: number; z: number }
 
