@@ -79,6 +79,7 @@ interface CircuitState extends TopologyState {
   removeComponent(id: string): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
+  setWireColor: (id: string, color: string) => void;
   setProperty(componentId: string, key: string, value: number | string): void;
   selectNode(id: string | null): void;
   selectComponent(id: string | null): void;
@@ -251,6 +252,14 @@ export const useCircuitStore = create<CircuitState>()(
           const { [id]: _removed, ...wires } = state.wires;
           const nodes = runNetAnalysis(state.nodes, wires, state.components);
           return { wires, nodes };
+        });
+      },
+
+      setWireColor(id, color) {
+        set((state) => {
+          const wire = state.wires[id];
+          if (!wire) return state;
+          return { wires: { ...state.wires, [id]: { ...wire, color } } };
         });
       },
 
