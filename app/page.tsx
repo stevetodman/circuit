@@ -17,6 +17,8 @@ import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
+import WiringBanner from '@/components/WiringBanner';
+import PinTooltip from '@/components/canvas/PinTooltip';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -163,6 +165,8 @@ export default function Home() {
       <main className="relative flex-1 min-w-0 h-full">
         <Toolbar />
         <div className="absolute inset-0 top-[36px]">
+          <WiringBanner />
+          <PinTooltip />
           <Scene />
           <WiringHint />
           <CameraHint />

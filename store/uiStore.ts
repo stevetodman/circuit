@@ -15,6 +15,8 @@ interface BoxSelectState {
 
 interface UIState {
   hoveredNodeId: string | null;
+  mouseX: number;
+  mouseY: number;
   simStatus: 'idle' | 'running' | 'error';
   simError: string | null;
   simErrorDismissed: boolean;
@@ -34,6 +36,7 @@ interface UIState {
   boxSelectRect: DOMRect | null;
 
   setHoveredNode:      (id: string | null) => void;
+  setMousePos:         (x: number, y: number) => void;
   setSimStatus:        (status: 'idle' | 'running' | 'error', error?: string | null) => void;
   setSimError:         (error: string | null) => void;
   dismissSimError:     () => void;
@@ -61,6 +64,8 @@ const makeBoxSelectRect = (state: BoxSelectState) => {
 
 export const useUIStore = create<UIState>()((set) => ({
   hoveredNodeId: null,
+  mouseX:       0,
+  mouseY:       0,
   simStatus:     'idle',
   simError:      null,
   simErrorDismissed: false,
@@ -76,6 +81,7 @@ export const useUIStore = create<UIState>()((set) => ({
   boxSelectRect:  null,
 
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
+  setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
   setSimStatus:   (status, error = undefined) => set({
     simStatus: status,
     simError: error ?? null,
