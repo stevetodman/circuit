@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCircuitStore, pausePropertyUndo, resumePropertyUndo } from '@/store/circuitStore';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
 
@@ -153,6 +153,8 @@ function NumberInput({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const [wasClamped, setWasClamped] = useState(false);
+
   return (
     <div className="space-y-0.5">
       <div className="flex items-center gap-2">
@@ -164,9 +166,13 @@ function NumberInput({
           step={field.step ?? 1}
           onChange={(e) => {
             const n = parseFloat(e.target.value);
-            if (!isNaN(n)) onChange(Math.max(field.min, Math.min(field.max, n)));
+            if (!isNaN(n)) {
+              const clamped = Math.max(field.min, Math.min(field.max, n));
+              onChange(clamped);
+              setWasClamped(clamped !== n);
+            }
           }}
-          onFocus={pausePropertyUndo}
+          onFocus={() => { pausePropertyUndo(); setWasClamped(false); }}
           onBlur={resumePropertyUndo}
           className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
                      rounded px-2 py-1 border border-white/[0.08]
@@ -179,7 +185,12 @@ function NumberInput({
           </span>
         )}
       </div>
-      {(Math.abs(value) >= 1000 || (Math.abs(value) < 0.1 && value !== 0)) ? (
+      {wasClamped && (
+        <span className="text-[9px] text-amber-400/70 font-mono">
+          Clamped to {engNotation(value, field.unit ?? '')}
+        </span>
+      )}
+      {!wasClamped && (Math.abs(value) >= 1000 || (Math.abs(value) < 0.1 && value !== 0)) ? (
         <span className="text-[9px] text-white/30 font-mono">{engNotation(value, field.unit ?? '')}</span>
       ) : null}
     </div>

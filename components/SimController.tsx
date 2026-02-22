@@ -210,6 +210,20 @@ export default function SimController() {
   useEffect(() => {
     if (!readyRef.current || !workerRef.current || !sabRef.current) return;
 
+    // F6.1: pre-sim validation — warn about disconnected pins before solving
+    const componentList = Object.values(components);
+    if (componentList.length > 0) {
+      const getDesignator = useCircuitStore.getState().getDesignator;
+      const floating = componentList.filter((c) =>
+        c.pins.some((pin) => !pin.nodeId || nodes[pin.nodeId]?.netId === null)
+      );
+      if (floating.length > 0) {
+        const labels = floating.slice(0, 2).map((c) => getDesignator(c.id)).join(', ');
+        const suffix = floating.length > 2 ? ` +${floating.length - 2} more` : '';
+        addToast(`Unconnected pin on ${labels}${suffix} — place on the breadboard`, 'warn');
+      }
+    }
+
     const netlist = buildNetlist(nodes, components, wires);
     useCircuitStore.getState().setWireBranchIndices(netlist.wireBranchIndex ?? {});
     resistorBranchesRef.current = buildResistiveBranchMap(netlist.elements);
@@ -223,7 +237,7 @@ export default function SimController() {
       wires,
       sab:        sabRef.current,
     });
-  }, [nodes, components, wires]);
+  }, [nodes, components, wires, addToast]);
 
   return null;
 }
