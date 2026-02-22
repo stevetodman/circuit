@@ -1,26 +1,56 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useModuleStore } from '@/store/moduleStore';
-import { MODULES } from '@/features/modules/definitions';
 
 export default function StepCard() {
+  const activeModule = useModuleStore((s) => s.activeModule);
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
   const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
+  const activeStep = useModuleStore((s) => s.activeStep);
+  const justCompleted = useModuleStore((s) => s.justCompleted);
   const exitModule = useModuleStore((s) => s.exitModule);
+  const [hintVisible, setHintVisible] = useState(false);
+  const [completedModuleTitle, setCompletedModuleTitle] = useState<string | null>(null);
 
-  if (!activeModuleId) return null;
-  const mod = MODULES.find((m) => m.id === activeModuleId);
-  if (!mod) return null;
-  const step = mod.steps[activeStepIndex];
-  if (!step) return null;
-  const total = mod.steps.length;
+  useEffect(() => {
+    setHintVisible(false);
+  }, [activeModuleId, activeStepIndex]);
+
+  useEffect(() => {
+    if (activeModule?.title) {
+      setCompletedModuleTitle(activeModule.title);
+    }
+  }, [activeModule]);
+
+  if (!activeModuleId && !justCompleted) return null;
+  if (!activeModule && !justCompleted) return null;
+
+  const modTitle = activeModule?.title ?? completedModuleTitle ?? '';
+
+  if (justCompleted) {
+    return (
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto max-w-sm w-full px-4">
+        <div className="bg-[#111113]/95 border border-[#7c6fff]/40 rounded-xl p-4 shadow-2xl backdrop-blur-sm text-center">
+          <div className="text-[#7c6fff] text-xl leading-none">✓</div>
+          <p className="text-white/95 text-sm font-semibold mt-2">Module complete!</p>
+          <p className="text-white/75 text-sm mt-1">{modTitle}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeStep || !activeModule) return null;
+  const total = activeModule.steps.length;
+
+  const step = activeStep;
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto max-w-sm w-full px-4">
       <div className="bg-[#111113]/95 border border-[#7c6fff]/40 rounded-xl p-4 shadow-2xl backdrop-blur-sm">
         {/* Progress dots */}
         <div className="flex items-center gap-1.5 mb-3">
-          {mod.steps.map((_, i) => (
+          {activeModule.steps.map((_, i) => (
             <div
               key={i}
               className={`h-1 flex-1 rounded-full transition-colors ${
@@ -37,7 +67,18 @@ export default function StepCard() {
 
         <p className="text-white/90 text-sm font-medium mb-1">{step.instruction}</p>
         {step.hint && (
-          <p className="text-white/40 text-xs mt-1.5">{step.hint}</p>
+          <div>
+            <button
+              type="button"
+              onClick={() => setHintVisible((v) => !v)}
+              className="text-white/55 hover:text-white/85 text-[11px] transition-colors"
+            >
+              Need a hint?
+            </button>
+            <div className={`overflow-hidden transition-all duration-200 ${hintVisible ? 'max-h-40 opacity-100 mt-1.5' : 'max-h-0 opacity-0'}`}>
+              <p className="text-white/40 text-xs">{step.hint}</p>
+            </div>
+          </div>
         )}
 
         <div className="flex items-center justify-between mt-3">
