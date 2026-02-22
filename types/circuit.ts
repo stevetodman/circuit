@@ -5,12 +5,15 @@ export type ComponentType =
   | 'resistor'
   | 'capacitor'
   | 'bjt'
+  | 'pnp'
   | 'timer555'
   | 'arduino'
   | 'battery'
   | 'motor'
   | 'tactileSwitch'
   | 'diode'
+  | 'zener'
+  | 'schottky'
   | 'mosfet'
   | 'opamp'
   | 'inductor'
@@ -140,6 +143,19 @@ export const PIN_TEMPLATES: Record<ComponentType, PinTemplate[]> = {
     { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
     { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
   ],
+  zener: [
+    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+  ],
+  schottky: [
+    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+  ],
+  pnp: [
+    { name: 'base', offset: [0, 0, -PIN_PITCH] },
+    { name: 'collector', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'emitter', offset: [PIN_PITCH, 0, 0] },
+  ],
   mosfet: [
     { name: 'gate', offset: [-PIN_PITCH * 1.5, 0, 0] },
     { name: 'drain', offset: [0, 0, 0] },
@@ -173,7 +189,10 @@ export type PlacedComponent =
   | (BasePlacedComponent & TypedComponent<'battery', {}>)
   | (BasePlacedComponent & TypedComponent<'motor', { rpm?: number; resistance?: number }>)
   | (BasePlacedComponent & TypedComponent<'tactileSwitch', { closed?: number }>)
-  | (BasePlacedComponent & TypedComponent<'diode', {}>)
+  | (BasePlacedComponent & TypedComponent<'diode', { forwardVoltage?: number }>)
+  | (BasePlacedComponent & TypedComponent<'zener', { breakdownVoltage?: number }>)
+  | (BasePlacedComponent & TypedComponent<'schottky', { forwardVoltage?: number }>)
+  | (BasePlacedComponent & TypedComponent<'pnp', { hFE?: number }>)
   | (BasePlacedComponent & TypedComponent<'mosfet', { rdsOn?: number }>)
   | (BasePlacedComponent & TypedComponent<'opamp', {}>)
   | (BasePlacedComponent & TypedComponent<'inductor', { inductance?: number }>)

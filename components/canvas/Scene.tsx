@@ -316,6 +316,7 @@ export default function Scene() {
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
   const getDesignator       = useCircuitStore((s) => s.getDesignator);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const setProperty         = useCircuitStore((s) => s.setProperty);
   const openContextMenu     = useUIStore((s) => s.openContextMenu);
   const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
   const componentsMap        = useCircuitStore((s) => s.components);
@@ -384,6 +385,12 @@ export default function Scene() {
                   event.stopPropagation();
                   if (event.shiftKey) {
                     toggleSelectedComponent(component.id);
+                    return;
+                  }
+                  if (component.type === 'tactileSwitch') {
+                    const current = (component.props as { closed?: number }).closed ?? 0;
+                    setProperty(component.id, 'closed', current === 1 ? 0 : 1);
+                    selectComponent(component.id);
                     return;
                   }
                   selectComponent(selectedComponentId === component.id ? null : component.id);

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useUIStore } from '@/store/uiStore';
 import { BOARD_TOP_Y } from '@/constants/breadboard';
 
 // Horizontal plane at board surface — cursor is always projected here
@@ -36,15 +37,26 @@ export default function WirePreview() {
     const startNode = nodes[selectedNodeId];
     if (!startNode) { mesh.visible = false; return; }
 
-    // Project cursor onto board plane
-    raycaster.setFromCamera(pointer, camera);
-    const hit = raycaster.ray.intersectPlane(BOARD_PLANE, cursorVec.current);
-    if (!hit) { mesh.visible = false; return; }
+    // F2.5: snap endpoint to hovered pin when available, otherwise follow cursor
+    const hoveredNodeId = useUIStore.getState().hoveredNodeId;
+    const snapNode = hoveredNodeId && hoveredNodeId !== selectedNodeId
+      ? useCircuitStore.getState().nodes[hoveredNodeId]
+      : null;
+
+    let to: THREE.Vector3;
+    if (snapNode) {
+      to = new THREE.Vector3(...snapNode.worldPos);
+    } else {
+      // Project cursor onto board plane
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.ray.intersectPlane(BOARD_PLANE, cursorVec.current);
+      if (!hit) { mesh.visible = false; return; }
+      to = cursorVec.current.clone();
+      to.y = BOARD_TOP_Y; // keep on board surface
+    }
 
     // Build arc geometry (same formula as Wire.tsx)
     const from = new THREE.Vector3(...startNode.worldPos);
-    const to   = cursorVec.current.clone();
-    to.y = BOARD_TOP_Y; // keep on board surface
 
     const flatDist  = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
     const arcHeight = 0.15 + 0.04 * flatDist;

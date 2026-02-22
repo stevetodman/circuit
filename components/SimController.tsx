@@ -91,6 +91,7 @@ export default function SimController() {
   const addToast      = useToastStore((s) => s.addToast);
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
   const lastPowerSampleRef = useRef(0);
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-load: ?c= URL param takes priority over localStorage (T1.2)
   useEffect(() => {
@@ -210,19 +211,36 @@ export default function SimController() {
   useEffect(() => {
     if (!readyRef.current || !workerRef.current || !sabRef.current) return;
 
-    // F6.1: pre-sim validation — warn about disconnected pins before solving
-    const componentList = Object.values(components);
-    if (componentList.length > 0) {
+    // T1.7 + F6.1: pre-sim validation (debounced 2 s to avoid toast floods while building)
+    if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    validationTimerRef.current = setTimeout(() => {
+      const componentList = Object.values(useCircuitStore.getState().components);
+      if (componentList.length === 0) return;
+      const liveNodes = useCircuitStore.getState().nodes;
       const getDesignator = useCircuitStore.getState().getDesignator;
+
+      // F6.1: warn about floating (off-board) pins
       const floating = componentList.filter((c) =>
-        c.pins.some((pin) => !pin.nodeId || nodes[pin.nodeId]?.netId === null)
+        c.pins.some((pin) => !pin.nodeId || liveNodes[pin.nodeId]?.netId === null)
       );
       if (floating.length > 0) {
         const labels = floating.slice(0, 2).map((c) => getDesignator(c.id)).join(', ');
         const suffix = floating.length > 2 ? ` +${floating.length - 2} more` : '';
         addToast(`Unconnected pin on ${labels}${suffix} — place on the breadboard`, 'warn');
       }
-    }
+
+      // T1.7a: warn if no voltage source is present
+      const hasVSource = componentList.some((c) => c.type === 'battery');
+      if (!hasVSource && componentList.length > 1) {
+        addToast('No battery in circuit — add a battery to power it', 'warn');
+      } else if (hasVSource) {
+        // T1.7b: warn if battery exists but no ground rail is connected
+        const hasGround = Object.values(liveNodes).some((n) => n.netId === 0);
+        if (!hasGround) {
+          addToast('No ground — connect the battery negative (–) to the board', 'warn');
+        }
+      }
+    }, 2000);
 
     const netlist = buildNetlist(nodes, components, wires);
     useCircuitStore.getState().setWireBranchIndices(netlist.wireBranchIndex ?? {});

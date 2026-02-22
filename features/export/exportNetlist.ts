@@ -27,10 +27,13 @@ export function exportSPICE(
   let diodeIndex = 1;
   let capacitorIndex = 1;
   let bjtIndex = 1;
+  let pnpIndex = 1;
   let timer555Index = 1;
   let motorIndex = 1;
   let switchIndex = 1;
   let diodeSimpleIndex = 1;
+  let zenerIndex = 1;
+  let schottkyIndex = 1;
   let mosfetIndex = 1;
   let opampIndex = 1;
   let inductorIndex = 1;
@@ -93,6 +96,32 @@ export function exportSPICE(
       const netE = pinNet(nodes, comp, 'emitter');
       if (netC == null || netB == null || netE == null) continue;
       lines.push(`Q${bjtIndex++} ${toSPICENet(netC)} ${toSPICENet(netB)} ${toSPICENet(netE)} NPN_GENERIC`);
+      continue;
+    }
+
+    if (comp.type === 'pnp') {
+      const netC = pinNet(nodes, comp, 'collector');
+      const netB = pinNet(nodes, comp, 'base');
+      const netE = pinNet(nodes, comp, 'emitter');
+      if (netC == null || netB == null || netE == null) continue;
+      lines.push(`Q${pnpIndex++} ${toSPICENet(netC)} ${toSPICENet(netB)} ${toSPICENet(netE)} PNP_GENERIC`);
+      continue;
+    }
+
+    if (comp.type === 'zener') {
+      const netA = pinNet(nodes, comp, 'anode');
+      const netB = pinNet(nodes, comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) continue;
+      const Vz = typeof comp.props.breakdownVoltage === 'number' ? comp.props.breakdownVoltage : 5.1;
+      lines.push(`D${zenerIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} ZENER_${Vz}V`);
+      continue;
+    }
+
+    if (comp.type === 'schottky') {
+      const netA = pinNet(nodes, comp, 'anode');
+      const netB = pinNet(nodes, comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) continue;
+      lines.push(`D${schottkyIndex++} ${toSPICENet(netA)} ${toSPICENet(netB)} DIODE_SCHOTTKY`);
       continue;
     }
 
@@ -174,8 +203,10 @@ export function exportSPICE(
   lines.push('.tran 0.1m 10m');
   lines.push('.model DLED D(Is=1e-14 N=1.5)');
   lines.push('.model DIODE_1N4148 D(Is=1e-14 N=1.5)');
+  lines.push('.model DIODE_SCHOTTKY D(Is=5e-7 N=1.0 Rs=0.01)');
   lines.push('.model NMOS_SIMPLE NMOS(Level=1 VTO=2.0 Beta=1e-3 L=1u W=1u)');
   lines.push('.model NPN_GENERIC NPN(Is=1e-14 Bf=100)');
+  lines.push('.model PNP_GENERIC PNP(Is=1e-14 Bf=100)');
   lines.push('.model MYSW SW(Ron=0.01 Roff=1e9 Vt=0.5 Vh=0)');
   lines.push('.end');
 

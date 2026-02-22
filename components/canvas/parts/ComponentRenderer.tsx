@@ -131,6 +131,7 @@ export default function ComponentRenderer({
       );
       break;
     case 'bjt':
+    case 'pnp':
       inner = (
         <BJT
           anchorPos={ZERO}
@@ -197,6 +198,8 @@ export default function ComponentRenderer({
       );
       break;
     case 'diode':
+    case 'zener':
+    case 'schottky':
       inner = (
         <Diode
           anchorPos={ZERO}

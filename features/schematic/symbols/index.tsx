@@ -23,11 +23,14 @@ export const SYMBOL_SIZES: Record<ComponentType, SchematicSymbolSize> = {
   battery: { width: 170, height: 70 },
   capacitor: { width: 140, height: 70 },
   bjt: { width: 180, height: 110 },
+  pnp: { width: 180, height: 110 },
   arduino: { width: 240, height: 90 },
   motor: { width: 130, height: 70 },
   timer555: { width: 170, height: 90 },
   tactileSwitch: { width: 140, height: 60 },
   diode: { width: 130, height: 80 },
+  zener: { width: 130, height: 80 },
+  schottky: { width: 130, height: 80 },
   mosfet: { width: 180, height: 110 },
   opamp: { width: 190, height: 110 },
   inductor: { width: 160, height: 70 },
@@ -75,6 +78,19 @@ const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> 
     anode: [-64, 0],
     cathode: [64, 0],
   },
+  zener: {
+    anode: [-64, 0],
+    cathode: [64, 0],
+  },
+  schottky: {
+    anode: [-64, 0],
+    cathode: [64, 0],
+  },
+  pnp: {
+    base: [0, -44],
+    collector: [-76, 0],
+    emitter: [76, 0],
+  },
   mosfet: {
     gate: [-86, 0],
     drain: [86, -24],
@@ -93,7 +109,7 @@ const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> 
   },
   potentiometer: {
     a: [-72, 0],
-    wiper: [0, -30],
+    wiper: [0, -40],
     b: [72, 0],
   },
 };
@@ -124,6 +140,12 @@ export function symbolForTypeName(type: ComponentType): string {
       return 'Switch';
     case 'diode':
       return 'D';
+    case 'zener':
+      return 'DZ';
+    case 'schottky':
+      return 'DS';
+    case 'pnp':
+      return 'PNP';
     case 'mosfet':
       return 'MOSFET';
     case 'opamp':
@@ -168,22 +190,17 @@ export function ResistorSymbol({
 
   return (
     <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
-      <g transform="translate(-1, 0)">
-        <line x1="-80" y1="0" x2="-45" y2="0" stroke={glow.stroke} strokeWidth={glow.strokeWidth} />
-        <polyline
-          points="-45,-12 -28,-24 28,24 45,12"
-          fill="none"
-          stroke="#9a7a38"
-          strokeWidth="10"
-          strokeLinejoin="bevel"
-        />
-        <line x1="45" y1="0" x2="80" y2="0" stroke={glow.stroke} strokeWidth={glow.strokeWidth} />
-      </g>
-
+      <line x1="-86" y1="0" x2="-45" y2="0" stroke={glow.stroke} strokeWidth={glow.strokeWidth} />
+      <polyline
+        points="-45,-12 -28,-24 28,24 45,12"
+        fill="none"
+        stroke="#9a7a38"
+        strokeWidth="10"
+        strokeLinejoin="bevel"
+      />
+      <line x1="45" y1="0" x2="86" y2="0" stroke={glow.stroke} strokeWidth={glow.strokeWidth} />
       <circle cx="-86" cy="0" r="4" fill={glow.stroke} />
       <circle cx="86" cy="0" r="4" fill={glow.stroke} />
-      <line x1="-10" y1="-30" x2="-10" y2="30" stroke="#6a6a6a" strokeWidth="2" opacity="0.7" />
-
       {selected && <rect x="-92" y="-32" width="184" height="64" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
     </g>
   );
@@ -342,25 +359,28 @@ export function OpAmpSymbol({
 
   return (
     <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
-      <line x1="-94" y1="-50" x2="-94" y2="50" stroke={glow.stroke} strokeWidth="2.4" />
-      <line x1="-94" y1="-22" x2="-86" y2="-22" stroke={glow.stroke} strokeWidth="2.2" />
-      <line x1="-94" y1="22" x2="-86" y2="22" stroke={glow.stroke} strokeWidth="2.2" />
-      <line x1="-94" y1="0" x2="-40" y2="-10" stroke={glow.stroke} strokeWidth="2" />
-      <line x1="-94" y1="0" x2="-40" y2="10" stroke={glow.stroke} strokeWidth="2" />
-      <polyline points="-60,-26 -28,-26 -28,26 -60,26" fill="none" stroke="#7a7a7a" strokeWidth="2.4" />
-      <line x1="-60" y1="0" x2="-44" y2="0" stroke="#9d9d9d" strokeWidth="2.6" />
-      <line x1="-56" y1="-20" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
-      <line x1="-56" y1="20" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.2" />
-      <line x1="64" y1="0" x2="86" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
-      <line x1="-20" y1="-56" x2="6" y2="-56" stroke={glow.stroke} strokeWidth="2" />
-      <line x1="-20" y1="56" x2="6" y2="56" stroke={glow.stroke} strokeWidth="2" />
-      <circle cx="64" cy="0" r="4" fill={glow.stroke} />
-      <circle cx="-94" cy="-22" r="4" fill={glow.stroke} />
-      <circle cx="-94" cy="22" r="4" fill={glow.stroke} />
-      <circle cx="-94" cy="0" r="4" fill={glow.stroke} />
-      <circle cx="-20" cy="-56" r="3.5" fill={glow.stroke} />
-      <circle cx="-20" cy="56" r="3.5" fill={glow.stroke} />
-      {selected && <rect x="-94" y="-64" width="180" height="128" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+      {/* Triangle body */}
+      <polygon points="-56,-40 -56,40 72,0" fill="rgba(24,36,68,0.55)" stroke={glow.stroke} strokeWidth="2.2" />
+      {/* in+ lead (non-inverting, upper) */}
+      <line x1="-86" y1="-22" x2="-56" y2="-22" stroke={glow.stroke} strokeWidth="2.2" />
+      {/* in- lead (inverting, lower) */}
+      <line x1="-86" y1="22" x2="-56" y2="22" stroke={glow.stroke} strokeWidth="2.2" />
+      {/* + / − labels inside body */}
+      <text x="-44" y="-16" fill={glow.stroke} fontSize="11" fontFamily="sans-serif" textAnchor="middle">+</text>
+      <text x="-44" y="28" fill={glow.stroke} fontSize="11" fontFamily="sans-serif" textAnchor="middle">−</text>
+      {/* Output lead */}
+      <line x1="72" y1="0" x2="86" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* VCC lead */}
+      <line x1="-10" y1="-40" x2="-10" y2="-56" stroke={glow.stroke} strokeWidth="2" />
+      {/* GND lead */}
+      <line x1="-10" y1="40" x2="-10" y2="56" stroke={glow.stroke} strokeWidth="2" />
+      {/* Terminal dots — positions match SYMBOL_TERMINALS */}
+      <circle cx="-86" cy="-22" r="4" fill={glow.stroke} />
+      <circle cx="-86" cy="22" r="4" fill={glow.stroke} />
+      <circle cx="86" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="-10" cy="-56" r="3.5" fill={glow.stroke} />
+      <circle cx="-10" cy="56" r="3.5" fill={glow.stroke} />
+      {selected && <rect x="-92" y="-64" width="184" height="128" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
     </g>
   );
 }
@@ -401,18 +421,105 @@ export function PotentiometerSymbol({
 
   return (
     <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
-      <rect x="-46" y="-16" width="82" height="30" rx="6" fill="#3c3c45" stroke={glow.stroke} strokeWidth="2.2" />
-      <line x1="-46" y1="0" x2="36" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
-      <line x1="36" y1="0" x2="72" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
-      <line x1="0" y1="-16" x2="0" y2="-34" stroke="#aaa" strokeWidth="2" />
-      <line x1="-2" y1="-34" x2="2" y2="-34" stroke="#aaa" strokeWidth="3" />
-      <line x1="-2" y1="-34" x2="-2" y2="-24" stroke="#555" strokeWidth="2" />
-      <line x1="2" y1="-34" x2="2" y2="-24" stroke="#555" strokeWidth="2" />
+      {/* Resistor body */}
+      <rect x="-46" y="-16" width="92" height="32" rx="6" fill="#3c3c45" stroke={glow.stroke} strokeWidth="2.2" />
+      {/* Terminal leads: a (left) and b (right) */}
+      <line x1="-72" y1="0" x2="-46" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
+      <line x1="46" y1="0" x2="72" y2="0" stroke={glow.stroke} strokeWidth="2.5" />
+      {/* Wiper arrow pointing down to the body */}
+      <line x1="0" y1="-40" x2="0" y2="-16" stroke="#aaa" strokeWidth="2" />
+      <polygon points="-4,-20 4,-20 0,-14" fill="#aaa" />
+      {/* Terminal dots */}
       <circle cx="-72" cy="0" r="4" fill={glow.stroke} />
       <circle cx="72" cy="0" r="4" fill={glow.stroke} />
-      <circle cx="0" cy="-34" r="4" fill={glow.stroke} />
-      <polygon points="-2,-26 2,-26 0,-16" fill={glow.stroke} />
-      {selected && <rect x="-80" y="-46" width="160" height="66" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+      <circle cx="0" cy="-40" r="4" fill={glow.stroke} />
+      {selected && <rect x="-80" y="-50" width="160" height="72" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function ZenerDiodeSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-64" y1="0" x2="-20" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <path d="M -20 -14 L -20 14 L 16 0 Z" fill="#2a3a6a" stroke="#6080cc" strokeWidth="2.6" />
+      <line x1="16" y1="0" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* Zener cathode bar with bent ends */}
+      <line x1="12" y1="-18" x2="16" y2="-18" stroke="#6080cc" strokeWidth="2.5" />
+      <line x1="16" y1="-18" x2="16" y2="18" stroke={glow.stroke} strokeWidth="3" />
+      <line x1="16" y1="18" x2="20" y2="18" stroke="#6080cc" strokeWidth="2.5" />
+      <circle cx="-64" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="64" cy="0" r="4" fill={glow.stroke} />
+      {selected && <rect x="-70" y="-24" width="140" height="48" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function SchottkyDiodeSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <line x1="-64" y1="0" x2="-20" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <path d="M -20 -14 L -20 14 L 16 0 Z" fill="#3a2a1a" stroke="#cc7733" strokeWidth="2.6" />
+      <line x1="16" y1="0" x2="64" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* Schottky S-shaped cathode: top tab bends left, bottom tab bends right */}
+      <path d="M 19,-18 C 16,-18 16,-12 16,0 C 16,12 13,12 13,18" stroke="#cc7733" strokeWidth="2.5" fill="none" />
+      <circle cx="-64" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="64" cy="0" r="4" fill={glow.stroke} />
+      {selected && <rect x="-70" y="-24" width="140" height="48" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function PNPSymbol({
+  x,
+  y,
+  selected,
+}: {
+  x: number;
+  y: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+  const junctionColor = '#88aacc';
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      {/* Base region — short vertical bar at centre */}
+      <line x1="0" y1="-14" x2="0" y2="14" stroke="#5a6a8a" strokeWidth="3.5" />
+      {/* Base lead: terminal (0,−44) → body top */}
+      <line x1="0" y1="-44" x2="0" y2="-14" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* Collector arm (left terminal): horizontal then diagonal up into body */}
+      <line x1="-76" y1="0" x2="-22" y2="0" stroke={junctionColor} strokeWidth="2.4" />
+      <line x1="-22" y1="0" x2="0" y2="-10" stroke={junctionColor} strokeWidth="2.4" />
+      {/* Emitter arm (right terminal): diagonal from body lower then horizontal */}
+      <line x1="0" y1="10" x2="22" y2="0" stroke={junctionColor} strokeWidth="2.4" />
+      <line x1="22" y1="0" x2="76" y2="0" stroke={junctionColor} strokeWidth="2.4" />
+      {/* PNP arrow on emitter: tip points LEFT (toward body — current enters emitter) */}
+      <polygon points="32,0 40,-5 40,5" fill={junctionColor} />
+      {/* Terminal dots */}
+      <circle cx="0" cy="-44" r="4" fill={glow.stroke} />
+      <circle cx="-76" cy="0" r="4" fill={junctionColor} />
+      <circle cx="76" cy="0" r="4" fill={junctionColor} />
+      {selected && <rect x="-86" y="-50" width="172" height="88" rx="12" fill="none" stroke={GLOW} strokeWidth="2.2" />}
     </g>
   );
 }
@@ -429,16 +536,22 @@ export function BJTSymbol({
   const glow = terminalGlow(selected);
   return (
     <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
-      <line x1="0" y1="-42" x2="0" y2="34" stroke={glow.stroke} strokeWidth="2.4" />
-      <line x1="-80" y1="-4" x2="-14" y2="-4" stroke={glow.stroke} strokeWidth="2.4" />
-      <line x1="14" y1="-4" x2="80" y2="-4" stroke={glow.stroke} strokeWidth="2.4" />
-      <line x1="0" y1="-4" x2="0" y2="34" stroke="#5a5a5a" strokeWidth="2.5" />
-      <line x1="-14" y1="16" x2="14" y2="-24" stroke="#bbb" strokeWidth="2.8" />
-      <line x1="-6" y1="18" x2="24" y2="18" stroke="#bbb" strokeWidth="1.8" />
-      <line x1="-80" y1="-4" x2="-72" y2="-4" stroke={glow.stroke} strokeWidth="4" />
-      <line x1="80" y1="-4" x2="72" y2="-4" stroke={glow.stroke} strokeWidth="4" />
-      <line x1="14" y1="-4" x2="0" y2="-4" stroke={glow.stroke} strokeWidth="1.2" />
-
+      {/* Base region — short vertical bar at centre */}
+      <line x1="0" y1="-14" x2="0" y2="14" stroke="#6a6a7a" strokeWidth="3.5" />
+      {/* Base lead: terminal (0,−44) → body top */}
+      <line x1="0" y1="-44" x2="0" y2="-14" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* Collector arm (left terminal): horizontal then diagonal up into body */}
+      <line x1="-76" y1="0" x2="-22" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="-22" y1="0" x2="0" y2="-10" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* Emitter arm (right terminal): diagonal from body lower then horizontal */}
+      <line x1="0" y1="10" x2="22" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      <line x1="22" y1="0" x2="76" y2="0" stroke={glow.stroke} strokeWidth="2.4" />
+      {/* NPN arrow on emitter: tip points RIGHT (away from body — current exits emitter) */}
+      <polygon points="40,0 32,-5 32,5" fill={glow.stroke} />
+      {/* Terminal dots */}
+      <circle cx="0" cy="-44" r="4" fill={glow.stroke} />
+      <circle cx="-76" cy="0" r="4" fill={glow.stroke} />
+      <circle cx="76" cy="0" r="4" fill={glow.stroke} />
       {selected && <rect x="-86" y="-50" width="172" height="88" rx="12" fill="none" stroke={GLOW} strokeWidth="2.2" />}
     </g>
   );
@@ -563,17 +676,31 @@ export function ArduinoSymbol({ x, y, w = 240, h = 90, selected }: SymbolProps):
   );
 }
 
-export function TactileSwitchSymbol({ x, y, w = 140, h = 60, selected }: SymbolProps): ReactElement {
+export function TactileSwitchSymbol({ x, y, w = 140, h = 60, selected, closed }: SymbolProps & { closed?: boolean }): ReactElement {
   const mid = y + h / 2;
   const stroke = selected ? '#6cf' : '#555';
+  const activeFill = closed ? '#22cc66' : 'none';
 
   return (
     <g>
+      {/* Left terminal lead */}
       <line x1={x} y1={mid} x2={x + w * 0.35} y2={mid} stroke={stroke} strokeWidth={1.5} />
+      {/* Right terminal lead */}
       <line x1={x + w * 0.65} y1={mid} x2={x + w} y2={mid} stroke={stroke} strokeWidth={1.5} />
+      {/* Left contact */}
       <line x1={x + w * 0.35} y1={mid - 6} x2={x + w * 0.35} y2={mid + 6} stroke={stroke} strokeWidth={1.5} />
-      <line x1={x + w * 0.35} y1={mid - 8} x2={x + w * 0.65} y2={mid - 8} stroke={stroke} strokeWidth={1.5} strokeDasharray="2,2" />
+      {/* Right contact */}
       <line x1={x + w * 0.65} y1={mid - 6} x2={x + w * 0.65} y2={mid + 6} stroke={stroke} strokeWidth={1.5} />
+      {/* Bridge: solid when closed, dashed when open */}
+      <line
+        x1={x + w * 0.35} y1={mid - 8}
+        x2={x + w * 0.65} y2={mid - 8}
+        stroke={closed ? '#22cc66' : stroke}
+        strokeWidth={closed ? 2 : 1.5}
+        strokeDasharray={closed ? undefined : '2,2'}
+      />
+      {/* Closed indicator dot */}
+      {closed && <circle cx={(x + w * 0.35 + x + w * 0.65) / 2} cy={mid - 8} r={3} fill={activeFill} />}
     </g>
   );
 }

@@ -53,6 +53,17 @@ const rcNodeC = topNodeId(CENTER_COL - 12, 1);
 const rcNodeD = topNodeId(CENTER_COL - 10, 1);
 const rcGround = railNode('bn', 1);
 
+const btnNode1 = topNodeId(CENTER_COL - 10, 2);
+const btnNode2 = topNodeId(CENTER_COL - 8, 2);
+const btnNode3 = topNodeId(CENTER_COL - 6, 2);
+const btnNode4 = topNodeId(CENTER_COL - 2, 2);
+const btnNode5 = topNodeId(CENTER_COL, 2);
+
+const zGnd1 = topNodeId(CENTER_COL - 12, 3); // col 20 — battery−
+const zHv   = topNodeId(CENTER_COL - 8,  3); // col 24 — battery+ / 12 V input
+const zOut  = topNodeId(CENTER_COL - 4,  3); // col 28 — regulated output (~5.1 V)
+const zGnd2 = topNodeId(CENTER_COL,      3); // col 32 — zener anode (wired back to GND)
+
 const switchNodeA = topNodeId(CENTER_COL - 8, 1);
 const switchNodeB = topNodeId(CENTER_COL - 6, 1);
 const switchNodeC = topNodeId(CENTER_COL - 4, 1);
@@ -62,6 +73,15 @@ const timer555NodeVcc = topNodeId(CENTER_COL + 2, 1);
 const timer555NodeGnd = topNodeId(CENTER_COL + 4, 1);
 const timer555NodeTrig = topNodeId(CENTER_COL + 6, 1);
 const timer555NodeOut = topNodeId(CENTER_COL + 8, 1);
+
+// Pot Dimmer (row 4 = 'e')
+const potDimBatPos = topNodeId(CENTER_COL - 10, 4); // col 22 — battery+
+const potDimBatNeg = topNodeId(CENTER_COL - 8,  4); // col 24 — battery−
+const potDimPotA   = topNodeId(CENTER_COL - 6,  4); // col 26 — pot terminal a
+const potDimPotW   = topNodeId(CENTER_COL - 4,  4); // col 28 — wiper (output tap)
+const potDimPotB   = topNodeId(CENTER_COL - 2,  4); // col 30 — pot terminal b
+const potDimRes2   = topNodeId(CENTER_COL + 2,  4); // col 34 — resistor p2 / LED anode
+const potDimLedK   = topNodeId(CENTER_COL + 4,  4); // col 36 — LED cathode
 
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
@@ -237,6 +257,101 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
   },
   {
+    name: 'Button + LED',
+    description: 'Tactile switch controlling an LED. Click the switch to toggle.',
+    components: [
+      {
+        id: 'example-btn-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 10, 2), topNodePos(CENTER_COL - 8, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: btnNode1 },
+          { name: 'neg', nodeId: btnNode2 },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-btn-switch',
+        type: 'tactileSwitch',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 8, 2), topNodePos(CENTER_COL - 6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: btnNode2 },
+          { name: 'p2', nodeId: btnNode3 },
+        ],
+        props: { closed: 0 },
+      },
+      {
+        id: 'example-btn-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 6, 2), topNodePos(CENTER_COL - 2, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: btnNode3 },
+          { name: 'p2', nodeId: btnNode4 },
+        ],
+        props: { resistance: 470 },
+      },
+      {
+        id: 'example-btn-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 2, 2), topNodePos(CENTER_COL, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: btnNode4 },
+          { name: 'cathode', nodeId: btnNode5 },
+        ],
+        props: {},
+      },
+    ],
+    wires: [
+      { id: 'example-btn-w1', fromNodeId: btnNode5, toNodeId: btnNode1, color: '#333333' },
+    ],
+  },
+  {
+    name: 'Zener Regulator',
+    description: '12 V input regulated to 5.1 V by a Zener diode + series resistor.',
+    components: [
+      {
+        id: 'example-zener-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 12, 3), topNodePos(CENTER_COL - 8, 3)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: zHv },
+          { name: 'neg', nodeId: zGnd1 },
+        ],
+        props: { voltage: 12 },
+      },
+      {
+        id: 'example-zener-series-r',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 8, 3), topNodePos(CENTER_COL - 4, 3)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: zHv },
+          { name: 'p2', nodeId: zOut },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'example-zener-diode',
+        type: 'zener',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 4, 3), topNodePos(CENTER_COL, 3)),
+        rotationY: 0,
+        pins: [
+          { name: 'cathode', nodeId: zOut },
+          { name: 'anode',   nodeId: zGnd2 },
+        ],
+        props: { breakdownVoltage: 5.1 },
+      },
+    ],
+    wires: [
+      { id: 'example-zener-gnd', fromNodeId: zGnd2, toNodeId: zGnd1, color: '#333344' },
+    ],
+  },
+  {
     name: 'NPN Switch',
     description: 'NPN transistor used as a switch to drive an LED.',
     components: [
@@ -366,5 +481,61 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
       },
     ],
     wires: [],
+  },
+  {
+    name: 'Pot Dimmer',
+    description: 'Potentiometer as voltage divider — adjust wiper in Properties to change LED brightness.',
+    components: [
+      {
+        id: 'example-pot-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 10, 4), topNodePos(CENTER_COL - 8, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: potDimBatPos },
+          { name: 'neg', nodeId: potDimBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-pot-pot',
+        type: 'potentiometer',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 6, 4), topNodePos(CENTER_COL - 2, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'a',     nodeId: potDimPotA },
+          { name: 'wiper', nodeId: potDimPotW },
+          { name: 'b',     nodeId: potDimPotB },
+        ],
+        props: { resistance: 10000, wiper: 0.5 },
+      },
+      {
+        id: 'example-pot-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL - 4, 4), topNodePos(CENTER_COL + 2, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: potDimPotW },
+          { name: 'p2', nodeId: potDimRes2 },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-pot-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 2, 4), topNodePos(CENTER_COL + 4, 4)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode',   nodeId: potDimRes2 },
+          { name: 'cathode', nodeId: potDimLedK },
+        ],
+        props: {},
+      },
+    ],
+    wires: [
+      { id: 'example-pot-w1', fromNodeId: potDimBatPos, toNodeId: potDimPotA,   color: '#cc4444' },
+      { id: 'example-pot-w2', fromNodeId: potDimPotB,   toNodeId: potDimBatNeg, color: '#333333' },
+      { id: 'example-pot-w3', fromNodeId: potDimLedK,   toNodeId: potDimBatNeg, color: '#333333' },
+    ],
   },
 ];

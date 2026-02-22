@@ -96,6 +96,41 @@ export function buildNetlist(
       break;
     }
 
+    case 'schottky': {
+      const netA = pinNet(comp, 'anode');
+      const netB = pinNet(comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) break;
+      const Vf = typeof (props as { forwardVoltage?: number }).forwardVoltage === 'number'
+        ? ((props as { forwardVoltage?: number }).forwardVoltage ?? 0.3)
+        : 0.3;
+      elements.push({ id: comp.id, kind: 'diode' as const, netA, netB, value: Vf });
+      break;
+    }
+
+    case 'zener': {
+      const netA = pinNet(comp, 'anode');
+      const netB = pinNet(comp, 'cathode');
+      if (netA == null || netB == null || netA === netB) break;
+      const Vz = typeof (props as { breakdownVoltage?: number }).breakdownVoltage === 'number'
+        ? ((props as { breakdownVoltage?: number }).breakdownVoltage ?? 5.1)
+        : 5.1;
+      // Forward diode (anode→cathode, Vf=0.7V) + reverse breakdown diode (cathode→anode, Vz)
+      elements.push({ id: `${comp.id}-fwd`, kind: 'diode' as const, netA, netB, value: 0.7 });
+      elements.push({ id: `${comp.id}-rev`, kind: 'diode' as const, netA: netB, netB: netA, value: Vz });
+      break;
+    }
+
+    case 'pnp': {
+      const netC = pinNet(comp, 'collector');
+      const netB = pinNet(comp, 'base');
+      const netE = pinNet(comp, 'emitter');
+      if (netC == null || netB == null || netE == null) break;
+      const hFE = typeof props.hFE === 'number' ? props.hFE : 100;
+      // PNP: swap collector/emitter relative to NPN model
+      elements.push({ id: comp.id, kind: 'bjt', netA: netE, netB, netC, value: hFE });
+      break;
+    }
+
     case 'mosfet': {
       const netGate = pinNet(comp, 'gate');
       const netD = pinNet(comp, 'drain');
@@ -169,7 +204,7 @@ export function buildNetlist(
         const netA = pinNet(comp, 'p1') ?? pinNet(comp, 'pos');
         const netB = pinNet(comp, 'p2') ?? pinNet(comp, 'neg');
         if (netA == null || netB == null || netA === netB) break;
-        const C = typeof props.capacitance === 'number' ? props.capacitance : 1e-6;
+        const C = (typeof props.capacitance === 'number' ? props.capacitance : 1) * 1e-6;
         elements.push({ id: comp.id, kind: 'capacitor', netA, netB, value: C });
         break;
       }
@@ -190,11 +225,26 @@ export function buildNetlist(
           const netA = pinNet(comp, 'p1');
           const netB = pinNet(comp, 'p2');
           if (netA == null || netB == null || netA === netB) break;
-          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: 10 });
+          const R = typeof (props as { resistance?: number }).resistance === 'number'
+            ? Math.max(0.1, (props as { resistance?: number }).resistance ?? 10)
+            : 10;
+          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: R });
           break;
         }
 
-      // timer555, arduino, tactileSwitch: future milestones
+      case 'tactileSwitch': {
+        const netA = pinNet(comp, 'p1');
+        const netB = pinNet(comp, 'p2');
+        if (netA == null || netB == null || netA === netB) break;
+        if ((props as { closed?: number }).closed === 1) {
+          // Closed: model as near-ideal short (0.01 Ω contact resistance)
+          elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: 0.01 });
+        }
+        // Open: omit element entirely → open circuit
+        break;
+      }
+
+      // timer555, arduino: future milestones
       default:
         break;
       }

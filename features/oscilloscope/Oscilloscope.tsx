@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { getSamples, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
 import { type Channel } from '@/store/scopeStore';
 import { useUIStore } from '@/store/uiStore';
@@ -10,7 +11,7 @@ interface OscilloscopeProps {
   open: boolean;
   channels: Channel[];
   onClose: () => void;
-  onAddChannel: (netId: number) => void;
+  onAddChannel: (netId: number, label?: string) => void;
   onRemoveChannel: (netId: number) => void;
 }
 
@@ -63,6 +64,13 @@ export default function Oscilloscope({
   const [invalidInput, setInvalidInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Cursor state — ref for the render loop, state for the readout overlay
+  const cursorXRef = useRef<number | null>(null);
+  const [cursorReadout, setCursorReadout] = useState<{
+    x: number; // CSS pixel x within the panel
+    readings: { netId: number; color: string; voltage: number }[];
+  } | null>(null);
+
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const hoveredNetId  = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
@@ -78,7 +86,7 @@ export default function Oscilloscope({
     if (channels.length >= MAX_CHANNELS) return;
     // If a pin is hovered, probe it immediately without showing the input
     if (hoveredNetId != null && Number.isFinite(hoveredNetId)) {
-      onAddChannel(hoveredNetId);
+      onAddChannel(hoveredNetId, hoveredNodeId ?? undefined);
       return;
     }
     setInputValue('');
@@ -127,6 +135,37 @@ export default function Oscilloscope({
       handleCancelAdd();
     }
   }, [handleCancelAdd, handleConfirmAdd]);
+
+  const handleCanvasMouseMove = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = PANEL_WIDTH / rect.width;
+    const px = (e.clientX - rect.left) * scaleX;
+    const plotLeft = MARGIN.left;
+    const plotWidth = PANEL_WIDTH - MARGIN.left - MARGIN.right;
+    if (px < plotLeft || px > plotLeft + plotWidth) {
+      cursorXRef.current = null;
+      setCursorReadout(null);
+      return;
+    }
+    cursorXRef.current = px;
+    const t = (px - plotLeft) / plotWidth;
+    const readings = channelsRef.current
+      .map((ch) => {
+        const samples = getSamples(ch.netId);
+        if (samples.length === 0) return null;
+        const idx = Math.min(Math.round(t * (samples.length - 1)), samples.length - 1);
+        return { netId: ch.netId, color: ch.color, voltage: samples[idx] };
+      })
+      .filter((r): r is { netId: number; color: string; voltage: number } => r !== null);
+    setCursorReadout(readings.length > 0 ? { x: px, readings } : null);
+  }, []);
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    cursorXRef.current = null;
+    setCursorReadout(null);
+  }, []);
 
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
@@ -223,6 +262,21 @@ export default function Oscilloscope({
         ctx.stroke();
       }
 
+      // Cursor vertical line
+      const cursorX = cursorXRef.current;
+      if (cursorX != null) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(cursorX, plot.top);
+        ctx.lineTo(cursorX, plot.top + plot.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       // clip to plot window for safety
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
@@ -252,7 +306,9 @@ export default function Oscilloscope({
         ref={canvasRef}
         width={PANEL_WIDTH}
         height={PANEL_HEIGHT}
-        className="h-full w-full block"
+        className="h-full w-full block cursor-crosshair"
+        onMouseMove={handleCanvasMouseMove}
+        onMouseLeave={handleCanvasMouseLeave}
       />
 
       <div className="absolute left-2 top-1.5 z-10 flex flex-col gap-1">
@@ -277,6 +333,25 @@ export default function Oscilloscope({
           );
         })}
       </div>
+
+      {cursorReadout && (
+        <div
+          className="absolute z-10 pointer-events-none flex flex-col gap-0.5 rounded border border-white/15 bg-black/80 px-1.5 py-1"
+          style={{
+            // Flip to left of cursor when near right edge
+            ...(cursorReadout.x > PANEL_WIDTH - 90
+              ? { right: PANEL_WIDTH - cursorReadout.x + 4 }
+              : { left: cursorReadout.x + 4 }),
+            bottom: 22,
+          }}
+        >
+          {cursorReadout.readings.map((r) => (
+            <span key={r.netId} className="text-[9px] font-mono whitespace-nowrap" style={{ color: r.color }}>
+              Net {r.netId}: {Math.abs(r.voltage) < 0.001 ? '0.000' : r.voltage.toFixed(3)} V
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="absolute top-1.5 right-2 z-10 flex items-center gap-1">
         <button

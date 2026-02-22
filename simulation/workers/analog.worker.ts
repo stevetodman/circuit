@@ -79,7 +79,7 @@ function loadTimerModels(
 
     const r1          = asNumber(comp.props.r1, 1000);
     const r2          = asNumber(comp.props.r2, 1000);
-    const capacitance = asNumber(comp.props.capacitance, 1e-6);
+    const capacitance = asNumber(comp.props.capacitance, 1) * 1e-6;
     const denominator = (r1 + 2 * r2) * capacitance;
     const frequency   = denominator > 0 ? 1.44 / denominator : 0;
     timers.push({ outNetId, vccNetId, frequency, startedAt: simTimeMs });

@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useDragStore } from '@/store/dragStore';
+import { voltages } from '@/simulation/SimBridge';
 
 // ── Mode indicator ─────────────────────────────────────────────────────────────
 function ModeChip({ label, color }: { label: string; color: string }) {
@@ -78,7 +79,15 @@ export default function StatusBar() {
   } else if (selectedComponentIds.length > 1) {
     contextText = `${selectedComponentIds.length} selected`;
   } else if (hoveredNodeId) {
-    contextText = hoveredNodeId;
+    const hoveredNode = useCircuitStore.getState().nodes[hoveredNodeId];
+    const netId = hoveredNode?.netId;
+    if (netId != null && Number.isFinite(voltages[netId])) {
+      const v = voltages[netId];
+      const vStr = Math.abs(v) < 0.001 ? '0 V' : `${v.toFixed(2)} V`;
+      contextText = `${hoveredNodeId} · ${vStr}`;
+    } else {
+      contextText = hoveredNodeId;
+    }
   } else {
     contextText = `${netCount} net${netCount !== 1 ? 's' : ''}`;
   }

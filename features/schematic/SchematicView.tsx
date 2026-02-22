@@ -8,6 +8,7 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { layoutSchematic, type SchematicPos } from '@/features/schematic/SchematicLayout';
 import {
   BJTSymbol,
+  PNPSymbol,
   BatterySymbol,
   CapacitorSymbol,
   MotorSymbol,
@@ -15,6 +16,8 @@ import {
   LEDSymbol,
   ResistorSymbol,
   DiodeSymbol,
+  ZenerDiodeSymbol,
+  SchottkyDiodeSymbol,
   MOSFETSymbol,
   OpAmpSymbol,
   InductorSymbol,
@@ -59,6 +62,77 @@ interface WireSegment {
 
 const BASE_VIEW: ViewBox = { x: -260, y: -200, w: 520, h: 420 };
 
+function engVal(v: number, unit: string): string {
+  const a = Math.abs(v);
+  if (unit === 'Ω') {
+    if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}MΩ`;
+    if (a >= 1_000) return `${(v / 1_000).toFixed(1)}kΩ`;
+    return `${v.toFixed(0)}Ω`;
+  }
+  if (unit === 'F') {
+    if (a >= 1e-3) return `${(v * 1_000).toFixed(1)}mF`;
+    if (a >= 1e-6) return `${(v * 1_000_000).toFixed(0)}µF`;
+    if (a >= 1e-9) return `${(v * 1e9).toFixed(0)}nF`;
+    return `${(v * 1e12).toFixed(0)}pF`;
+  }
+  if (unit === 'H') {
+    if (a >= 1) return `${v.toFixed(1)}H`;
+    if (a >= 1e-3) return `${(v * 1_000).toFixed(1)}mH`;
+    return `${(v * 1e6).toFixed(0)}µH`;
+  }
+  return `${v}${unit}`;
+}
+
+function componentValueLabel(component: PlacedComponent): string {
+  const p = component.props as Record<string, number | string>;
+  switch (component.type) {
+    case 'resistor':
+      return engVal(typeof p.resistance === 'number' ? p.resistance : 1000, 'Ω');
+    case 'battery':
+      return `${typeof p.voltage === 'number' ? p.voltage : 9}V`;
+    case 'capacitor': {
+      // PropertiesInspector stores capacitance in µF (default 1 = 1 µF)
+      const cUF = typeof p.capacitance === 'number' ? p.capacitance : 1;
+      if (cUF < 0.001) return `${(cUF * 1000).toFixed(1)}nF`;
+      if (cUF < 1) return `${(cUF * 1000).toFixed(0)}nF`;
+      return `${cUF % 1 === 0 ? cUF.toFixed(0) : cUF.toFixed(1)}µF`;
+    }
+    case 'inductor':
+      return engVal(typeof p.inductance === 'number' ? p.inductance : 1e-3, 'H');
+    case 'potentiometer': {
+      const r = engVal(typeof p.resistance === 'number' ? p.resistance : 10_000, 'Ω');
+      const w = typeof p.wiper === 'number' ? Math.round(p.wiper * 100) : 50;
+      return `${r} ${w}%`;
+    }
+    case 'led':
+      return `Vf=${typeof p.forwardVoltage === 'number' ? p.forwardVoltage.toFixed(1) : '2.0'}V`;
+    case 'diode':
+      return `Vf=${typeof p.forwardVoltage === 'number' ? p.forwardVoltage.toFixed(2) : '0.7'}V`;
+    case 'schottky':
+      return `Vf=${typeof p.forwardVoltage === 'number' ? p.forwardVoltage.toFixed(2) : '0.30'}V`;
+    case 'zener':
+      return `Vz=${typeof p.breakdownVoltage === 'number' ? p.breakdownVoltage.toFixed(1) : '5.1'}V`;
+    case 'bjt':
+    case 'pnp':
+      return `β=${typeof p.hFE === 'number' ? p.hFE : 100}`;
+    case 'mosfet':
+      return `Rds=${typeof p.rdsOn === 'number' ? `${p.rdsOn.toFixed(2)}Ω` : '0.1Ω'}`;
+    case 'timer555': {
+      const r1 = typeof p.r1 === 'number' ? p.r1 : 1000;
+      const r2 = typeof p.r2 === 'number' ? p.r2 : 1000;
+      const c = typeof p.capacitance === 'number' ? p.capacitance * 1e-6 : 1e-6;
+      const freq = 1.44 / ((r1 + 2 * r2) * c);
+      return freq >= 1000 ? `${(freq / 1000).toFixed(1)}kHz` : `${freq.toFixed(1)}Hz`;
+    }
+    case 'motor':
+      return `${typeof p.rpm === 'number' ? p.rpm : 1000}rpm`;
+    case 'tactileSwitch':
+      return typeof p.closed === 'number' && p.closed === 1 ? 'ON' : 'OFF';
+    default:
+      return '';
+  }
+}
+
 function colorForKey(key: string) {
   let hash = 0;
   for (let i = 0; i < key.length; i++) {
@@ -87,6 +161,7 @@ function symbolNode(
   x: number,
   y: number,
   selected: boolean,
+  props?: Record<string, number | string>,
 ) {
   const size = getSymbolSize(type);
   switch (type) {
@@ -100,8 +175,14 @@ function symbolNode(
       return <CapacitorSymbol x={x} y={y} selected={selected} />;
     case 'diode':
       return <DiodeSymbol x={x} y={y} selected={selected} />;
+    case 'zener':
+      return <ZenerDiodeSymbol x={x} y={y} selected={selected} />;
+    case 'schottky':
+      return <SchottkyDiodeSymbol x={x} y={y} selected={selected} />;
     case 'bjt':
       return <BJTSymbol x={x} y={y} selected={selected} />;
+    case 'pnp':
+      return <PNPSymbol x={x} y={y} selected={selected} />;
     case 'mosfet':
       return <MOSFETSymbol x={x} y={y} selected={selected} />;
     case 'opamp':
@@ -148,6 +229,7 @@ function symbolNode(
           w={size.width}
           h={size.height}
           selected={selected}
+          closed={props?.closed === 1}
         />
       );
     default:
@@ -161,6 +243,7 @@ export default function SchematicView({ visible }: SchematicViewProps) {
   const nodes = useCircuitStore((s) => s.nodes);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const getDesignator = useCircuitStore((s) => s.getDesignator);
   const open = useSchematicStore((s) => s.open);
   const [layout, setLayout] = useState<Map<string, SchematicPos>>(new Map());
   const [computing, setComputing] = useState(false);
@@ -405,12 +488,40 @@ export default function SchematicView({ visible }: SchematicViewProps) {
                 }}
                 onPointerDown={(event: PointerEvent<SVGGElement>) => event.stopPropagation()}
               >
-                {symbolNode(component.type, cx, cy, selected)}
+                {symbolNode(component.type, cx, cy, selected, component.props as Record<string, number | string>)}
                 {selected && (
                   <g transform={`translate(${cx}, ${cy})`}>
                     <circle r={Math.max(pos.w, pos.h) / 2 + 6} fill="none" stroke="#7ef0ff" strokeWidth={2.4} opacity={0.65} />
                   </g>
                 )}
+                {/* Designator label above symbol (R1, C2, …) */}
+                <text
+                  x={cx}
+                  y={pos.y - 6}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                  fill={selected ? '#7ef0ff' : 'rgba(255,255,255,0.25)'}
+                >
+                  {getDesignator(component.id)}
+                </text>
+                {/* Value label below symbol (470Ω, 9V, …) */}
+                {(() => {
+                  const label = componentValueLabel(component);
+                  if (!label) return null;
+                  return (
+                    <text
+                      x={cx}
+                      y={pos.y + pos.h + 14}
+                      textAnchor="middle"
+                      fontSize={11}
+                      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                      fill={selected ? '#7ef0ff' : 'rgba(255,255,255,0.38)'}
+                    >
+                      {label}
+                    </text>
+                  );
+                })()}
               </g>
             );
           })}

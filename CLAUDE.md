@@ -192,7 +192,8 @@ Keyboard bindings (see `KeyboardShortcuts.tsx`): Ctrl+C copy, Ctrl+V paste, Ctrl
 - Capacitors use backward Euler (first-order accuracy); no RK4 or variable timestep.
 - 555 timer is a behavioral model (frequency only) — no threshold/comparator detail.
 - Motor and tactile switch are placed but electrically modelled as resistors only.
-- Arduino ADC reads SAB digital states; analog input feedback not yet implemented.
+- Arduino ADC: `analogRead()` feeds SAB net voltages into `AVRADC` — fully implemented in `arduino.worker.ts`.
+- Arduino PWM: `analogWrite()` computes duty-cycle voltage from TCCR/OCR registers — fully implemented in `arduino.worker.ts`.
 - Schematic view is read-only — no manual drag of component positions.
 - No overload/smoke detection (planned).
 

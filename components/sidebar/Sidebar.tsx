@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
 import ArduinoPanel from './ArduinoPanel';
@@ -96,6 +97,40 @@ function Diode() {
     </svg>
   );
 }
+function ZenerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="2" y1="10" x2="6.5" y2="10" stroke="#80c0ff" strokeWidth="1.8" />
+      <polygon points="6.5,6 6.5,14 12,10" fill="#5599cc" />
+      <line x1="12" y1="10" x2="18" y2="10" stroke="#80c0ff" strokeWidth="1.8" />
+      <line x1="10" y1="7" x2="12" y2="7" stroke="#80c0ff" strokeWidth="1.8" />
+      <line x1="12" y1="7" x2="12" y2="13" stroke="#80c0ff" strokeWidth="1.8" />
+      <line x1="12" y1="13" x2="14" y2="13" stroke="#80c0ff" strokeWidth="1.8" />
+    </svg>
+  );
+}
+function SchottkyIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="2" y1="10" x2="6.5" y2="10" stroke="#ffa060" strokeWidth="1.8" />
+      <polygon points="6.5,6 6.5,14 12,10" fill="#cc7733" />
+      <line x1="12" y1="10" x2="18" y2="10" stroke="#ffa060" strokeWidth="1.8" />
+      <path d="M10.5,7 C10.5,7 12,7 12,9" stroke="#ffa060" strokeWidth="1.8" fill="none" />
+      <path d="M12,11 C12,13 13.5,13 13.5,13" stroke="#ffa060" strokeWidth="1.8" fill="none" />
+    </svg>
+  );
+}
+function PNPIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="8" y="3" width="3" height="14" rx="1" fill="#446688" />
+      <line x1="2" y1="10" x2="8" y2="10" stroke="#88aacc" strokeWidth="1.5" />
+      <line x1="11" y1="7" x2="16" y2="4" stroke="#88aacc" strokeWidth="1.5" />
+      <line x1="11" y1="13" x2="16" y2="16" stroke="#88aacc" strokeWidth="1.5" />
+      <polygon points="13,7 10,8 11,5" fill="#88aacc" />
+    </svg>
+  );
+}
 function MOSFET() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -172,8 +207,11 @@ const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNod
   { type: 'bjt',           label: 'NPN Transistor', tooltip: 'Bipolar transistor: amplifier or switch.', icon: <BJT /> },
   { type: 'timer555',      label: '555 Timer',      tooltip: 'Generates square waves. Set frequency via R1, R2, C.', icon: <Timer555 /> },
   { type: 'motor',         label: 'Motor',          tooltip: 'DC hobby motor. Spins when voltage is applied.', icon: <Motor /> },
-  { type: 'tactileSwitch', label: 'Tactile Switch', tooltip: 'Momentary push-button switch. Toggle in inspector.', icon: <Circle fill="#666" /> },
+  { type: 'tactileSwitch', label: 'Tactile Switch', tooltip: 'Momentary push-button switch. Click it in the 3D view to toggle open/closed.', icon: <Circle fill="#666" /> },
   { type: 'diode',         label: 'Diode',          tooltip: 'Allows current in one direction only (1N4148).', icon: <Diode /> },
+  { type: 'zener',         label: 'Zener Diode',    tooltip: 'Conducts in reverse at breakdown voltage. Use for voltage regulation.', icon: <ZenerIcon /> },
+  { type: 'schottky',      label: 'Schottky Diode', tooltip: 'Fast diode with low forward voltage (~0.3V). Good for rectifiers.', icon: <SchottkyIcon /> },
+  { type: 'pnp',           label: 'PNP Transistor', tooltip: 'PNP bipolar transistor. Conducts when base is pulled low.', icon: <PNPIcon /> },
   { type: 'mosfet',        label: 'MOSFET',         tooltip: 'Voltage-controlled switch. Gate controls drain-source.', icon: <MOSFET /> },
   { type: 'opamp',         label: 'Op-Amp',         tooltip: 'Operational amplifier. Amplifies voltage difference.', icon: <OpAmp /> },
   { type: 'inductor',      label: 'Inductor',       tooltip: 'Stores energy in magnetic field. Opposes current change.', icon: <Inductor /> },
@@ -188,6 +226,7 @@ export default function Sidebar() {
   const toggleSchematic = useSchematicStore((state) => state.toggle);
   const toggleHelp = useUIStore((state) => state.toggleHelp);
   const addToast = useToastStore((state) => state.addToast);
+  const [query, setQuery] = useState('');
 
   return (
     <aside
@@ -237,8 +276,33 @@ export default function Sidebar() {
         </p>
         <ScopeButton />
         <ExampleLoader />
+
+        {/* Search filter */}
+        <div className="px-2 pb-1">
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
+              placeholder="Filter parts…"
+              className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
+                         border border-white/[0.08] placeholder-white/20 focus:outline-none
+                         focus:border-[#7c6fff]/50 pr-6"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-0.5 px-2">
-          {PARTS.map((p) => (
+          {PARTS.filter(p => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
             <ComponentTile
               key={`${p.type}-${p.label}`}
               type={p.type}

@@ -94,7 +94,7 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   timer555: [
     { kind: 'number', key: 'r1', label: 'R1 (timing)', default: 1000, min: 100, max: 1e6, step: 100, unit: 'Ω' },
     { kind: 'number', key: 'r2', label: 'R2 (timing)', default: 1000, min: 100, max: 1e6, step: 100, unit: 'Ω' },
-    { kind: 'number', key: 'capacitance', label: 'Capacitance', default: 1e-6, min: 1e-9, max: 1e-3, step: 1e-7, unit: 'F' },
+    { kind: 'number', key: 'capacitance', label: 'Capacitance', default: 1, min: 0.001, max: 10_000, step: 0.1, unit: 'µF' },
   ],
   motor: [
     { kind: 'number', key: 'rpm', label: 'Target RPM', default: 1000, min: 0, max: 10000, step: 100, unit: 'rpm' },
@@ -105,6 +105,15 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   ],
   arduino: [
     { kind: 'number', key: 'clockMhz', label: 'Clock speed', default: 16, min: 1, max: 20, step: 1, unit: 'MHz' },
+  ],
+  pnp: [
+    { kind: 'number', key: 'hFE', label: 'Current gain (β)', default: 100, min: 10, max: 1000 },
+  ],
+  zener: [
+    { kind: 'number', key: 'breakdownVoltage', label: 'Breakdown voltage', default: 5.1, min: 1.5, max: 200, step: 0.1, unit: 'V' },
+  ],
+  schottky: [
+    { kind: 'number', key: 'forwardVoltage', label: 'Forward voltage', default: 0.3, min: 0.1, max: 0.5, step: 0.05, unit: 'V' },
   ],
 };
 const E12_VALUES = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000];
@@ -128,7 +137,10 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   arduino:      'Arduino Uno',
   motor:        'DC Motor',
   tactileSwitch:'Tactile Switch',
-  diode:        'Diode',
+  diode:        'Diode (1N4148)',
+  zener:        'Zener Diode',
+  schottky:     'Schottky Diode',
+  pnp:          'PNP Transistor',
   mosfet:       'MOSFET',
   opamp:        'Op-Amp',
   inductor:     'Inductor',
