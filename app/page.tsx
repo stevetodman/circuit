@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useModuleStore } from '@/store/moduleStore';
 import { useDragStore } from '@/store/dragStore';
 import Sidebar from '@/components/sidebar/Sidebar';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
@@ -19,6 +20,7 @@ import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
+import { MODULES } from '@/features/modules/definitions';
 import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
 import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
 import WiringBanner from '@/components/WiringBanner';
@@ -101,6 +103,18 @@ export default function Home() {
   const schematicOpen = useSchematicStore((state) => state.open);
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
+  const activeModuleId = useModuleStore((state) => state.activeModuleId);
+
+  useEffect(() => {
+    if (!activeModuleId) return;
+    const mod = MODULES.find((m) => m.id === activeModuleId);
+    if (!mod?.autoLoadId) return;
+
+    const circuit = EXAMPLE_CIRCUITS.find((c) => c.id === mod.autoLoadId);
+    if (!circuit) return;
+
+    useCircuitStore.getState().loadFromJSON(circuit);
+  }, [activeModuleId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

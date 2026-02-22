@@ -1,51 +1,61 @@
-# SPEC: Module Polish — Completion Celebration + Better First Module
+# SPEC: Module Auto-Load + Health Checker False Positive Fix
 
-Polish the module system UX. Read each file fully before editing.
+Two small fixes. Read each file fully before editing.
 
-## Change 1: Module Completion Celebration
+## Fix 1: Health Checker False Positive
 
-File: `components/StepCard.tsx` and `store/moduleStore.ts`
+File: `components/SimController.tsx`
 
-When the final step of a module is completed (advanceStep called on the last step), show a brief completion state in the StepCard before it closes:
-- Show a ✓ icon + "Module complete!" text + module title
-- Show for 2.5 seconds then auto-close (the store already calls exitModule after completion)
+The health checker currently fires "No current flowing" even when the canvas has 0 or 1 components.
 
-In `moduleStore.ts`, look at `advanceStep`. When `activeStepIndex + 1 >= module.steps.length`, it should mark the module complete. Add a `justCompleted: boolean` field to the store that is set to `true` when a module completes, and auto-resets to `false` after 2.5s using `setTimeout`.
+Find the health check logic (checks at most every 3s, looks for all-zero voltages).
 
-In `StepCard.tsx`, read `justCompleted` from the store and show the completion UI when true, even if `activeModuleId` is null.
+Change the "no complete circuit" check:
+- BEFORE: `components >= 2 && battery exists && all voltages near 0`
+- AFTER: `components >= 3 && battery exists && led exists && all voltages near 0`
 
-## Change 2: Hint System
+The minimum meaningful circuit is: battery + resistor + LED. Require at least 3 components total AND a battery AND an LED before firing this warning. This eliminates the false positive on empty canvas and on partially-built circuits.
 
-File: `components/StepCard.tsx`
+Also: the "floating pin" check should only fire if there are >= 2 components placed.
 
-Add a "Need a hint?" button below the step instruction. 
-- Hidden by default
-- On click: reveal `step.hint` text with a fade in
-- Reset (hide hint) when step advances
+## Fix 2: Auto-Load Circuit When Starting a Module
 
-## Change 3: Learn Tab — Module Info on Hover/Click
+File: `store/moduleStore.ts` and `app/page.tsx`
 
-File: `components/sidebar/LearnPanel.tsx`
+When `startModule(id)` is called, if the module has an `autoLoadId` field, load that circuit.
 
-Currently the Learn panel just has a list. When a module is clicked to start it, show an expanded state below the module title with:
-- The `mod.concept` text (the "what you'll learn" description)
-- A "Start →" button that calls `startModule(mod.id)`
+### How example circuits are loaded
 
-This replaces the click immediately starting the module — instead:
-1. First click = expand concept preview
-2. Start button click = actually start
+In `app/page.tsx`, look for how the example loader works. The `EXAMPLE_CIRCUITS` array from `features/examples/circuits.ts` is used. Circuits are loaded via `useCircuitStore.getState().loadFromJSON(circuit)`.
 
-For currently active modules, show "Continue →" button instead of "Start →".
+### Changes to moduleStore.ts
 
-Keep it simple — no animations needed, just conditional rendering.
+The `startModule` action currently just sets state. Change it to also accept a callback or use a side effect to trigger circuit loading.
 
-## Change 4: Status Bar — Smarter Health Warnings
+Actually, the cleaner approach: in `app/page.tsx`, watch `activeModuleId` changes and trigger the circuit load there.
 
-File: `components/sidebar/StatusBar.tsx`
+Add to `app/page.tsx`:
+```tsx
+// In the Home component, after the module store imports:
+const activeModuleId = useModuleStore((s) => s.activeModuleId);
 
-The health warning is showing at the bottom but it's partially clipped.  
-Read the current StatusBar layout and make the health warning always fully visible (not clipped by container bounds).
+// In a useEffect:
+useEffect(() => {
+  if (!activeModuleId) return;
+  const mod = MODULES.find((m) => m.id === activeModuleId);
+  if (!mod?.autoLoadId) return;
+  const circuit = EXAMPLE_CIRCUITS.find((c) => c.id === mod.autoLoadId);
+  if (circuit) {
+    useCircuitStore.getState().loadFromJSON(circuit.circuit);
+  }
+}, [activeModuleId]);
+```
 
-Also: make the warning dismissible with an ✕ button. Store dismissed state locally (useState) and reset it when `circuitHealthWarning` changes.
+Make sure to import `MODULES` from `@/features/modules/definitions` and `EXAMPLE_CIRCUITS` from `@/features/examples/circuits`.
+
+Also import `useModuleStore` from `@/store/moduleStore`.
+
+Read `app/page.tsx` fully to see existing imports and where to add this.
+Read `features/examples/circuits.ts` to check the `id` field exists on each example.
 
 Run `pnpm build` — must pass with zero errors.
