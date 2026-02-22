@@ -23,6 +23,9 @@ import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
 import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
 import WiringBanner from '@/components/WiringBanner';
 import PinTooltip from '@/components/canvas/PinTooltip';
+import ModuleIntroOverlay from '@/components/ModuleIntroOverlay';
+import StepCard from '@/components/StepCard';
+import ModuleValidator from '@/components/ModuleValidator';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -130,6 +133,8 @@ export default function Home() {
       <HelpOverlay />
       <ContextMenu />
       <KeyboardShortcuts />
+      <ModuleIntroOverlay />
+      <ModuleValidator />
       <ErrorBoundary><Sidebar /></ErrorBoundary>
       <main className="relative flex-1 min-w-0 h-full">
         <Toolbar />
@@ -150,6 +155,7 @@ export default function Home() {
             />
           </ErrorBoundary>
           <ErrorBoundary><SchematicView visible={schematicOpen} /></ErrorBoundary>
+          <StepCard />
         </div>
       </main>
     </div>

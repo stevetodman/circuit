@@ -13,6 +13,7 @@ import { useDragStore } from '@/store/dragStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
+import LearnPanel from './LearnPanel';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function Rect({ fill }: { fill: string }) {
@@ -227,6 +228,7 @@ export default function Sidebar() {
   const toggleHelp = useUIStore((state) => state.toggleHelp);
   const addToast = useToastStore((state) => state.addToast);
   const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<'parts' | 'learn'>('parts');
 
   return (
     <aside
@@ -269,54 +271,86 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* ── Insert Part ── */}
+      {/* ── Palette Tabs ── */}
+      <div className="flex border-b border-white/[0.08]">
+        <button
+          type="button"
+          onClick={() => setTab('parts')}
+          className={`flex-1 text-[11px] py-2 font-semibold transition-colors ${
+            tab === 'parts'
+              ? 'bg-white/[0.05] text-white'
+              : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+          }`}
+        >
+          Parts
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('learn')}
+          className={`flex-1 text-[11px] py-2 font-semibold transition-colors ${
+            tab === 'learn'
+              ? 'bg-white/[0.05] text-white'
+              : 'text-white/35 hover:text-white/65 hover:bg-white/[0.03]'
+          }`}
+        >
+          Learn
+        </button>
+      </div>
+
+      {/* ── Insert Part / Learn panel ── */}
       <div className="flex-1 overflow-y-auto py-2">
-        <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
-          Insert Part
-        </p>
-        <ScopeButton />
-        <ExampleLoader />
+        {tab === 'parts' ? (
+          <>
+            <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+              Insert Part
+            </p>
+            <ScopeButton />
+            <ExampleLoader />
 
-        {/* Search filter */}
-        <div className="px-2 pb-1">
-          <div className="relative">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
-              placeholder="Filter parts…"
-              className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
-                         border border-white/[0.08] placeholder-white/20 focus:outline-none
-                         focus:border-[#7c6fff]/50 pr-6"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery('')}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
+            {/* Search filter */}
+            <div className="px-2 pb-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
+                  placeholder="Filter parts…"
+                  className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
+                             border border-white/[0.08] placeholder-white/20 focus:outline-none
+                             focus:border-[#7c6fff]/50 pr-6"
+                />
+                {query && (
+                  <button
+                    onClick={() => setQuery('')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
 
-        <div className="space-y-0.5 px-2">
-          {PARTS.filter(p => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
-            <ComponentTile
-              key={`${p.type}-${p.label}`}
-              type={p.type}
-              label={p.label}
-              icon={p.icon}
-              tooltip={p.tooltip}
-              onAdd={
-                p.type === 'wire'
-                  ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
-                  : () => startDrag(p.type as ComponentType)
-              }
-            />
-          ))}
-        </div>
+            <div className="space-y-0.5 px-2">
+              {PARTS.filter((p) => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
+                <ComponentTile
+                  key={`${p.type}-${p.label}`}
+                  type={p.type}
+                  label={p.label}
+                  icon={p.icon}
+                  tooltip={p.tooltip}
+                  onAdd={
+                    p.type === 'wire'
+                      ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
+                      : () => startDrag(p.type as ComponentType)
+                  }
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <LearnPanel />
+        )}
       </div>
 
       {/* ── Properties Inspector (shown when a component is selected) ── */}
