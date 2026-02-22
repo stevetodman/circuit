@@ -109,10 +109,5 @@ export function runNetAnalysis(
     updated[id] = { ...node, netId: netIds[id] ?? null };
   }
 
-  const assigned = Object.fromEntries(nodeIds.map((id) => [id, netIds[id] ?? null]));
-  const assignedNetCount = new Set(Object.values(netIds)).size;
-  console.log(`[NetAnalysis] ${assignedNetCount} nets assigned`);
-  console.log('[NetAnalysis] node assignments:', assigned);
-
   return updated;
 }
