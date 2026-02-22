@@ -143,6 +143,9 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   ],
 };
 const E12_VALUES = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000];
+const CAP_PRESETS    = [0.1, 1, 10, 100, 470, 1000];
+const BATTERY_PRESETS = [1.5, 3, 5, 9, 12];
+const INDUCTOR_PRESETS = [1e-3, 10e-3, 100e-3];
 
 const LED_PRESETS = [
   { label: 'Red',    color: '#ff3333', vf: 2.0 },
@@ -527,6 +530,45 @@ function Inspector({ component }: { component: PlacedComponent }) {
                           onClick={() => setProperty(component.id, 'resistance', value)}
                         >
                           {value >= 1000 ? `${value / 1000}k` : `${value}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {component.type === 'capacitor' && field.key === 'capacitance' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {CAP_PRESETS.map((value) => (
+                        <button
+                          key={value}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                          onClick={() => setProperty(component.id, 'capacitance', value)}
+                        >
+                          {value < 1 ? `${Math.round(value * 1000)}nF` : value >= 1000 ? `${value / 1000}mF` : `${value}µF`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {component.type === 'battery' && field.key === 'voltage' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {BATTERY_PRESETS.map((value) => (
+                        <button
+                          key={value}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                          onClick={() => setProperty(component.id, 'voltage', value)}
+                        >
+                          {value}V
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {component.type === 'inductor' && field.key === 'inductance' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {INDUCTOR_PRESETS.map((value) => (
+                        <button
+                          key={value}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                          onClick={() => setProperty(component.id, 'inductance', value)}
+                        >
+                          {value < 0.01 ? `${Math.round(value * 1000)}mH` : `${Math.round(value * 1000)}mH`}
                         </button>
                       ))}
                     </div>
