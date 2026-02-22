@@ -40,8 +40,10 @@ function Sep() {
 }
 
 export default function Toolbar() {
-  const canUndo = useStore(useCircuitHistory(), (s) => s.pastStates.length > 0);
-  const canRedo = useStore(useCircuitHistory(), (s) => s.futureStates.length > 0);
+  const undoCount = useStore(useCircuitHistory(), (s) => s.pastStates.length);
+  const redoCount = useStore(useCircuitHistory(), (s) => s.futureStates.length);
+  const canUndo = undoCount > 0;
+  const canRedo = redoCount > 0;
 
   const {
     deleteSelected,
@@ -80,19 +82,23 @@ export default function Toolbar() {
         onClick={() => {
           useCircuitHistory().getState().undo();
         }}
-        title="Undo (Ctrl/Cmd+Z)"
+        title={`Undo (Ctrl/Cmd+Z)${undoCount > 0 ? ` · ${undoCount} step${undoCount !== 1 ? 's' : ''}` : ''}`}
         disabled={!canUndo}
       >
-        ↩ Undo
+        ↩ Undo{canUndo && (
+          <span className="ml-0.5 text-[9px] tabular-nums opacity-50">{undoCount}</span>
+        )}
       </ToolbarBtn>
       <ToolbarBtn
         onClick={() => {
           useCircuitHistory().getState().redo();
         }}
-        title="Redo (Ctrl/Cmd+Shift+Z)"
+        title={`Redo (Ctrl/Cmd+Shift+Z)${redoCount > 0 ? ` · ${redoCount} step${redoCount !== 1 ? 's' : ''}` : ''}`}
         disabled={!canRedo}
       >
-        ↪ Redo
+        ↪ Redo{canRedo && (
+          <span className="ml-0.5 text-[9px] tabular-nums opacity-50">{redoCount}</span>
+        )}
       </ToolbarBtn>
       <Sep />
 

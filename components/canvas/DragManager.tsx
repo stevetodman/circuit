@@ -28,52 +28,56 @@ export default function DragManager() {
     const pointer = new THREE.Vector2();
     const boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP_Y);
 
-    const eventToBoardPos = (event: PointerEvent): Vec3 | null => {
+    // F2.2: accept raw client coords so we can project from anywhere on screen
+    const clientToBoardPos = (clientX: number, clientY: number): Vec3 | null => {
       const rect = gl.domElement.getBoundingClientRect();
       pointer.set(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1,
       );
-
       raycaster.setFromCamera(pointer, camera);
       const worldPos = new THREE.Vector3();
       const hit = raycaster.ray.intersectPlane(boardPlane, worldPos);
-
       if (!hit) return null;
       return [worldPos.x, worldPos.y, worldPos.z];
     };
 
+    // F2.2: window-level move so the ghost follows cursor from sidebar → canvas
     const onPointerMove = (event: PointerEvent) => {
       const dragState = useDragStore.getState();
       if (!dragState.dragging) return;
-
-      const nextPos = eventToBoardPos(event);
+      const nextPos = clientToBoardPos(event.clientX, event.clientY);
       if (nextPos) dragState.updatePos(nextPos);
     };
 
+    // Commit only when releasing over the canvas
     const onPointerUp = (event: PointerEvent) => {
       const dragState = useDragStore.getState();
       if (!dragState.dragging) return;
-
-      const nextPos = eventToBoardPos(event);
+      const rect = gl.domElement.getBoundingClientRect();
+      const overCanvas =
+        event.clientX >= rect.left && event.clientX <= rect.right &&
+        event.clientY >= rect.top  && event.clientY <= rect.bottom;
+      if (!overCanvas) return;
+      const nextPos = clientToBoardPos(event.clientX, event.clientY);
       if (nextPos) dragState.updatePos(nextPos);
       dragState.commit();
     };
 
     const onPointerCancel = () => {
-      const dragState = useDragStore.getState();
-      if (dragState.dragging) dragState.cancel();
+      if (useDragStore.getState().dragging) useDragStore.getState().cancel();
     };
 
-    gl.domElement.addEventListener('pointermove', onPointerMove);
-    gl.domElement.addEventListener('pointerup', onPointerUp);
-    gl.domElement.addEventListener('pointerleave', onPointerCancel);
+    // pointermove on window — tracks cursor even when over sidebar
+    window.addEventListener('pointermove', onPointerMove);
+    // pointerup on window — but only commits when released over canvas
+    window.addEventListener('pointerup', onPointerUp);
+    // pointercancel is canvas-specific (touch cancel, etc.)
     gl.domElement.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
-      gl.domElement.removeEventListener('pointermove', onPointerMove);
-      gl.domElement.removeEventListener('pointerup', onPointerUp);
-      gl.domElement.removeEventListener('pointerleave', onPointerCancel);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
       gl.domElement.removeEventListener('pointercancel', onPointerCancel);
     };
   }, [gl, camera]);
