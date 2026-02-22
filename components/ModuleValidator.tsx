@@ -47,7 +47,7 @@ export default function ModuleValidator() {
         scopeChannels: scopeChannels.map((ch) => ({ netId: ch.netId })),
       };
 
-      if (step.validate(state as Parameters<typeof step.validate>[0])) {
+      if (step.validate(state)) {
         advanceStep();
       }
     }, 500);

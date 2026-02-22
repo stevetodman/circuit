@@ -1,7 +1,7 @@
 export type ComponentKind =
   | 'battery' | 'resistor' | 'led' | 'capacitor' | 'diode'
-  | 'bjt' | 'mosfet' | 'switch' | 'potentiometer' | 'motor'
-  | 'timer555' | 'inductor' | 'arduino' | 'schottky' | 'zener';
+  | 'bjt' | 'pnp' | 'mosfet' | 'switch' | 'tactileSwitch' | 'potentiometer' | 'motor'
+  | 'timer555' | 'inductor' | 'arduino' | 'schottky' | 'zener' | 'opamp';
 
 export interface ModuleStep {
   id: string;
@@ -19,6 +19,7 @@ export interface Module {
   subtitle: string;
   concept: string;
   prerequisiteId?: string;
+  autoLoadId?: string;
   steps: ModuleStep[];
 }
 
@@ -28,7 +29,7 @@ export interface ValidatorState {
     { type: ComponentKind; props: Record<string, unknown>; pins: Array<{ name: string; nodeId: string }> }
   >;
   nodes: Record<string, { netId: number | null }>;
-  wires: Record<string, { from: string; to: string }>;
+  wires: Record<string, { fromNodeId: string; toNodeId: string }>;
   voltages: Float32Array;
   scopeChannels: Array<{ netId: number }>;
 }
