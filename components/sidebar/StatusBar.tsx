@@ -57,6 +57,7 @@ export default function StatusBar() {
     toggleCurrentLabels,
     toggleHelp,
     showHelp,
+    circuitHealthWarning,
   } = useUIStore(useShallow((s) => ({
     simStatus: s.simStatus,
     simError: s.simError,
@@ -71,6 +72,7 @@ export default function StatusBar() {
     toggleCurrentLabels: s.toggleCurrentLabels,
     toggleHelp: s.toggleHelp,
     showHelp: s.showHelp,
+    circuitHealthWarning: s.circuitHealthWarning,
   })));
 
   const { open: schematicOpen, toggle: toggleSchematic } = useSchematicStore(
@@ -200,6 +202,13 @@ export default function StatusBar() {
         <ModeChip label={modeLabel} color={modeColor} />
         <span className={contextTextClass}>{contextText}</span>
       </div>
+
+      {circuitHealthWarning && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded border border-amber-500/35 bg-amber-900/25 px-2 py-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+          <span className="text-[11px] leading-tight text-amber-200/90 font-mono">{circuitHealthWarning}</span>
+        </div>
+      )}
 
       {simStatus === 'error' && !simErrorDismissed && (
         <div className="mx-3 mb-2 flex items-start gap-2 rounded border border-red-500/25 bg-red-950/40 px-2 py-1.5">

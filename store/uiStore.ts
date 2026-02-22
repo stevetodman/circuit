@@ -36,6 +36,7 @@ interface UIState {
   } | null;
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
+  circuitHealthWarning: string | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -54,6 +55,7 @@ interface UIState {
   clearZoomToFit:      () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
+  setCircuitHealthWarning: (warning: string | null) => void;
   appendSerialOutput:  (text: string) => void;
   clearSerialOutput:   () => void;
   startBoxSelect:      (startX: number, startY: number) => void;
@@ -86,6 +88,7 @@ export const useUIStore = create<UIState>()((set) => ({
   contextMenu:    null,
   boxSelect:      null,
   boxSelectRect:  null,
+  circuitHealthWarning: null,
 
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
@@ -111,6 +114,7 @@ export const useUIStore = create<UIState>()((set) => ({
   clearZoomToFit:      () => set({ zoomToFit: false }),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
+  setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
   appendSerialOutput: (text) => set((state) => {
     const next = `${state.serialOutput}${text}`;
     return { serialOutput: next.length > 10_000 ? next.slice(-10_000) : next };

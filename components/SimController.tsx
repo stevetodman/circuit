@@ -29,6 +29,19 @@ interface ResistiveBranch {
 }
 
 const POWER_REFRESH_MS = 500;
+const HEALTH_CHECK_INTERVAL_MS = 3000;
+const FLOATING_NET_GRACE_MS = 3000;
+const NO_CURRENT_VOLTAGE_EPSILON = 0.01;
+
+const hasNonZeroVoltage = () => {
+  for (let i = 0; i < voltages.length; i += 1) {
+    const value = voltages[i];
+    if (Number.isFinite(value) && Math.abs(value) > NO_CURRENT_VOLTAGE_EPSILON) {
+      return true;
+    }
+  }
+  return false;
+};
 
 function buildResistiveBranchMap(elements: readonly NetlistElement[]): ResistiveBranch[] {
   const branches: ResistiveBranch[] = [];
@@ -79,7 +92,8 @@ export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
   const sabRef    = useRef<SharedArrayBuffer | null>(null);
   const readyRef  = useRef(false);   // true once worker is initialised
-  const lastFloatWarnRef = useRef(0); // throttle floating-net toasts
+  const componentPlacedAtRef = useRef(new Map<string, number>());
+  const lastHealthWarningRef = useRef<string | null>(null);
 
   const nodes         = useCircuitStore((s) => s.nodes);
   const components    = useCircuitStore((s) => s.components);
@@ -88,12 +102,11 @@ export default function SimController() {
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
   const setSimError   = useUIStore((s) => s.setSimError);
   const setPower      = useUIStore((s) => s.setPower);
+  const setCircuitHealthWarning = useUIStore((s) => s.setCircuitHealthWarning);
   const addToast      = useToastStore((s) => s.addToast);
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
   const lastPowerSampleRef = useRef(0);
   const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const allZeroSinceRef = useRef<number | null>(null);
-  const noVoltageWarnedRef = useRef(false);
 
   // Auto-load: ?c= URL param takes priority over localStorage (T1.2)
   useEffect(() => {
@@ -166,39 +179,7 @@ export default function SimController() {
         violations?: Array<{ id: string; kind: string; value: number; limit: number }>;
       };
       if (type === 'VOLTAGES_READY') {
-        if (singular) {
-          setSimStatus('running');
-          const now = performance.now();
-          if (now - lastFloatWarnRef.current > 8000) {
-            addToast('Floating net — connect all components to a ground path', 'warn');
-            lastFloatWarnRef.current = now;
-          }
-        } else {
-          setSimStatus('running');
-        }
-
-        const componentCount = Object.keys(useCircuitStore.getState().components).length;
-        let hasNonZeroVoltage = false;
-        for (let i = 0; i < voltages.length; i += 1) {
-          const v = voltages[i] ?? 0;
-          if (Number.isFinite(v) && Math.abs(v) > 0.01) {
-            hasNonZeroVoltage = true;
-            break;
-          }
-        }
-
-        const simStatus = useUIStore.getState().simStatus;
-        if (componentCount >= 2 && !hasNonZeroVoltage && simStatus !== 'error') {
-          if (allZeroSinceRef.current === null) {
-            allZeroSinceRef.current = Date.now();
-          } else if (!noVoltageWarnedRef.current && Date.now() - allZeroSinceRef.current > 2000) {
-            addToast('No voltage detected. Check: is there a complete path from + to − through all components?', 'warn');
-            noVoltageWarnedRef.current = true;
-          }
-        } else {
-          allZeroSinceRef.current = null;
-          noVoltageWarnedRef.current = false;
-        }
+        setSimStatus('running');
 
         const { channels } = useScopeStore.getState();
         for (const ch of channels) {
@@ -283,39 +264,98 @@ export default function SimController() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Post netlist whenever topology changes ──────────────────────────────────
-  useEffect(() => {
-    if (!readyRef.current || !workerRef.current || !sabRef.current) return;
+  const runCircuitHealthCheck = () => {
+    const state = useCircuitStore.getState();
+    const componentList = Object.values(state.components);
+    const nodesMap = state.nodes;
+    const now = Date.now();
 
-    // T1.7 + F6.1: pre-sim validation (debounced 2 s to avoid toast floods while building)
-    if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
-    validationTimerRef.current = setTimeout(() => {
-      const componentList = Object.values(useCircuitStore.getState().components);
-      if (componentList.length === 0) return;
-      const liveNodes = useCircuitStore.getState().nodes;
-      const getDesignator = useCircuitStore.getState().getDesignator;
+    let warning: string | null = null;
 
-      // F6.1: warn about floating (off-board) pins
-      const floating = componentList.filter((c) =>
-        c.pins.some((pin) => !pin.nodeId || liveNodes[pin.nodeId]?.netId === null)
-      );
-      if (floating.length > 0) {
-        const labels = floating.slice(0, 2).map((c) => getDesignator(c.id)).join(', ');
-        const suffix = floating.length > 2 ? ` +${floating.length - 2} more` : '';
-        addToast(`Unconnected pin on ${labels}${suffix} — place on the breadboard`, 'warn');
-      }
+    // 1) No current flowing (existing check with stronger copy)
+    if (componentList.length >= 2 && componentList.some((c) => c.type === 'battery') && !hasNonZeroVoltage()) {
+      warning = 'No current flowing — check that battery + and − both connect to the circuit';
+    }
 
-      // T1.7a: warn if no voltage source is present
-      const hasVSource = componentList.some((c) => c.type === 'battery');
-      if (!hasVSource && componentList.length > 1) {
-        addToast('No battery in circuit — add a battery to power it', 'warn');
-      } else if (hasVSource) {
-        // T1.7b: warn if battery exists but no ground rail is connected
-        const hasGround = Object.values(liveNodes).some((n) => n.netId === 0);
-        if (!hasGround) {
-          addToast('No ground — connect the battery negative (–) to the board', 'warn');
+    // 2) LED without current-limiting resistor
+    if (!warning) {
+      const leds = componentList.filter((c) => c.type === 'led');
+      if (leds.length > 0) {
+        const resistorNets = new Set<number>();
+        for (const resistor of componentList.filter((c) => c.type === 'resistor')) {
+          for (const pin of resistor.pins) {
+            const netId = nodesMap[pin.nodeId]?.netId;
+            if (netId != null) resistorNets.add(netId);
+          }
+        }
+
+        for (const led of leds) {
+          const ledNetIds = led.pins
+            .map((pin) => nodesMap[pin.nodeId]?.netId)
+            .filter((netId): netId is number => netId != null);
+
+          if (ledNetIds.length === 0) continue;
+          const hasResistor = ledNetIds.some((ledNetId) => resistorNets.has(ledNetId));
+          if (!hasResistor) {
+            warning = 'LED connected without a resistor — add a 220–470Ω resistor to limit current';
+            break;
+          }
         }
       }
-    }, 2000);
+    }
+
+    // 3) Short circuit (battery + and − directly connected)
+    if (!warning) {
+      const batteries = componentList.filter((c) => c.type === 'battery');
+      for (const battery of batteries) {
+        const posNet = nodesMap[battery.pins.find((pin) => pin.name === 'pos')?.nodeId ?? '']?.netId;
+        const negNet = nodesMap[battery.pins.find((pin) => pin.name === 'neg')?.nodeId ?? '']?.netId;
+        if (posNet != null && negNet != null && posNet === negNet) {
+          warning = 'Short circuit detected — battery + and − are directly connected';
+          break;
+        }
+      }
+    }
+
+    // 4) Floating net (with 3 s grace period for newly placed components)
+    if (!warning) {
+      const hasFloatingPin = componentList.some((component) => {
+        const placedAt = componentPlacedAtRef.current.get(component.id);
+        if (!placedAt || now - placedAt < FLOATING_NET_GRACE_MS) return false;
+
+        return component.pins.some((pin) => nodesMap[pin.nodeId]?.netId == null);
+      });
+
+      if (hasFloatingPin) {
+        warning = "Some component pins aren't connected — check all pins have wires";
+      }
+    }
+
+    if (warning !== lastHealthWarningRef.current) {
+      lastHealthWarningRef.current = warning;
+      setCircuitHealthWarning(warning);
+    }
+  };
+
+  useEffect(() => {
+    const now = Date.now();
+    const currentComponentIds = Object.keys(useCircuitStore.getState().components);
+    const seenComponentIds = componentPlacedAtRef.current;
+    for (const componentId of currentComponentIds) {
+      if (!seenComponentIds.has(componentId)) seenComponentIds.set(componentId, now);
+    }
+    for (const componentId of [...seenComponentIds.keys()]) {
+      if (!currentComponentIds.includes(componentId)) seenComponentIds.delete(componentId);
+    }
+
+    lastHealthWarningRef.current = null;
+    setCircuitHealthWarning(null);
+    if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    validationTimerRef.current = setTimeout(() => {
+      runCircuitHealthCheck();
+    }, HEALTH_CHECK_INTERVAL_MS);
+
+    if (!readyRef.current || !workerRef.current || !sabRef.current) return;
 
     const netlist = buildNetlist(nodes, components, wires);
     useCircuitStore.getState().setWireBranchIndices(netlist.wireBranchIndex ?? {});
@@ -330,7 +370,14 @@ export default function SimController() {
       wires,
       sab:        sabRef.current,
     });
-  }, [nodes, components, wires, addToast]);
+
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current);
+        validationTimerRef.current = null;
+      }
+    };
+  }, [nodes, components, wires, setCircuitHealthWarning]);
 
   return null;
 }

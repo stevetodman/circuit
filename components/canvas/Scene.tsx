@@ -17,8 +17,8 @@ import { useDragStore } from '@/store/dragStore';
 import { PIN_TEMPLATES, type Vec3 } from '@/types/circuit';
 
 const CANVAS_BG = 'linear-gradient(155deg, #f9f7ff 0%, #ede8f8 55%, #e8ecf8 100%)';
-const DEFAULT_CAMERA_POSITION: Vec3 = [0, 13, 11];
-const TOP_DOWN_CAMERA_POSITION: Vec3 = [0, 25, 0];
+const DEFAULT_CAMERA_POSITION: Vec3 = [8, 8, 8];
+const TOP_DOWN_CAMERA_POSITION: Vec3 = [0, 12, 0.01];
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const BOX_SELECT_LINE_SIZE = 3;
 
@@ -97,7 +97,7 @@ function applyZoomToFit(
     applyCameraPreset(
       camera,
       controls,
-      DEFAULT_CAMERA_POSITION,
+      TOP_DOWN_CAMERA_POSITION,
       [DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z],
     );
     return;
@@ -333,7 +333,7 @@ export default function Scene() {
         onContextMenu={(e) => e.preventDefault()}
       >
         <Canvas
-          camera={{ position: DEFAULT_CAMERA_POSITION, fov: 38, near: 0.1, far: 200 }}
+          camera={{ position: TOP_DOWN_CAMERA_POSITION, fov: 38, near: 0.1, far: 200 }}
           gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
           style={{ width: '100%', height: '100%', background: CANVAS_BG }}
           onCreated={({ gl }) => {
