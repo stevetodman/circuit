@@ -1,70 +1,79 @@
-# SPEC: Oscilloscope PNG Export
+# SPEC: Parts Category Filter Chips
 
-Add a "Save PNG" button to the oscilloscope panel that downloads the current
-waveform view as a PNG image. Students can use this to document their experiments.
+## Goal
+Add category filter chips above the parts list in the sidebar so users can
+quickly filter by Passive, Active, Power, or Digital/IC components.
 
-## Read First
-- `features/oscilloscope/Oscilloscope.tsx` — find `canvasRef`, the header button
-  row (where Auto, freeze buttons are), and the canvas element.
-- The canvas already renders the full waveform — we just need `canvas.toDataURL()`
-  and trigger a download link.
+## Current State
+- `components/sidebar/Sidebar.tsx` has a text search `<input>` that filters `PARTS`
+- `PARTS` is an array of objects with `type`, `label`, `icon`, `tooltip`
+- No category grouping or filter chips exist
 
-## Implementation
+## Changes Required
 
-### Step 1: Add download function
+### `components/sidebar/Sidebar.tsx`
+Read the file to understand the current PARTS array and search filter.
 
-Inside the `Oscilloscope` component (not in a sub-component), add a callback:
-
+1. Add category metadata to each part. Define a local type and mapping:
 ```tsx
-const handleExportPNG = useCallback(() => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const url = canvas.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'oscilloscope.png';
-  a.click();
-}, []);
+type Category = 'all' | 'passive' | 'active' | 'power' | 'ic';
+
+const PART_CATEGORIES: Record<string, Category> = {
+  resistor: 'passive',
+  capacitor: 'passive',
+  inductor: 'passive',
+  potentiometer: 'passive',
+  led: 'active',
+  diode: 'active',
+  bjt: 'active',
+  mosfet: 'active',
+  battery: 'power',
+  motor: 'active',
+  'tactile-switch': 'passive',
+  timer555: 'ic',
+  'op-amp': 'ic',
+  arduino: 'ic',
+  wire: 'passive',
+};
 ```
 
-### Step 2: Add button to header
+2. Add `const [category, setCategory] = useState<Category>('all')` state.
 
-In the oscilloscope header (the flex row with Auto, ⏸/▶, and channel + buttons),
-add a "↓" or "⤓" download button at the far right, after the existing buttons:
-
+3. Add category chip UI between the search input and parts list:
 ```tsx
-<button
-  type="button"
-  onClick={handleExportPNG}
-  title="Save waveform as PNG"
-  className="w-7 h-7 rounded flex items-center justify-center text-white/35 hover:text-white/80 hover:bg-white/10 transition-colors text-[13px]"
->
-  ↓
-</button>
+<div className="flex gap-1 px-2 pb-1 flex-wrap">
+  {(['all', 'passive', 'active', 'power', 'ic'] as Category[]).map((cat) => (
+    <button
+      key={cat}
+      onClick={() => setCategory(cat)}
+      className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+        category === cat
+          ? 'bg-violet-500/25 border-violet-500/50 text-violet-200'
+          : 'border-white/[0.1] text-white/35 hover:text-white/60 hover:border-white/20'
+      }`}
+    >
+      {cat === 'all' ? 'All' : cat === 'passive' ? 'Passive' : cat === 'active' ? 'Active' : cat === 'power' ? 'Power' : 'ICs'}
+    </button>
+  ))}
+</div>
 ```
 
-Read the file to find the exact header button pattern and copy it.
-
-### Step 3: Canvas background for export
-
-The canvas currently has a transparent background (or uses CSS for the dark background).
-To ensure the PNG has a dark background (not transparent), modify the draw loop:
-
-At the very start of the canvas draw function (before drawing anything else), add:
+4. Update the parts filter to use BOTH query AND category:
 ```tsx
-ctx.fillStyle = '#0d0d0f';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+const filteredParts = PARTS.filter((p) => {
+  const matchesQuery = !query || p.label.toLowerCase().includes(query.toLowerCase());
+  const matchesCategory = category === 'all' || PART_CATEGORIES[p.type] === category;
+  return matchesQuery && matchesCategory;
+});
+```
+Use `filteredParts` in the `.map()` instead of the inline filter.
+
+5. When the search `query` changes and is non-empty, reset category to `'all'`:
+```tsx
+onChange={(e) => { setQuery(e.target.value); if (e.target.value) setCategory('all'); }}
 ```
 
-This ensures the exported PNG has a dark background matching the UI.
-Check if this line already exists — if so, don't add it again.
-
-## Important
-- Only touch `features/oscilloscope/Oscilloscope.tsx`
-- The download happens immediately on click — no confirmation needed
-- `canvas.toDataURL()` returns a data URL; creating and clicking an `<a>` element
-  is the standard browser download trick
-- The downloaded filename should be `oscilloscope.png`
-- When `frozen` is true, the canvas still holds the last frame — the export works
-  in both frozen and live states
-- Run `pnpm build` — must pass with zero TypeScript errors
+## What NOT to do
+- Do NOT change PARTS array structure (keep type, label, icon, tooltip)
+- Do NOT add categories to the PARTS constant — keep PART_CATEGORIES separate
+- Do NOT change any other file — only Sidebar.tsx

@@ -202,6 +202,8 @@ function SchematicIcon({ active }: { active: boolean }) {
 }
 
 // ── Component catalogue (beginner-first order) ────────────────────────────────
+type Category = 'all' | 'passive' | 'active' | 'power' | 'ic';
+
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode; tooltip: string }[] = [
   { type: 'battery',       label: 'Battery',        tooltip: 'DC voltage source (1.5–30V). Powers your circuit.', icon: <Battery /> },
   { type: 'wire',          label: 'Wire',           tooltip: 'Connect two pins. Click any pin to start.', icon: <WireIcon /> },
@@ -223,6 +225,29 @@ const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNod
   { type: 'arduino',       label: 'Arduino Uno',    tooltip: 'ATmega328P microcontroller. Upload sketches to run code.', icon: <Arduino /> },
 ];
 
+const PART_CATEGORIES: Record<string, Category> = {
+  resistor: 'passive',
+  capacitor: 'passive',
+  inductor: 'passive',
+  potentiometer: 'passive',
+  tactileSwitch: 'passive',
+  led: 'active',
+  diode: 'active',
+  bjt: 'active',
+  pnp: 'active',
+  zener: 'active',
+  schottky: 'active',
+  mosfet: 'active',
+  battery: 'power',
+  motor: 'active',
+  'tactile-switch': 'passive',
+  timer555: 'ic',
+  opamp: 'ic',
+  'op-amp': 'ic',
+  arduino: 'ic',
+  wire: 'passive',
+};
+
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const startDrag = useDragStore((state) => state.startDrag);
@@ -236,6 +261,7 @@ export default function Sidebar() {
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<Category>('all');
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -245,6 +271,12 @@ export default function Sidebar() {
       setTab('arduino');
     }
   }, [arduinoTabRequested]);
+
+  const filteredParts = PARTS.filter((p) => {
+    const matchesQuery = !query || p.label.toLowerCase().includes(query.toLowerCase());
+    const matchesCategory = category === 'all' || PART_CATEGORIES[p.type] === category;
+    return matchesQuery && matchesCategory;
+  });
 
   return (
     <aside
@@ -357,7 +389,10 @@ export default function Sidebar() {
                   <input
                     type="text"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      if (e.target.value) setCategory('all');
+                    }}
                     onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
                     placeholder="Filter parts…"
                     className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
@@ -375,8 +410,24 @@ export default function Sidebar() {
                 </div>
               </div>
 
+              <div className="flex gap-1 px-2 pb-1 flex-wrap">
+                {(['all', 'passive', 'active', 'power', 'ic'] as Category[]).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                      category === cat
+                        ? 'bg-violet-500/25 border-violet-500/50 text-violet-200'
+                        : 'border-white/[0.1] text-white/35 hover:text-white/60 hover:border-white/20'
+                    }`}
+                  >
+                    {cat === 'all' ? 'All' : cat === 'passive' ? 'Passive' : cat === 'active' ? 'Active' : cat === 'power' ? 'Power' : 'ICs'}
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-0.5 px-2">
-                {PARTS.filter((p) => !query || p.label.toLowerCase().includes(query.toLowerCase())).map((p) => (
+                {filteredParts.map((p) => (
                   <ComponentTile
                     key={`${p.type}-${p.label}`}
                     type={p.type}
