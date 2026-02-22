@@ -15,6 +15,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
 import { useModuleStore } from '@/store/moduleStore';
 import LearnPanel from './LearnPanel';
+import { PART_DESCRIPTIONS } from '@/constants/partDescriptions';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 function Rect({ fill }: { fill: string }) {
@@ -345,6 +346,7 @@ export default function Sidebar() {
                     label={p.label}
                     icon={p.icon}
                     tooltip={p.tooltip}
+                    description={PART_DESCRIPTIONS[p.type]}
                     onAdd={
                       p.type === 'wire'
                         ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
