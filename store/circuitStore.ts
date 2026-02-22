@@ -89,7 +89,7 @@ interface CircuitState extends TopologyState {
   pasteClipboard(offsetCols?: number): void;
   selectAll(): void;
   saveToJSON(): string;
-  loadFromJSON(data: string): void;
+  loadFromJSON(data: string | ExampleCircuit): void;
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
@@ -171,6 +171,17 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       wires: wires as Record<string, Wire>,
     };
   } catch { return null; }
+}
+
+function exampleCircuitToPayload(example: ExampleCircuit): SavedCircuitJSON {
+  const components = Object.fromEntries(example.components.map((component) => [component.id, component]));
+  const wires = Object.fromEntries(example.wires.map((wire) => [wire.id, wire]));
+  return {
+    version: 1,
+    nodes: seedBreadboardNodes(),
+    components,
+    wires,
+  };
 }
 
 function getDesignatorFromState(components: Record<string, PlacedComponent>, componentId: string): string {
@@ -341,7 +352,9 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       loadFromJSON(data) {
-        const payload = parseCircuitJSON(data);
+        const payload = typeof data === 'string'
+          ? parseCircuitJSON(data)
+          : exampleCircuitToPayload(data);
         if (!payload) { console.warn('[circuitStore] Invalid JSON circuit data'); return; }
         const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
         componentClipboard = []; // clear stale clipboard from previous circuit

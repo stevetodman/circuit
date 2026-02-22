@@ -1,130 +1,129 @@
-# SPEC: Additional Example Circuits
+# SPEC: Beginner Onboarding — First-Run Auto-Load + Wiring Mode Banner + Example Gallery
 
-## Goal
-Add 4 new example circuits to `features/examples/circuits.ts`.
-All examples must be self-contained, buildable, and simulate correctly.
+## Priority
+🔴 HIGHEST — implement all items in this spec.
 Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## Study the existing code first
+## Item 1: Auto-Load Example on First Visit
 
-Read `features/examples/circuits.ts` in full before writing anything.
-Pay attention to:
-- How `topNodeId(col, row)` is used (row 1–5 = top half, row 6–10 = bottom half)
-- How `CENTER_COL` is used (typically 32)
-- How components and wires are defined
-- The export structure at the bottom
+### Goal
+On first visit (no circuit loaded, localStorage key not set), auto-load the "LED + Resistor"
+example so the canvas isn't empty.
 
-Also read `store/circuitStore.ts` to understand `PlacedComponent` shape and valid component types.
+### Implementation
 
----
+**`app/page.tsx`** or **`components/SimController.tsx`**:
+- On mount, check `localStorage.getItem('circuit-has-visited')`
+- If not set: call `loadFromJSON(EXAMPLE_CIRCUITS[0])` to load the first example (basic LED+resistor)
+  then set `localStorage.setItem('circuit-has-visited', '1')`
+- If set: do nothing (user has their own circuit)
 
-## Example 1: BJT Common-Emitter Switch
+Find `EXAMPLE_CIRCUITS` import path from `features/examples/circuits.ts`.
+Find `loadFromJSON` in `store/circuitStore.ts`.
 
-Name: `'bjt-switch'`
-Description: "NPN transistor as a digital switch — base resistor controls LED via collector"
-
-Circuit:
-- VCC (9V) battery: top terminal to top rail
-- Base resistor (10kΩ): from top rail col ~20 to base pin of NPN
-- NPN BJT (2N2222 or generic):
-  - Base: connected to base resistor
-  - Collector: connected to LED anode (through 470Ω collector resistor from VCC)
-  - Emitter: connected to GND
-- Collector resistor (470Ω): between VCC rail and collector
-- LED: collector → LED anode, LED cathode → GND
-- GND rail connected to bottom of battery
-
-This demonstrates: transistor as a switch, base current controls collector current.
-
-## Example 2: RC Low-Pass Filter
-
-Name: `'rc-filter'`
-Description: "RC low-pass filter — capacitor smooths voltage changes"
-
-Circuit:
-- VCC battery (5V) left side
-- Resistor (10kΩ) in series from VCC
-- Capacitor (100µF) from resistor output to GND
-- The output node (junction of R and C) is the filtered output
-
-This demonstrates: how capacitors resist voltage changes, RC time constant.
-
-## Example 3: H-Bridge Motor Driver
-
-Name: `'h-bridge'`
-Description: "H-bridge motor control — two switches control motor direction"
-
-Circuit:
-- VCC (9V) battery
-- Two tactile switches (top switches of H-bridge): S1 from VCC to motor+, S2 from VCC to motor-
-- Two more switches or wire connections (bottom): motor+ to GND, motor- to GND
-- Motor in center
-
-Note: Since we only have one motor component, simplify to a half-H-bridge:
-- Switch S1: VCC → Motor+
-- Motor+ → Motor terminal A
-- Motor terminal B → GND via second switch S2
-- When S1 closed and S2 closed: motor runs
-
-## Example 4: Voltage Divider with Potentiometer
-
-Name: `'pot-voltage-divider'`
-Description: "Potentiometer as adjustable voltage divider — wiper picks off variable voltage"
-
-Circuit:
-- VCC (5V) battery
-- Potentiometer: terminal A to VCC, terminal B to GND, wiper = 0.5 (midpoint = 2.5V)
-- LED + 220Ω resistor from wiper to GND (to visualize the wiper voltage)
-
-This is similar to pot-dimmer but framed as a teaching circuit about voltage dividers.
+The auto-load should happen once on mount, before render.
+Use `useEffect(() => { ... }, [])` in a client component.
 
 ---
 
-## Code Pattern
+## Item 2: First-Run Welcome Overlay (3-step)
 
-Follow this exact pattern from existing examples:
+### Goal
+After auto-loading the example, show a brief dismissable overlay explaining the 3 core actions.
 
-```typescript
-export const MY_EXAMPLE: ExampleCircuit = {
-  id: 'my-example',
-  name: 'My Example',
-  description: 'What this teaches',
-  components: [
-    {
-      id: 'c1',
-      type: 'battery',
-      props: { voltage: 9 },
-      nodes: { positive: topNodeId(CENTER_COL - 10, 1), negative: topNodeId(CENTER_COL - 10, 2) },
-    },
-    // ...
-  ],
-  wires: [
-    { id: 'w1', from: topNodeId(X1, Y1), to: topNodeId(X2, Y2) },
-    // ...
-  ],
-};
+### Implementation
+
+**New component: `components/WelcomeOverlay.tsx`**
+
+Show only when:
+- `localStorage.getItem('circuit-welcome-dismissed')` is not set
+- AND the circuit was auto-loaded (first visit)
+
+UI:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Welcome to Circuit Sandbox                 │
+│                                                             │
+│  1. 🔌  Drag parts from the left panel onto the board       │
+│  2. ⚡  Click a pin, then click another pin to wire         │
+│  3. 👁  Watch voltages update live — hover a pin to read it │
+│                                                             │
+│         [Load an Example ▾]        [Get Started →]         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Add each new example to the `EXAMPLE_CIRCUITS` array at the bottom of the file.
+- Fixed center overlay, semi-transparent backdrop
+- "Get Started →" dismisses and sets `localStorage.setItem('circuit-welcome-dismissed', '1')`
+- "Load an Example ▾" opens the ExampleLoader dropdown (or scrolls sidebar to it)
+- Close on backdrop click also dismisses
+- Style matches existing HelpOverlay dark theme
+
+**`app/page.tsx`**: import and render `<WelcomeOverlay />` alongside other overlays.
 
 ---
 
-## ExampleLoader.tsx
+## Item 3: Example Gallery on Empty Canvas
 
-In `features/examples/ExampleLoader.tsx`:
-- The new examples should automatically appear in the dropdown since they're added to EXAMPLE_CIRCUITS
-- No changes needed here unless the dropdown needs grouping
+### Goal
+When the canvas has zero components, show a gallery of example cards on the canvas itself
+(rendered as an HTML overlay, not in Three.js) so beginners discover examples immediately.
+
+### Implementation
+
+**`components/canvas/EmptyStateGallery.tsx`**
+
+Show when `circuitStore.components.length === 0`.
+
+Layout: a centered grid of example cards (max 6 cards, 3 per row on desktop):
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│   Try an example:                                            │
+│                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │💡 LED     │  │⚡ Voltage │  │🔁 Blink  │                   │
+│  │ Basics   │  │  Divider │  │  Arduino │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │🔋 555    │  │🎛 Pot    │  │⚗ Zener   │                   │
+│  │  Blinker │  │  Dimmer  │  │  Diode   │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
+│                                                              │
+│     Or drag a part from the left panel to start fresh       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Each card:
+- Shows example name and a simple emoji icon
+- Clicking loads the example via `circuitStore.loadFromJSON(example)`
+- Style: dark card `bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-3`
+
+This is an HTML div absolutely positioned over the canvas (not Three.js).
+Add to `app/page.tsx` or `components/canvas/Scene.tsx` as a sibling to the canvas.
+
+**Import EXAMPLE_CIRCUITS** from `features/examples/circuits.ts`.
+**Import loadFromJSON** from `store/circuitStore.ts`.
+
+**Emoji map for examples** (approximate by id):
+- led-resistor → 💡
+- voltage-divider → ⚡
+- blink → 🔁 (or 🟢)
+- rc-blinker → ⏱
+- pot-dimmer → 🎛
+- zener-regulator → ⚗
+- bjt-switch → 🔀
+- 555-astable → 📡
+- Default → 🔌
 
 ---
 
 ## Implementation Notes
 
-- Read the file first — understand the node ID system before writing any code
-- Keep circuits simple and educational — they're for beginners
-- Make sure all wire connections form valid paths (from valid nodeId to valid nodeId)
-- Do NOT add new component types — use only existing types
+- DO NOT break SSR — EmptyStateGallery and WelcomeOverlay must use `'use client'` and
+  check `typeof window !== 'undefined'` before accessing localStorage
+- DO NOT add new npm packages
+- Keep styles consistent with existing dark theme (`bg-[#111113]`, `text-white/80`, etc.)
 - Run `pnpm build` — fix all TypeScript errors
-- Valid component types: battery, resistor, led, capacitor, diode, bjt, mosfet, switch,
-  potentiometer, motor, timer555, inductor, arduino, schottky, zener
+- The gallery disappears as soon as the first component is placed (reactive to store)

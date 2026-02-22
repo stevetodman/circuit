@@ -8,6 +8,8 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import Sidebar from '@/components/sidebar/Sidebar';
+import WelcomeOverlay from '@/components/WelcomeOverlay';
+import EmptyStateGallery from '@/components/canvas/EmptyStateGallery';
 import Toolbar from '@/components/Toolbar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
@@ -17,6 +19,8 @@ import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
+import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
+import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -28,64 +32,7 @@ const Scene = dynamic(() => import('@/components/canvas/Scene'), {
   ),
 });
 
-// ── Welcome card (shown once on first visit) ──────────────────────────────────
-const WELCOME_KEY = 'circuit-welcomed-v1';
-
-function WelcomeOverlay() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('noWelcome') || params.has('autoload') || params.has('c')) return;
-    if (!localStorage.getItem(WELCOME_KEY)) setVisible(true);
-  }, []);
-
-  if (!visible) return null;
-
-  function dismiss() {
-    localStorage.setItem(WELCOME_KEY, '1');
-    setVisible(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
-      <div className="bg-[#111113] border border-white/[0.12] rounded-xl p-8 max-w-sm w-full shadow-2xl mx-4">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full bg-[#7c6fff]/20 flex items-center justify-center flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="7" stroke="#7c6fff" strokeWidth="1.5" />
-              <circle cx="8" cy="8" r="3" fill="#7c6fff" />
-            </svg>
-          </div>
-          <h2 className="text-white font-semibold text-base">Welcome to Circuit Sandbox</h2>
-        </div>
-        <p className="text-white/50 text-sm leading-relaxed mb-5">
-          Build and simulate analog circuits on a virtual breadboard.
-        </p>
-        <ol className="space-y-3 mb-6">
-          {[
-            ['1', 'Drag a part from the left panel onto the board'],
-            ['2', 'Click a pin to start a wire, then click another pin to connect them'],
-            ['3', 'Press ? anytime to see all keyboard shortcuts'],
-          ].map(([n, text]) => (
-            <li key={n} className="flex items-start gap-3 text-sm">
-              <span className="w-5 h-5 rounded-full bg-[#7c6fff]/20 text-[#7c6fff] text-[11px] font-bold flex-shrink-0 flex items-center justify-center mt-0.5">
-                {n}
-              </span>
-              <span className="text-white/60 leading-snug">{text}</span>
-            </li>
-          ))}
-        </ol>
-        <button
-          onClick={dismiss}
-          className="w-full py-2 rounded-lg bg-[#7c6fff] hover:bg-[#9d8fff] text-white text-sm font-semibold transition-colors"
-        >
-          Get started
-        </button>
-      </div>
-    </div>
-  );
-}
+const VISITED_KEY = 'circuit-has-visited';
 
 // ── Wiring / placement hint pill ─────────────────────────────────────────────
 function WiringHint() {
@@ -147,6 +94,28 @@ export default function Home() {
     }))
   );
   const schematicOpen = useSchematicStore((state) => state.open);
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
+  const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.localStorage.getItem(VISITED_KEY)) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.has(CIRCUIT_URL_PARAM)) return;
+
+    const state = useCircuitStore.getState();
+    const hasSavedContent = Object.keys(state.components).length > 0 || Object.keys(state.wires).length > 0;
+    if (hasSavedContent) {
+      window.localStorage.setItem(VISITED_KEY, '1');
+      return;
+    }
+
+    const firstExample = EXAMPLE_CIRCUITS[0];
+    if (!firstExample) return;
+    loadFromJSON(firstExample);
+    window.localStorage.setItem(VISITED_KEY, '1');
+    setShowWelcomeOverlay(true);
+  }, [loadFromJSON]);
 
   return (
     <div
@@ -155,7 +124,7 @@ export default function Home() {
     >
       <SimController />
       <Toast />
-      <WelcomeOverlay />
+      <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
       <HelpOverlay />
       <ContextMenu />
       <KeyboardShortcuts />
@@ -164,6 +133,7 @@ export default function Home() {
         <Toolbar />
         <div className="absolute inset-0 top-[36px]">
           <Scene />
+          <EmptyStateGallery />
           <WiringHint />
           <CameraHint />
           <ErrorBoundary>
