@@ -102,3 +102,41 @@ export default function ContextMenu() {
     </div>
   );
 }
+
+export function WireContextMenu() {
+  const wireMenu = useUIStore((s) => s.wireMenu);
+  const closeWireMenu = useUIStore((s) => s.closeWireMenu);
+  const updateWireColor = useCircuitStore((s) => s.updateWireColor);
+  const removeWire = useCircuitStore((s) => s.removeWire);
+
+  if (!wireMenu) return null;
+
+  const WIRE_COLORS = ['#cc3333', '#3399ff', '#33cc66', '#ffaa00', '#cc66ff', '#ffffff', '#aaaaaa'];
+
+  return (
+    <div
+      className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-2xl py-1.5 min-w-[160px]"
+      style={{ left: wireMenu.x, top: wireMenu.y }}
+      onMouseLeave={closeWireMenu}
+    >
+      <div className="px-3 py-1 flex flex-wrap gap-1.5">
+        {WIRE_COLORS.map((c) => (
+          <button
+            key={c}
+            onClick={() => { updateWireColor(wireMenu.wireId, c); closeWireMenu(); }}
+            className="w-4 h-4 rounded-full border border-white/20 hover:scale-110 transition-transform"
+            style={{ background: c }}
+            title={c}
+          />
+        ))}
+      </div>
+      <div className="h-px bg-white/[0.08] mx-2 my-1" />
+      <button
+        onClick={() => { removeWire(wireMenu.wireId); closeWireMenu(); }}
+        className="w-full px-3 py-1.5 text-left text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+      >
+        Delete wire
+      </button>
+    </div>
+  );
+}
