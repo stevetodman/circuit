@@ -14,8 +14,13 @@ const BOARD_CENTER: Vec3 = [0, BOARD_TOP_Y, 0];
 export default function DragManager() {
   const { camera, gl } = useThree();
   const dragging = useDragStore((state) => state.dragging);
-  const type = useDragStore((state) => state.type);
+  const type     = useDragStore((state) => state.type);
   const position = useDragStore((state) => state.position);
+
+  // Cursor: 'grabbing' while dragging a component, restore after
+  useEffect(() => {
+    gl.domElement.style.cursor = dragging ? 'grabbing' : 'default';
+  }, [dragging, gl]);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
