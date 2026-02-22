@@ -44,7 +44,7 @@ function formatCurrent(amps: number): string {
 }
 
 export default function Wire({ wire, branchIndex }: WireProps) {
-  const removeWire = useCircuitStore((s) => s.removeWire);
+  const openWireMenu = useUIStore((s) => s.openWireMenu);
   const showCurrentLabels = useUIStore((s) => s.showCurrentLabels);
   const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
   const overloadIds = useUIStore((s) => s.overloadIds);
@@ -142,7 +142,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
 
   const onContextMenu = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    removeWire(wire.id);
+    openWireMenu(wire.id, e.clientX, e.clientY);
   };
 
   if (!geometry) return null;

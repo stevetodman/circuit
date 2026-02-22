@@ -39,6 +39,11 @@ interface UIState {
     x: number;
     y: number;
   } | null;
+  wireMenu: {
+    wireId: string;
+    x: number;
+    y: number;
+  } | null;
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
   circuitHealthWarning: string | null;
@@ -59,6 +64,8 @@ interface UIState {
   toggleDesignators:   () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
   closeContextMenu:    () => void;
+  openWireMenu:       (wireId: string, x: number, y: number) => void;
+  closeWireMenu:      () => void;
   requestZoomToFit:    () => void;
   clearZoomToFit:      () => void;
   requestZoomIn:       () => void;
@@ -101,6 +108,7 @@ export const useUIStore = create<UIState>()((set) => ({
   cameraPreset:  null,
   serialOutput:  '',
   contextMenu:    null,
+  wireMenu:       null,
   boxSelect:      null,
   boxSelectRect:  null,
   circuitHealthWarning: null,
@@ -128,6 +136,8 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
+  closeWireMenu: () => set({ wireMenu: null }),
   requestZoomToFit:    () => set({ zoomToFit: true }),
   clearZoomToFit:      () => set({ zoomToFit: false }),
   requestZoomIn:       () => set((s) => ({ zoomInRequested: s.zoomInRequested + 1 })),
