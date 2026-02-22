@@ -25,6 +25,7 @@ interface UIState {
   showDesignators: boolean;
   zoomToFit: boolean;
   cameraPreset: 'default' | 'top' | null;
+  serialOutput: string;
   contextMenu: {
     componentId: string;
     x: number;
@@ -48,6 +49,8 @@ interface UIState {
   clearZoomToFit:      () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
+  appendSerialOutput:  (text: string) => void;
+  clearSerialOutput:   () => void;
   startBoxSelect:      (startX: number, startY: number) => void;
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
@@ -71,6 +74,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showDesignators: true,
   zoomToFit:     false,
   cameraPreset:  null,
+  serialOutput:  '',
   contextMenu:    null,
   boxSelect:      null,
   boxSelectRect:  null,
@@ -97,6 +101,11 @@ export const useUIStore = create<UIState>()((set) => ({
   clearZoomToFit:      () => set({ zoomToFit: false }),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
+  appendSerialOutput: (text) => set((state) => {
+    const next = `${state.serialOutput}${text}`;
+    return { serialOutput: next.length > 10_000 ? next.slice(-10_000) : next };
+  }),
+  clearSerialOutput: () => set({ serialOutput: '' }),
   startBoxSelect: (startX, startY) => {
     const boxSelect = { startX, startY, endX: startX, endY: startY };
     set({ boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) });

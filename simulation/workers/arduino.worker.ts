@@ -14,7 +14,7 @@
  * Message protocol (worker → main):
  *   { type: 'READY' }
  *   { type: 'RUNTIME_ERROR', message: string }
- *   { type: 'SERIAL_OUTPUT', data: string }
+ *   { type: 'SERIAL_OUTPUT', text: string }
  *   { type: 'CYCLE_COUNT', cycles: number }
  */
 import {
@@ -80,6 +80,7 @@ let rafHandle:  ReturnType<typeof setInterval> | null = null;
 let cycleHandle: ReturnType<typeof setInterval> | null = null;
 // P1-16: batch serial bytes per burst instead of one postMessage per byte
 let serialBuffer = '';
+let serialFlushHandle: ReturnType<typeof setInterval> | null = null;
 
 // Map: Arduino pin number → SAB net index (set by UPDATE_PIN_MAP)
 const pinToNetIdx: Record<number, number> = {};
@@ -166,6 +167,12 @@ function syncGPIO() {
 // ── CPU tick loop — run ~16 MHz in bursts ─────────────────────────────────────
 const CYCLES_PER_MS = 16_000; // 16 MHz → 16000 cycles/ms
 
+function flushSerialOutput() {
+  if (!serialBuffer) return;
+  self.postMessage({ type: 'SERIAL_OUTPUT', text: serialBuffer });
+  serialBuffer = '';
+}
+
 function runBurst() {
   if (!cpu || !running || paused) return;
   const target = cpu.cycles + CYCLES_PER_MS;
@@ -173,11 +180,6 @@ function runBurst() {
     cpu.tick();
   }
   syncGPIO();
-  // P1-16: flush batched serial bytes once per 1ms burst
-  if (serialBuffer) {
-    self.postMessage({ type: 'SERIAL_OUTPUT', data: serialBuffer });
-    serialBuffer = '';
-  }
 }
 
 // ── Message handler ────────────────────────────────────────────────────────────
@@ -198,6 +200,10 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       // Stop existing CPU
       if (rafHandle != null) clearInterval(rafHandle);
       if (cycleHandle != null) clearInterval(cycleHandle);
+      if (serialFlushHandle != null) {
+        clearInterval(serialFlushHandle);
+        serialFlushHandle = null;
+      }
       running = false;
       paused = false;
       cpu = null;
@@ -224,13 +230,19 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       new AVRTimer(cpu, timer0Config);
       const usart = new AVRUSART(cpu, usart0Config, 16e6);
       usart.onByteTransmit = (byte: number) => {
-        serialBuffer += String.fromCharCode(byte); // P1-16: buffer; flushed in runBurst
+        const char = String.fromCharCode(byte);
+        serialBuffer += char;
+        if (char === '\n' || serialBuffer.length > 256) {
+          flushSerialOutput();
+        }
       };
 
       // Start run loop
       running = true;
       paused = false;
       rafHandle = setInterval(runBurst, 1);
+      if (serialFlushHandle != null) clearInterval(serialFlushHandle);
+      serialFlushHandle = setInterval(flushSerialOutput, 100);
       cycleHandle = setInterval(() => {
         if (cpu) self.postMessage({ type: 'CYCLE_COUNT', cycles: cpu.cycles });
       }, 1000);
@@ -267,10 +279,15 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
         clearInterval(cycleHandle);
         cycleHandle = null;
       }
+      if (serialFlushHandle != null) {
+        clearInterval(serialFlushHandle);
+        serialFlushHandle = null;
+      }
       running = false;
       paused = false;
       cpu = null;
       adc = null;
+      serialBuffer = '';
       break;
   }
 };
