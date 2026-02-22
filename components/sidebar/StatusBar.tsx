@@ -75,6 +75,8 @@ export default function StatusBar() {
     showHelp: s.showHelp,
     circuitHealthWarning: s.circuitHealthWarning,
   })));
+  const simSpeed = useUIStore((s) => s.simSpeed);
+  const setSimSpeed = useUIStore((s) => s.setSimSpeed);
   const [healthWarningDismissed, setHealthWarningDismissed] = useState(false);
 
   useEffect(() => {
@@ -202,6 +204,21 @@ export default function StatusBar() {
         >
           ?
         </button>
+        {[1, 2, 5, 10].map((speed) => (
+          <button
+            key={speed}
+            type="button"
+            onClick={() => setSimSpeed(speed)}
+            className={`text-[9px] font-mono px-1 py-0.5 rounded transition-colors ${
+              simSpeed === speed
+                ? 'bg-violet-500/25 text-violet-300'
+                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+            }`}
+            title={`Simulation speed: ${speed}×`}
+          >
+            {speed}×
+          </button>
+        ))}
       </div>
 
       <div className="flex items-center gap-2 px-3 pb-2 min-h-[20px]">

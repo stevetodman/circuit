@@ -102,6 +102,7 @@ export default function SimController() {
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
   const setSimError   = useUIStore((s) => s.setSimError);
   const setPower      = useUIStore((s) => s.setPower);
+  const simSpeed      = useUIStore((s) => s.simSpeed);
   const setCircuitHealthWarning = useUIStore((s) => s.setCircuitHealthWarning);
   const addToast      = useToastStore((s) => s.addToast);
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
@@ -262,6 +263,11 @@ export default function SimController() {
       readyRef.current  = false;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!workerRef.current) return;
+    workerRef.current.postMessage({ type: 'SET_SPEED', speed: simSpeed });
+  }, [simSpeed]);
 
   // ── Post netlist whenever topology changes ──────────────────────────────────
   const runCircuitHealthCheck = () => {

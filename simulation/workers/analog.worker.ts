@@ -23,6 +23,7 @@ import {
 } from '../../types/circuit';
 
 const DT_MS = 1;
+let currentIntervalMs = DT_MS; // default 1ms = 1×
 const MOTOR_KE = 0.01;
 const OVERLOAD_THROTTLE_MS = 1_000;
 const RESISTOR_POWER_LIMIT_W = 0.25;
@@ -45,6 +46,11 @@ interface UpdateNetlistMsg {
   components: Record<string, PlacedComponent>;
   wires:      Record<string, Wire>;
   sab:        SharedArrayBuffer;
+}
+
+interface SetSpeedMsg {
+  type: 'SET_SPEED';
+  speed: number;
 }
 
 function buildComponentKindByElementId(
@@ -389,7 +395,7 @@ function tick(): void {
 
 function startLoop() {
   if (intervalId) return;
-  intervalId = setInterval(tick, DT_MS);
+  intervalId = setInterval(tick, currentIntervalMs);
 }
 
 function stopLoop() {
@@ -399,8 +405,17 @@ function stopLoop() {
   }
 }
 
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
+self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg>) => {
   const msg = e.data;
+  if (msg.type === 'SET_SPEED') {
+    currentIntervalMs = DT_MS / msg.speed;
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+      intervalId = setInterval(tick, currentIntervalMs);
+    }
+    return;
+  }
+
   if (msg.type !== 'UPDATE_NETLIST') return;
 
   if (!voltageView || voltageView.buffer !== msg.sab) {
