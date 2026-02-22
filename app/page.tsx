@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import Sidebar from '@/components/sidebar/Sidebar';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SimController from '@/components/SimController';
+import SchematicView from '@/features/schematic/SchematicView';
+import { useSchematicStore } from '@/store/schematicStore';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -16,6 +18,8 @@ const Scene = dynamic(() => import('@/components/canvas/Scene'), {
 });
 
 export default function Home() {
+  const open = useSchematicStore((state) => state.open);
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
@@ -26,6 +30,7 @@ export default function Home() {
       <Sidebar />
       <main className="relative flex-1 min-w-0 h-full">
         <Scene />
+        <SchematicView visible={open} />
       </main>
     </div>
   );

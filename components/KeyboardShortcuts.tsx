@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useCircuitStore, useCircuitHistory } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
+import { useSchematicStore } from '@/store/schematicStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -17,6 +18,7 @@ export default function KeyboardShortcuts() {
   const selectNode = useCircuitStore((s) => s.selectNode);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const cancelDrag = useDragStore((s) => s.cancel);
+  const toggleSchematic = useSchematicStore((s) => s.toggle);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -43,6 +45,13 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      // Schematic view toggle
+      if (e.key.toLowerCase() === 's' && !isInputFocused()) {
+        e.preventDefault();
+        toggleSchematic();
+        return;
+      }
+
       // Escape — cancel drag / deselect
       if (e.key === 'Escape') {
         cancelDrag();
@@ -53,7 +62,7 @@ export default function KeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [deleteSelected, selectNode, selectComponent, cancelDrag]);
+  }, [deleteSelected, selectNode, selectComponent, cancelDrag, toggleSchematic]);
 
   return null;
 }
