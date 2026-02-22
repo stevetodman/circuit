@@ -1,21 +1,27 @@
 'use client';
 
+import { Text } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { ComponentType, Vec3 } from '@/types/circuit';
+import { useDragStore } from '@/store/dragStore';
+import { useUIStore } from '@/store/uiStore';
 import LED from './LED';
 import Resistor from './Resistor';
 import Battery from './Battery';
 
 interface ComponentRendererProps {
-  type:          ComponentType;
-  anchorPos:     Vec3;
-  rotationY?:    number;   // degrees (0 | 90 | 180 | 270)
-  pinOffsets?:   Vec3[];
-  selected?:     boolean;
-  transparent?:  boolean;
-  onClick?:      (event: ThreeEvent<MouseEvent>) => void;
-  anodeNetId?:   number | null;
-  cathodeNetId?: number | null;
+  componentId:    string;
+  designator:     string;
+  type:           ComponentType;
+  anchorPos:      Vec3;
+  rotationY?:     number;   // degrees (0 | 90 | 180 | 270)
+  pinOffsets?:    Vec3[];
+  selected?:      boolean;
+  transparent?:   boolean;
+  onClick?:       (event: ThreeEvent<MouseEvent>) => void;
+  onContextMenu?: (event: ThreeEvent<MouseEvent>) => void;
+  anodeNetId?:    number | null;
+  cathodeNetId?:  number | null;
 }
 
 const ZERO: Vec3 = [0, 0, 0];
@@ -27,7 +33,7 @@ function FallbackPart({ pinOffsets = [], selected, onClick }: {
 }) {
   const offsets: Vec3[] = pinOffsets.length
     ? pinOffsets
-    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3]);
+    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3);
 
   return (
     <group onClick={onClick}>
@@ -56,6 +62,8 @@ function FallbackPart({ pinOffsets = [], selected, onClick }: {
  * All part components receive anchorPos=[0,0,0] — position is handled here.
  */
 export default function ComponentRenderer({
+  componentId,
+  designator,
   type,
   anchorPos,
   rotationY = 0,
@@ -63,10 +71,13 @@ export default function ComponentRenderer({
   selected,
   transparent,
   onClick,
+  onContextMenu,
   anodeNetId,
   cathodeNetId,
 }: ComponentRendererProps) {
   const rotYRad = (rotationY * Math.PI) / 180;
+  const dragging = useDragStore((state) => state.dragging);
+  const showDesignators = useUIStore((state) => state.showDesignators);
 
   let inner: React.ReactNode;
   switch (type) {
@@ -116,8 +127,26 @@ export default function ComponentRenderer({
   }
 
   return (
-    <group position={anchorPos} rotation={[0, rotYRad, 0]}>
+    <group
+      position={anchorPos}
+      rotation={[0, rotYRad, 0]}
+      userData={{ componentId }}
+      onContextMenu={onContextMenu}
+    >
       {inner}
+      {showDesignators && !dragging && designator && (
+        <Text
+          position={[0, 0.22, 0]}
+          fontSize={0.08}
+          color="#ffffff"
+          fillOpacity={0.55}
+          anchorX="center"
+          anchorY="middle"
+          depthTest={false}
+        >
+          {designator}
+        </Text>
+      )}
     </group>
   );
 }

@@ -35,6 +35,9 @@ export default function KeyboardShortcuts() {
   const toggleSchematic     = useSchematicStore((s) => s.toggle);
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
+  const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
+  const closeContextMenu    = useUIStore((s) => s.closeContextMenu);
+  const clearBoxSelect      = useUIStore((s) => s.clearBoxSelect);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -86,6 +89,13 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      // Toggle designator labels
+      if (key === 'l') {
+        e.preventDefault();
+        toggleDesignators();
+        return;
+      }
+
       // Camera presets
       if (key === '1') { e.preventDefault(); requestCameraPreset('default'); return; }
       if (key === '2') { e.preventDefault(); requestCameraPreset('top');     return; }
@@ -120,6 +130,8 @@ export default function KeyboardShortcuts() {
 
       // Escape — cancel drag / deselect
       if (e.key === 'Escape') {
+        closeContextMenu();
+        clearBoxSelect();
         cancelDrag();
         selectNode(null);
         selectComponent(null);
@@ -131,7 +143,8 @@ export default function KeyboardShortcuts() {
   }, [
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
-    requestZoomToFit, requestCameraPreset,
+    requestZoomToFit, requestCameraPreset, toggleDesignators,
+    closeContextMenu, clearBoxSelect,
     copySelected, pasteClipboard, selectAll,
   ]);
 

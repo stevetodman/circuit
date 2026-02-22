@@ -66,8 +66,10 @@ interface CircuitState extends TopologyState {
   selectedNodeId: string | null;
   selectedComponentId: string | null;
   selectedComponentIds: string[];
+  setSelectedComponentIds: (ids: string[]) => void;
   wiringMode: boolean;
   setWireBranchIndices: (indices: Record<string, number>) => void;
+  getDesignator: (componentId: string) => string;
 
   addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
   removeComponent(id: string): void;
@@ -90,6 +92,22 @@ interface CircuitState extends TopologyState {
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
+const DESIGNATOR_PREFIX: Record<string, string> = {
+  resistor: 'R',
+  capacitor: 'C',
+  led: 'D',
+  battery: 'V',
+  bjt: 'Q',
+  timer555: 'U',
+  arduino: 'A',
+  motor: 'M',
+  tactileSwitch: 'SW',
+  diode: 'D',
+  mosfet: 'Q',
+  opamp: 'U',
+  inductor: 'L',
+  potentiometer: 'RV',
+};
 let wireColorIdx = 0;
 
 // ── Copy/paste clipboard (module-level, not persisted) ───────────────────────
@@ -149,6 +167,19 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       wires: wires as Record<string, Wire>,
     };
   } catch { return null; }
+}
+
+function getDesignatorFromState(components: Record<string, PlacedComponent>, componentId: string): string {
+  const component = components[componentId];
+  if (!component) return '';
+  const prefix = DESIGNATOR_PREFIX[component.type] ?? 'X';
+  let count = 0;
+  for (const [id, candidate] of Object.entries(components)) {
+    if (candidate.type !== component.type) continue;
+    count += 1;
+    if (id === componentId) return `${prefix}${count}`;
+  }
+  return `${prefix}${count || 1}`;
 }
 
 // ── Store with temporal (undo/redo) middleware ────────────────────────────────
@@ -233,6 +264,11 @@ export const useCircuitStore = create<CircuitState>()(
 
       selectComponent(id) {
         set({ selectedComponentId: id, selectedComponentIds: id ? [id] : [] });
+      },
+
+      setSelectedComponentIds(ids) {
+        const uniqueIds = [...new Set(ids)];
+        set({ selectedComponentIds: uniqueIds, selectedComponentId: uniqueIds[0] ?? null });
       },
 
       toggleSelectedComponent(id) {
@@ -367,6 +403,8 @@ export const useCircuitStore = create<CircuitState>()(
           return { wires };
         });
       },
+
+      getDesignator: (componentId) => getDesignatorFromState(get().components, componentId),
     }),
     {
       // Only snapshot topology for undo — not UI cursor state
