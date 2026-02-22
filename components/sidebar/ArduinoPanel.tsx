@@ -9,8 +9,7 @@
  */
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
-import { SAB_TOTAL_BYTES } from '@/types/circuit';
-import { init as initSimBridge } from '@/simulation/SimBridge';
+import { useUIStore } from '@/store/uiStore';
 
 // Blink sketch compiled for ATmega328P (pin 13, 1 Hz)
 const BLINK_HEX = `
@@ -43,9 +42,9 @@ export default function ArduinoPanel() {
   const selectedId  = useCircuitStore((s) => s.selectedComponentId);
   const components  = useCircuitStore((s) => s.components);
   const nodes       = useCircuitStore((s) => s.nodes);
+  const sab         = useUIStore((s) => s.sab);
 
   const workerRef   = useRef<Worker | null>(null);
-  const sabRef      = useRef<SharedArrayBuffer | null>(null);
   const [running,   setRunning]   = useState(false);
   const [hexText,   setHexText]   = useState('');
   const [serialLog, setSerialLog] = useState<string[]>([]);
@@ -66,20 +65,11 @@ export default function ArduinoPanel() {
     return map;
   }, [component.pins, nodes]);
 
-  // Ensure SAB exists
-  const ensureSAB = useCallback((): SharedArrayBuffer => {
-    if (!sabRef.current) {
-      const sab = new SharedArrayBuffer(SAB_TOTAL_BYTES);
-      sabRef.current = sab;
-      initSimBridge(sab);
-    }
-    return sabRef.current;
-  }, []);
-
   const uploadAndRun = useCallback((hex: string) => {
+    if (!sab) return;
+
     if (workerRef.current) workerRef.current.terminate();
 
-    const sab    = ensureSAB();
     const worker = new Worker(
       new URL('../../simulation/workers/arduino.worker.ts', import.meta.url),
     );
@@ -94,7 +84,7 @@ export default function ArduinoPanel() {
 
     worker.postMessage({ type: 'UPLOAD_HEX', hex, sab });
     worker.postMessage({ type: 'UPDATE_PIN_MAP', pinMap: buildPinMap(), sab });
-  }, [buildPinMap, ensureSAB]);
+  }, [buildPinMap, sab]);
 
   const stopWorker = useCallback(() => {
     workerRef.current?.postMessage({ type: 'STOP' });

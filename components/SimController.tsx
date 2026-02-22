@@ -17,6 +17,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { pushSample } from '@/features/oscilloscope/scopeBuffer';
 import { voltages } from '@/simulation/SimBridge';
+import { buildNetlist } from '@/simulation/mna/NetlistBuilder';
 
 export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
@@ -25,6 +26,7 @@ export default function SimController() {
 
   const nodes         = useCircuitStore((s) => s.nodes);
   const components    = useCircuitStore((s) => s.components);
+  const wires         = useCircuitStore((s) => s.wires);
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
 
   // ── Create worker + SAB on mount ────────────────────────────────────────────
@@ -37,6 +39,7 @@ export default function SimController() {
     const sab    = new SharedArrayBuffer(SAB_TOTAL_BYTES);
     sabRef.current = sab;
     initSimBridge(sab);   // wire up main-thread typed views
+    useUIStore.getState().setSAB(sab);
 
     const worker = new Worker(
       new URL('../simulation/workers/analog.worker.ts', import.meta.url),
@@ -44,9 +47,13 @@ export default function SimController() {
     workerRef.current = worker;
 
     worker.onmessage = (e) => {
-      const { type, message } = e.data as { type: string; message?: string };
+      const { type, message } = e.data as { type: string; message?: string; singular?: boolean };
       if (type === 'VOLTAGES_READY') {
-        setSimStatus('running');
+        if (e.data.singular) {
+          setSimStatus('error', 'Floating net');
+        } else {
+          setSimStatus('running');
+        }
         const { channels } = useScopeStore.getState();
         for (const ch of channels) {
           const value = voltages[ch.netId];
@@ -77,13 +84,17 @@ export default function SimController() {
   useEffect(() => {
     if (!readyRef.current || !workerRef.current || !sabRef.current) return;
 
+    const netlist = buildNetlist(nodes, components, wires);
+    useCircuitStore.getState().setWireBranchIndices(netlist.wireBranchIndex ?? {});
+
     workerRef.current.postMessage({
       type:       'UPDATE_NETLIST',
       nodes,
       components,
+      wires,
       sab:        sabRef.current,
     });
-  }, [nodes, components]);
+  }, [nodes, components, wires]);
 
   return null;
 }

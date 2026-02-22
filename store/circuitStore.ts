@@ -58,6 +58,7 @@ interface CircuitState extends TopologyState {
   selectedNodeId: string | null;
   selectedComponentId: string | null;
   wiringMode: boolean;
+  setWireBranchIndices: (indices: Record<string, number>) => void;
 
   addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[]): void;
   removeComponent(id: string): void;
@@ -95,7 +96,7 @@ export const useCircuitStore = create<CircuitState>()(
             ...state.components,
             [id]: { id, type, anchorPos: pos, rotationY: 0, pins, props: {} },
           };
-          const nodes = runNetAnalysis(state.nodes, state.wires);
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
         });
       },
@@ -103,7 +104,7 @@ export const useCircuitStore = create<CircuitState>()(
       removeComponent(id) {
         set((state) => {
           const { [id]: _removed, ...components } = state.components;
-          const nodes = runNetAnalysis(state.nodes, state.wires);
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
         });
       },
@@ -112,7 +113,7 @@ export const useCircuitStore = create<CircuitState>()(
         const id = crypto.randomUUID();
         set((state) => {
           const wires = { ...state.wires, [id]: { id, fromNodeId: fromId, toNodeId: toId, color } };
-          const nodes = runNetAnalysis(state.nodes, wires);
+          const nodes = runNetAnalysis(state.nodes, wires, state.components);
           return { wires, nodes };
         });
       },
@@ -120,7 +121,7 @@ export const useCircuitStore = create<CircuitState>()(
       removeWire(id) {
         set((state) => {
           const { [id]: _removed, ...wires } = state.wires;
-          const nodes = runNetAnalysis(state.nodes, wires);
+          const nodes = runNetAnalysis(state.nodes, wires, state.components);
           return { wires, nodes };
         });
       },
@@ -164,7 +165,7 @@ export const useCircuitStore = create<CircuitState>()(
 
       loadCircuit(components, wires) {
         set((state) => {
-          const nodes = runNetAnalysis(state.nodes, wires);
+          const nodes = runNetAnalysis(state.nodes, wires, components);
           return { components, wires, nodes, selectedComponentId: null, selectedNodeId: null };
         });
       },
@@ -174,10 +175,12 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       loadExample(circuit) {
+        const componentMap = Object.fromEntries(circuit.components.map((component) => [component.id, component]));
+        const wireMap = Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire]));
         set((state) => ({
           components: Object.fromEntries(circuit.components.map((component) => [component.id, component])),
           wires: Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire])),
-          nodes: runNetAnalysis(state.nodes, Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire]))),
+          nodes: runNetAnalysis(state.nodes, wireMap, componentMap),
           selectedComponentId: null,
           selectedNodeId: null,
         }));
@@ -200,8 +203,19 @@ export const useCircuitStore = create<CircuitState>()(
               )
             );
           }
-          const nodes = runNetAnalysis(state.nodes, wires);
+          const nodes = runNetAnalysis(state.nodes, wires, components);
           return { components, wires, nodes, selectedComponentId: null, selectedNodeId: null };
+        });
+      },
+
+      setWireBranchIndices(indices) {
+        set((state) => {
+          const wires = { ...state.wires };
+          for (const [id, wire] of Object.entries(wires)) {
+            const branchIndex = indices[id];
+            wires[id] = branchIndex == null ? { ...wire, branchIndex: undefined } : { ...wire, branchIndex };
+          }
+          return { wires };
         });
       },
     }),

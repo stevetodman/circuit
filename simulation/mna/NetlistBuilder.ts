@@ -9,14 +9,17 @@
  *   capacitor   → open circuit (DC)
  *   bjt / 555 / arduino / motor / tactileSwitch → skipped (future milestones)
  */
-import type { CircuitNode, PlacedComponent } from '@/types/circuit';
+import type { CircuitNode, PlacedComponent, Wire } from '@/types/circuit';
 import type { NetlistElement, Netlist } from './MNASolver';
 
 export function buildNetlist(
   nodes:      Record<string, CircuitNode>,
   components: Record<string, PlacedComponent>,
+  wires:      Record<string, Wire>,
 ): Netlist {
   const elements: NetlistElement[] = [];
+  const wireBranchIndex: Record<string, number> = {};
+  const branchElements: NetlistElement[] = [];
 
   // Determine netCount = max assigned netId + 1
   let maxNet = 0;
@@ -42,7 +45,9 @@ export function buildNetlist(
         const netB = pinNet(comp, 'p2');
         if (netA == null || netB == null || netA === netB) break;
         const R = typeof props.resistance === 'number' ? props.resistance : 1000;
-        elements.push({ id: comp.id, kind: 'resistor', netA, netB, value: R });
+        const element = { id: comp.id, kind: 'resistor', netA, netB, value: R };
+        elements.push(element);
+        branchElements.push(element);
         break;
       }
 
@@ -51,7 +56,9 @@ export function buildNetlist(
         const netB = pinNet(comp, 'neg'); // negative terminal
         if (netA == null || netB == null || netA === netB) break;
         const V = typeof props.voltage === 'number' ? props.voltage : 9;
-        elements.push({ id: comp.id, kind: 'vsource', netA, netB, value: V });
+        const element = { id: comp.id, kind: 'vsource', netA, netB, value: V };
+        elements.push(element);
+        branchElements.push(element);
         break;
       }
 
@@ -71,8 +78,25 @@ export function buildNetlist(
       // bjt, timer555, arduino, motor, tactileSwitch: future milestones
       default:
         break;
+      }
+  }
+
+  for (const wire of Object.values(wires)) {
+    const fromNode = nodes[wire.fromNodeId];
+    const toNode = nodes[wire.toNodeId];
+    if (!fromNode || !toNode) continue;
+    const netA = fromNode.netId;
+    const netB = toNode.netId;
+    if (netA == null || netB == null) continue;
+
+    const foundIndex = branchElements.findIndex((element) =>
+      element.kind !== 'diode' &&
+      ((element.netA === netA && element.netB === netB) || (element.netA === netB && element.netB === netA))
+    );
+    if (foundIndex >= 0) {
+      wireBranchIndex[wire.id] = foundIndex;
     }
   }
 
-  return { elements, netCount };
+  return { elements, netCount, wireBranchIndex };
 }

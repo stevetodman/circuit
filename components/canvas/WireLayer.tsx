@@ -8,8 +8,8 @@ export default function WireLayer() {
 
   return (
     <>
-      {Object.values(wires).map((wire, index) => (
-        <Wire key={wire.id} wire={wire} branchIndex={index} />
+      {Object.values(wires).map((wire) => (
+        <Wire key={wire.id} wire={wire} branchIndex={wire.branchIndex ?? 0} />
       ))}
     </>
   );

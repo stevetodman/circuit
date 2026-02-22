@@ -27,6 +27,7 @@ export interface NetlistElement {
 export interface Netlist {
   elements: NetlistElement[];
   netCount: number;   // total distinct nets including ground (0)
+  wireBranchIndex?: Record<string, number>;
 }
 
 // ── Diode parameters ───────────────────────────────────────────────────────────
@@ -80,27 +81,43 @@ function solve(G: Float64Array, b: Float64Array, n: number): Float64Array | null
   return x;
 }
 
+export interface SolveResult {
+  voltages: Float32Array;
+  branchCurrents: Float32Array;
+}
+
 // ── DC operating-point solver ──────────────────────────────────────────────────
-export function solveDC(netlist: Netlist): Float32Array | null {
+export function solveDC(netlist: Netlist): SolveResult | null {
   const { elements, netCount } = netlist;
 
   // Trivial cases
-  if (netCount <= 1) return new Float32Array(1); // only ground
+  if (netCount <= 1) {
+    return {
+      voltages: new Float32Array(1),
+      branchCurrents: new Float32Array(0),
+    };
+  }
 
   const vsources = elements.filter(e => e.kind === 'vsource');
+  const resistors = elements.filter(e => e.kind === 'resistor');
   const diodes   = elements.filter(e => e.kind === 'diode');
 
-  const nonGround = netCount - 1;          // rows 0…nonGround-1  → netIds 1…
-  const n         = nonGround + vsources.length;
+  const nonGroundNodeCount = netCount - 1;          // rows 0…nonGround-1  → netIds 1…
+  const n = nonGroundNodeCount + vsources.length;
 
-  if (n === 0) return new Float32Array(netCount);
+  if (n === 0) {
+    return {
+      voltages: new Float32Array(netCount),
+      branchCurrents: new Float32Array(0),
+    };
+  }
 
   // netId → matrix row (netId 0 = ground → excluded)
   const toRow = (id: number) => id - 1;
 
   // Newton-Raphson iteration (handles diodes; one pass for diode-free circuits)
   const Vd = new Float64Array(diodes.length).fill(0.65);
-  let   result: Float32Array | null = null;
+  let lastX: Float64Array | null = null;
 
   for (let iter = 0; iter < NR_ITER; iter++) {
     const G = new Float64Array(n * n);
@@ -127,7 +144,7 @@ export function solveDC(netlist: Netlist): Float32Array | null {
     // ── Stamp voltage sources ────────────────────────────────────────────────
     for (let vi = 0; vi < vsources.length; vi++) {
       const el    = vsources[vi];
-      const vsRow = nonGround + vi;
+      const vsRow = nonGroundNodeCount + vi;
       const rA    = el.netA > 0 ? toRow(el.netA) : -1;
       const rB    = el.netB > 0 ? toRow(el.netB) : -1;
       if (rA >= 0) { G[rA * n + vsRow] += 1; G[vsRow * n + rA] += 1; }
@@ -136,19 +153,19 @@ export function solveDC(netlist: Netlist): Float32Array | null {
     }
 
     // ── Small regularisation — prevents singular matrix for floating nets ─────
-    for (let i = 0; i < nonGround; i++) G[i * n + i] += 1e-12;
+    for (let i = 0; i < nonGroundNodeCount; i++) G[i * n + i] += 1e-12;
 
     // ── Solve ────────────────────────────────────────────────────────────────
     const x = solve(G, b, n);
     if (!x) return null;
-
-    // Build voltage result array indexed by netId
-    const r = new Float32Array(netCount);
-    for (let id = 1; id < netCount; id++) r[id] = x[toRow(id)];
-    result = r;
+    lastX = x;
 
     // ── Convergence check for diodes ─────────────────────────────────────────
     if (diodes.length === 0) break;
+
+    const r = new Float32Array(netCount);
+    for (let id = 1; id < netCount; id++) r[id] = x[toRow(id)];
+
     let converged = true;
     for (let di = 0; di < diodes.length; di++) {
       const el   = diodes[di];
@@ -161,7 +178,27 @@ export function solveDC(netlist: Netlist): Float32Array | null {
     if (converged) break;
   }
 
-  return result;
+  if (!lastX) return null;
+
+  const voltages = new Float32Array(netCount);
+  for (let id = 1; id < netCount; id++) {
+    voltages[id] = lastX[toRow(id)];
+  }
+
+  const branchCurrents = new Float32Array(resistors.length + vsources.length);
+  let branchIndex = 0;
+
+  for (const resistor of resistors) {
+    const vA = resistor.netA > 0 ? voltages[resistor.netA] : 0;
+    const vB = resistor.netB > 0 ? voltages[resistor.netB] : 0;
+    branchCurrents[branchIndex++] = (vA - vB) / Math.max(resistor.value, 1e-9);
+  }
+
+  for (let vi = 0; vi < vsources.length; vi++) {
+    branchCurrents[branchIndex++] = lastX[nonGroundNodeCount + vi];
+  }
+
+  return { voltages, branchCurrents };
 }
 
 // ── Helper: stamp a 2-terminal element ────────────────────────────────────────

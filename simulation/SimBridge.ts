@@ -21,10 +21,12 @@ import {
 export let voltages:      Float32Array = new Float32Array(MAX_NETS);
 export let digitalStates: Uint8Array   = new Uint8Array(MAX_NETS);
 export let branchCurrents: Float32Array = new Float32Array(MAX_BRANCHES);
+export let simTimestamp: Float64Array = new Float64Array(1);
 
 /** Call once on the main thread with the SharedArrayBuffer created in SimController. */
 export function init(sab: SharedArrayBuffer): void {
   voltages       = new Float32Array(sab, SAB_VOLTAGE_OFFSET, MAX_NETS);
   digitalStates  = new Uint8Array(sab,   SAB_DIGITAL_OFFSET, MAX_NETS);
   branchCurrents = new Float32Array(sab, SAB_CURRENT_OFFSET, MAX_BRANCHES);
+  simTimestamp   = new Float64Array(sab, SAB_TIMESTAMP_OFFSET, 1);
 }

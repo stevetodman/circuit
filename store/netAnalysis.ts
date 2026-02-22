@@ -1,4 +1,4 @@
-import type { CircuitNode, Wire } from '@/types/circuit';
+import type { CircuitNode, Wire, PlacedComponent } from '@/types/circuit';
 import { COLS, RAIL_HOLES } from '@/store/circuitStore';
 
 const TOP_LETTERS = ['a', 'b', 'c', 'd', 'e'];
@@ -36,7 +36,11 @@ function buildImplicitEdges(nodeIds: string[]): [string, string][] {
   return edges;
 }
 
-export function runNetAnalysis(nodes: Record<string, CircuitNode>, wires: Record<string, Wire>): Record<string, CircuitNode> {
+export function runNetAnalysis(
+  nodes: Record<string, CircuitNode>,
+  wires: Record<string, Wire>,
+  components: Record<string, PlacedComponent>,
+): Record<string, CircuitNode> {
   const nodeIds = Object.keys(nodes);
   const adj: Record<string, Set<string>> = {};
   const netIds: Record<string, number> = {};
@@ -88,6 +92,15 @@ export function runNetAnalysis(nodes: Record<string, CircuitNode>, wires: Record
   for (const id of nodeIds) {
     if (!visited.has(id) && (adj[id]?.size ?? 0) > 0) {
       bfs(id, nextNet++);
+    }
+  }
+
+  // Ensure every component pin node gets a netId, even if isolated
+  for (const comp of Object.values(components)) {
+    for (const pin of comp.pins) {
+      if (pin.nodeId && nodes[pin.nodeId] && !visited.has(pin.nodeId)) {
+        bfs(pin.nodeId, nextNet++);
+      }
     }
   }
 

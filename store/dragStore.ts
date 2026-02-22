@@ -74,8 +74,11 @@ export const useDragStore = create<DragState>()((set, get) => ({
         }
       }
 
-      if (bestDist < SNAP_THRESHOLD && bestNodeId && bestWorldPos) {
+      if (bestNodeId) {
         pins.push({ name: pinDef.name, nodeId: bestNodeId });
+      }
+
+      if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
         snappedAnchor = [
           bestWorldPos[0] - pinDef.offset[0],
           bestWorldPos[1] - pinDef.offset[1],
@@ -92,4 +95,3 @@ export const useDragStore = create<DragState>()((set, get) => ({
     set({ dragging: false, type: null, position: BOARD_CENTER });
   },
 }));
-
