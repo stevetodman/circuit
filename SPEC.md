@@ -1,103 +1,203 @@
-# SPEC: Top-Down Camera Default + Circuit Health Checker
+# SPEC: Live Inline Math in PropertiesInspector
 
-## Two independent changes — implement both.
+## Goal
+When a component is selected, show live simulation data (V, I, P) plus the
+Ohm's Law formula written out, directly in the PropertiesInspector panel.
+
 Run `pnpm build` — must pass with zero errors.
 
 ---
 
-## Change 1: Top-Down Camera as Default View
-
-### Goal
-New users find the perspective 3D view disorienting. Physical breadboards are
-always viewed from above. Make top-down (orthographic/perspective looking straight
-down) the default camera position.
-
-### Implementation
-
-Read `components/canvas/Scene.tsx` fully first.
-
-Find where the camera is initialized or where OrbitControls sets its initial position.
-
-Change the initial camera setup:
-- Position: directly above center, looking down: `[0, 15, 0]` or similar
-- Target: `[0, 0, 0]` (center of breadboard)
-- Rotation: straight down
-
-In R3F with OrbitControls, this is usually done via the camera `position` prop
-on the Canvas or PerspectiveCamera, OR via `OrbitControls` target + initial state.
-
-Look for:
-```tsx
-<PerspectiveCamera makeDefault position={[x, y, z]} />
-// or
-camera={{ position: [x, y, z] }}
-```
-
-Change to a top-down position. The breadboard is at y=0, roughly 13 units wide.
-A good top-down position: `position={[0, 12, 0.01]}` (the tiny z offset prevents gimbal lock).
-
-The OrbitControls should allow the user to still orbit to 3D view.
-
-Also update the `1` / `2` key shortcuts in `components/KeyboardShortcuts.tsx`:
-- `1` → perspective view (3D, at a nice angle like `[8, 8, 8]`)
-- `2` → top-down view (the new default)
-
-Currently `2` is top and `1` is perspective — keep this and just swap which is default.
+## Read first
+- `components/sidebar/PropertiesInspector.tsx` — full file, understand structure
+- `simulation/SimBridge.ts` — exports voltageView Float32Array
+- `store/circuitStore.ts` — selectedComponentId, components, nodes
+- `types/circuit.ts` — pin definitions, component types
 
 ---
 
-## Change 2: Circuit Health Checker (Enhanced)
+## Implementation
 
-The basic all-zero diagnostic was added in a previous branch. Enhance it with
-specific checks.
+### Add `LiveReadings` section to PropertiesInspector
 
-### Location
-Add health check logic to `components/SimController.tsx` or a new
-`components/CircuitHealthChecker.tsx` component.
+At the bottom of the inspector (after all existing fields), add a "Live Readings" section.
 
-### Checks to implement
+**Format helpers** (add near top of file):
+```typescript
+function fmtV(v: number): string {
+  const a = Math.abs(v);
+  if (a < 0.001) return '0 V';
+  if (a < 1) return `${(v * 1000).toFixed(1)} mV`;
+  return `${v.toFixed(3)} V`;
+}
+function fmtI(i: number): string {
+  const a = Math.abs(i);
+  if (a < 1e-6) return '0 A';
+  if (a < 0.001) return `${(i * 1e6).toFixed(1)} µA`;
+  if (a < 1) return `${(i * 1000).toFixed(2)} mA`;
+  return `${i.toFixed(3)} A`;
+}
+function fmtP(p: number): string {
+  const a = Math.abs(p);
+  if (a < 0.001) return `${(p * 1000).toFixed(2)} mW`;
+  return `${p.toFixed(3)} W`;
+}
+function fmtR(r: number): string {
+  if (r >= 1e6) return `${(r / 1e6).toFixed(2)}MΩ`;
+  if (r >= 1000) return `${(r / 1000).toFixed(2)}kΩ`;
+  return `${r.toFixed(0)}Ω`;
+}
+```
 
-Read `store/circuitStore.ts` and `store/netAnalysis.ts` to understand how to
-query topology.
+**LiveReadings component** (add inside PropertiesInspector.tsx file):
+```tsx
+import { voltageView } from '@/simulation/SimBridge';
 
-**Check 1: No complete circuit (already exists — improve message)**
-- Condition: components >= 2, battery exists, all voltages near 0
-- Message: "No current flowing — check that battery + and − both connect to the circuit"
+interface Reading { label: string; value: string; formula?: string; warn?: boolean }
 
-**Check 2: LED without current-limiting resistor**
-- Condition: LED exists, no resistor shares a net with the LED
-- Implementation:
-  ```typescript
-  const leds = components where type === 'led'
-  const resistors = components where type === 'resistor'
-  for each led:
-    const ledNetIds = led.pins.map(p => nodes[p.nodeId]?.netId).filter(Boolean)
-    const hasResistor = resistors.some(r =>
-      r.pins.some(p => ledNetIds.includes(nodes[p.nodeId]?.netId))
-    )
-    if (!hasResistor) → warn "LED needs a current-limiting resistor in series"
-  ```
-- Message: "LED connected without a resistor — add a 220–470Ω resistor to limit current"
+function getPinVoltage(nodes: Record<string, { netId: number | null }>, nodeId: string): number {
+  const netId = nodes[nodeId]?.netId;
+  return netId != null ? (voltageView[netId] ?? 0) : 0;
+}
 
-**Check 3: Short circuit (battery terminals directly connected)**
-- Condition: battery's positive and negative pins share the same net
-- Message: "Short circuit detected — battery + and − are directly connected"
+function computeReadings(comp: PlacedComponent, nodes: Record<string, { netId: number | null }>): Reading[] {
+  const pinV = (name: string) => {
+    const pin = comp.pins.find(p => p.name === name);
+    return pin ? getPinVoltage(nodes, pin.nodeId) : 0;
+  };
+  const pin0V = comp.pins[0] ? getPinVoltage(nodes, comp.pins[0].nodeId) : 0;
+  const pin1V = comp.pins[1] ? getPinVoltage(nodes, comp.pins[1].nodeId) : 0;
 
-**Check 4: Floating net (component pin with netId = null)**
-- Condition: any component pin has netId = null (not connected to anything)
-- Skip: don't report freshly placed components that haven't been wired yet (wait 3s)
-- Message: "Some component pins aren't connected — check all pins have wires"
+  switch (comp.type) {
+    case 'resistor': {
+      const R = typeof comp.props.resistance === 'number' ? comp.props.resistance : 1000;
+      const Vd = pin0V - pin1V;
+      const I = Vd / Math.max(R, 1e-9);
+      const P = Vd * I;
+      return [
+        { label: 'Voltage', value: fmtV(Vd) },
+        { label: 'Current', value: fmtI(I), formula: `I = V/R = ${fmtV(Math.abs(Vd))} ÷ ${fmtR(R)} = ${fmtI(Math.abs(I))}` },
+        { label: 'Power', value: fmtP(P), warn: P > 0.25, formula: P > 0.25 ? '⚠ Exceeds ¼W rating' : undefined },
+      ];
+    }
+    case 'led': {
+      const Va = pinV('anode');
+      const Vc = pinV('cathode');
+      const Vd = Va - Vc;
+      return [
+        { label: 'Forward V', value: fmtV(Math.max(0, Vd)) },
+        { label: 'State', value: Vd > 0.5 ? '✓ Conducting' : 'Off (reverse or zero)' },
+      ];
+    }
+    case 'battery': {
+      const Vp = pinV('positive');
+      const Vn = pinV('negative');
+      return [{ label: 'Terminal V', value: fmtV(Vp - Vn) }];
+    }
+    case 'capacitor': {
+      const Vd = pin0V - pin1V;
+      const C = typeof comp.props.capacitance === 'number' ? comp.props.capacitance : 1; // µF
+      return [
+        { label: 'Voltage', value: fmtV(Vd) },
+        { label: 'Charge', value: `${(C * Math.abs(Vd) * 1000).toFixed(2)} µC`, formula: `Q = C × V = ${C}µF × ${fmtV(Math.abs(Vd))}` },
+      ];
+    }
+    case 'bjt': {
+      const Vb = pinV('base');
+      const Vc2 = pinV('collector');
+      const Ve = pinV('emitter');
+      return [
+        { label: 'VBE', value: fmtV(Vb - Ve) },
+        { label: 'VCE', value: fmtV(Vc2 - Ve) },
+        { label: 'State', value: (Vb - Ve) > 0.55 ? '✓ Active (conducting)' : 'Off' },
+      ];
+    }
+    case 'diode':
+    case 'schottky':
+    case 'zener': {
+      const Va = pinV('anode');
+      const Vc2 = pinV('cathode');
+      const Vd = Va - Vc2;
+      return [
+        { label: 'V across', value: fmtV(Vd) },
+        { label: 'State', value: Vd > 0.2 ? '✓ Forward biased' : Vd < -0.1 ? 'Reverse biased' : 'Off' },
+      ];
+    }
+    case 'potentiometer': {
+      const Va = pinV('a');
+      const Vb2 = pinV('b');
+      const Vw = pinV('wiper');
+      return [
+        { label: 'V (a→b)', value: fmtV(Va - Vb2) },
+        { label: 'V at wiper', value: fmtV(Vw) },
+      ];
+    }
+    default: {
+      if (comp.pins.length >= 2) {
+        return [{ label: 'V across', value: fmtV(pin0V - pin1V) }];
+      }
+      return [];
+    }
+  }
+}
 
-### Rate limiting
-- Check at most once every 3 seconds
-- Don't show the same warning twice in a row
-- Clear warnings when circuit changes
+function LiveReadings({ componentId }: { componentId: string }) {
+  const [readings, setReadings] = useState<Reading[]>([]);
+  const comp = useCircuitStore(s => s.components[componentId]);
+  const nodes = useCircuitStore(s => s.nodes);
 
-### Display
-Use existing `toastStore` with severity `'warn'`.
-OR: add a small persistent indicator in `StatusBar.tsx` (bottom of sidebar).
+  useEffect(() => {
+    if (!comp) return;
+    const id = setInterval(() => {
+      setReadings(computeReadings(comp, nodes));
+    }, 100);
+    return () => clearInterval(id);
+  }, [comp, nodes]);
 
-The StatusBar approach is better — a persistent indicator that doesn't auto-dismiss.
-Add a yellow dot + short message in StatusBar when there's an active health warning.
+  if (!readings.length) return null;
 
-Read StatusBar.tsx first.
+  return (
+    <div className="mt-3 pt-3 border-t border-white/[0.08]">
+      <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-2">
+        Live Readings
+      </p>
+      <div className="space-y-1.5">
+        {readings.map((r, i) => (
+          <div key={i}>
+            <div className="flex justify-between items-baseline">
+              <span className="text-white/40 text-xs">{r.label}</span>
+              <span className={`font-mono text-xs ${r.warn ? 'text-yellow-400' : 'text-white/80'}`}>
+                {r.value}
+              </span>
+            </div>
+            {r.formula && (
+              <p className="text-[10px] text-white/25 font-mono mt-0.5 leading-relaxed">{r.formula}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### Integration
+
+Find the return statement in `PropertiesInspector` where component fields are rendered.
+After all fields, add:
+```tsx
+<LiveReadings componentId={selectedComponentId} />
+```
+
+The `selectedComponentId` — find where it's read from the store in the file.
+The `useState` and `useEffect` imports — add if not already imported.
+
+---
+
+## Implementation Notes
+- Read PropertiesInspector.tsx fully before editing — it's complex
+- `voltageView` is a module-level Float32Array — reads are synchronous and safe
+- The poll at 100ms is fast enough to feel live, cheap enough to not hurt perf
+- Pin names: check comp.pins array — names vary by component type
+- Handle missing pins gracefully (pin?.nodeId ?? fallback)
+- Run `pnpm build` — fix all TypeScript errors
