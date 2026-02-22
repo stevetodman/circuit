@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CircuitNode, PlacedComponent, Wire, ComponentType, Vec3 } from '@/types/circuit';
+import type { CircuitNode, PlacedComponent, Wire, ComponentType, Vec3, PinConnection } from '@/types/circuit';
 
 export const PITCH = 0.254;        // 2.54mm in Three.js units (1 unit = 10mm)
 export const CENTER_GAP = 0.508;   // gap between rows e and f
@@ -71,7 +71,7 @@ interface CircuitState {
   selectedNodeId: string | null;
   wiringMode: boolean;
 
-  addComponent(type: ComponentType, pos: Vec3): void;
+  addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[]): void;
   removeComponent(id: string): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
@@ -87,12 +87,20 @@ export const useCircuitStore = create<CircuitState>()((set) => ({
   selectedNodeId: null,
   wiringMode: false,
 
-  addComponent(type, pos) {
+  addComponent(type, pos, pins) {
+    const safePins = pins ?? [];
     const id = crypto.randomUUID();
     set((state) => ({
       components: {
         ...state.components,
-        [id]: { id, type, anchorPos: pos, rotationY: 0, pins: [], props: {} },
+        [id]: {
+          id,
+          type,
+          anchorPos: pos,
+          rotationY: 0,
+          pins: safePins,
+          props: {},
+        },
       },
     }));
   },
