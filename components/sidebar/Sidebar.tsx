@@ -13,6 +13,7 @@ import { useDragStore } from '@/store/dragStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
+import { useModuleStore } from '@/store/moduleStore';
 import LearnPanel from './LearnPanel';
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
@@ -227,6 +228,7 @@ export default function Sidebar() {
   const toggleSchematic = useSchematicStore((state) => state.toggle);
   const toggleHelp = useUIStore((state) => state.toggleHelp);
   const addToast = useToastStore((state) => state.addToast);
+  const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'parts' | 'learn'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
@@ -300,7 +302,9 @@ export default function Sidebar() {
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {/* ── Insert Part / Learn panel ── */}
-        <div className="flex-1 min-h-0 overflow-y-auto py-2">
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
+        >
           {tab === 'parts' ? (
             <>
               <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">
