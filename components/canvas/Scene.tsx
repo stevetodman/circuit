@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Breadboard from './Breadboard';
 import PinGrid from './Pin';
+import WireLayer from './WireLayer';
 
 const CANVAS_BG = 'linear-gradient(155deg, #f9f7ff 0%, #ede8f8 55%, #e8ecf8 100%)';
 
@@ -13,7 +14,7 @@ class SceneErrorBoundary extends Component<
   { children: ReactNode },
   { error: Error | null }
 > {
-  state = { error: null };
+  state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (this.state.error) {
@@ -45,6 +46,7 @@ export default function Scene() {
 
         {/* Scene geometry */}
         <Breadboard />
+        <WireLayer />
         <PinGrid />
 
         {/* Orbit camera */}

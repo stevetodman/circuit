@@ -12,6 +12,7 @@ const COLOR_SELECTED = new THREE.Color('#ff6b2b');
 export default function PinGrid() {
   const nodes      = useCircuitStore((s) => s.nodes);
   const selectedId = useCircuitStore((s) => s.selectedNodeId);
+  const addWire = useCircuitStore((s) => s.addWire);
   const selectNode = useCircuitStore((s) => s.selectNode);
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
@@ -63,10 +64,14 @@ export default function PinGrid() {
       if (e.instanceId == null) return;
       const node = nodeList[e.instanceId];
       if (!node) return;
-      console.log('[Circuit] Node selected:', node.id, '| pos:', node.worldPos);
-      selectNode(node.id);
+      if (!selectedId) {
+        selectNode(node.id);
+      } else if (selectedId !== node.id) {
+        addWire(selectedId, node.id);
+        selectNode(null);
+      }
     },
-    [nodeList, selectNode],
+    [nodeList, selectedId, addWire, selectNode],
   );
 
   return (
