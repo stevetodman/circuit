@@ -1,4 +1,4 @@
-import ELK from 'elkjs';
+import ELK from 'elkjs/lib/elk.bundled.js';
 import type { CircuitNode, PlacedComponent, Wire } from '@/types/circuit';
 
 export interface SchematicPos {

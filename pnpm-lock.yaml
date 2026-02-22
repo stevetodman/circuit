@@ -17,6 +17,9 @@ importers:
       '@types/three':
         specifier: ^0.183.1
         version: 0.183.1
+      avr8js:
+        specifier: ^0.21.0
+        version: 0.21.0
       elkjs:
         specifier: ^0.11.0
         version: 0.11.0
@@ -883,6 +886,10 @@ packages:
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
+
+  avr8js@0.21.0:
+    resolution: {integrity: sha512-kjFzxorERow5YFFV25ElhscG57TJqpT6M0m5GDDbXiMYoBmG6K99MQcq6AU1Ly4L+uB1g1o79dMmBNb5O+toxQ==}
+    engines: {node: '>= 20.19.0', npm: '>= 10.0.0'}
 
   axe-core@4.11.1:
     resolution: {integrity: sha512-BASOg+YwO2C+346x3LZOeoovTIoTrRqEsqMa6fmfAV0P+U9mFr9NsyOEpiYvFjbc64NMrSswhV50WdXzdb/Z5A==}
@@ -3045,6 +3052,8 @@ snapshots:
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
+
+  avr8js@0.21.0: {}
 
   axe-core@4.11.1: {}
 
