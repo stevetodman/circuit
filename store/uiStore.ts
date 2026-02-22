@@ -22,6 +22,7 @@ interface UIState {
   simErrorDismissed: boolean;
   power: number;
   simSpeed: number;
+  simPaused: boolean;
   overloadIds: string[];
   showCurrentLabels: boolean;
   showPolarityLabels: boolean;
@@ -55,6 +56,7 @@ interface UIState {
   dismissSimError:     () => void;
   setPower:            (power: number) => void;
   setSimSpeed:         (speed: number) => void;
+  toggleSimPaused: () => void;
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
@@ -95,6 +97,7 @@ export const useUIStore = create<UIState>()((set) => ({
   simErrorDismissed: false,
   power:         0,
   simSpeed:      1,
+  simPaused:     false,
   overloadIds:   [],
   showCurrentLabels: false,
   showPolarityLabels: true,
@@ -127,6 +130,7 @@ export const useUIStore = create<UIState>()((set) => ({
   dismissSimError: () => set({ simErrorDismissed: true }),
   setPower:      (power) => set({ power }),
   setSimSpeed:  (speed) => set({ simSpeed: speed }),
+  toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused })),
   setOverloadIds: (ids) => set({ overloadIds: ids }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setShowPolarityLabels: (showPolarityLabels) => set({ showPolarityLabels }),

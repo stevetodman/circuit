@@ -98,6 +98,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === ' ') {
+        e.preventDefault();
+        useUIStore.getState().toggleSimPaused();
+        return;
+      }
+
       // Toggle designator labels
       if (key === 'l') {
         e.preventDefault();

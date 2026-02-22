@@ -77,6 +77,8 @@ export default function StatusBar() {
   })));
   const simSpeed = useUIStore((s) => s.simSpeed);
   const setSimSpeed = useUIStore((s) => s.setSimSpeed);
+  const simPaused = useUIStore((s) => s.simPaused);
+  const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
   const [healthWarningDismissed, setHealthWarningDismissed] = useState(false);
 
   useEffect(() => {
@@ -203,6 +205,18 @@ export default function StatusBar() {
           className={toolbarBtnClass(showHelp)}
         >
           ?
+        </button>
+        <button
+          type="button"
+          onClick={toggleSimPaused}
+          title={simPaused ? 'Resume simulation (Space)' : 'Pause simulation (Space)'}
+          className={`w-6 h-5 flex items-center justify-center rounded text-[11px] transition-colors ${
+            simPaused
+              ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+              : 'text-white/40 hover:text-white/70 hover:bg-white/10'
+          }`}
+        >
+          {simPaused ? '▶' : '⏸'}
         </button>
         {[1, 2, 5, 10].map((speed) => (
           <button

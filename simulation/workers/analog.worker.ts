@@ -53,6 +53,9 @@ interface SetSpeedMsg {
   speed: number;
 }
 
+type PauseMsg = { type: 'PAUSE' };
+type ResumeMsg = { type: 'RESUME' };
+
 function buildComponentKindByElementId(
   components: Record<string, PlacedComponent>,
 ): Record<string, DiodeKind> {
@@ -199,6 +202,7 @@ let timestampView: Float64Array | null = null;
 let digitalStateView: Uint8Array | null = null;
 let branchIndexByElementId: Record<string, number> = {};
 let diodeKindByElementId: Record<string, DiodeKind> = {};
+let wasRunning = false;
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -394,18 +398,20 @@ function tick(): void {
 }
 
 function startLoop() {
+  wasRunning = true;
   if (intervalId) return;
   intervalId = setInterval(tick, currentIntervalMs);
 }
 
 function stopLoop() {
+  wasRunning = intervalId !== null;
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
   }
 }
 
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg>) => {
+self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
   const msg = e.data;
   if (msg.type === 'SET_SPEED') {
     currentIntervalMs = DT_MS / msg.speed;
@@ -413,6 +419,16 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg>) => {
       clearInterval(intervalId);
       intervalId = setInterval(tick, currentIntervalMs);
     }
+    return;
+  }
+
+  if (msg.type === 'PAUSE') {
+    stopLoop();
+    return;
+  }
+
+  if (msg.type === 'RESUME') {
+    if (wasRunning) startLoop();
     return;
   }
 

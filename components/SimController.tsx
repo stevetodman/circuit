@@ -103,6 +103,7 @@ export default function SimController() {
   const setSimError   = useUIStore((s) => s.setSimError);
   const setPower      = useUIStore((s) => s.setPower);
   const simSpeed      = useUIStore((s) => s.simSpeed);
+  const simPaused     = useUIStore((s) => s.simPaused);
   const setCircuitHealthWarning = useUIStore((s) => s.setCircuitHealthWarning);
   const addToast      = useToastStore((s) => s.addToast);
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
@@ -268,6 +269,11 @@ export default function SimController() {
     if (!workerRef.current) return;
     workerRef.current.postMessage({ type: 'SET_SPEED', speed: simSpeed });
   }, [simSpeed]);
+
+  useEffect(() => {
+    if (!workerRef.current) return;
+    workerRef.current.postMessage({ type: simPaused ? 'PAUSE' : 'RESUME' });
+  }, [simPaused]);
 
   // ── Post netlist whenever topology changes ──────────────────────────────────
   const runCircuitHealthCheck = () => {
