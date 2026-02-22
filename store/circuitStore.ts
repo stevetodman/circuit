@@ -429,3 +429,8 @@ if (typeof window !== 'undefined') {
 
 // Convenience accessor for undo/redo — use in keyboard shortcut handler
 export const useCircuitHistory = () => useCircuitStore.temporal;
+
+// Pause/resume undo tracking — used by PropertiesInspector to batch
+// a whole field-edit session (focus→blur) into a single undo entry.
+export const pausePropertyUndo  = () => useCircuitStore.temporal.getState().pause();
+export const resumePropertyUndo = () => useCircuitStore.temporal.getState().resume();

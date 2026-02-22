@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useCircuitStore } from '@/store/circuitStore';
+import { useCircuitStore, pausePropertyUndo, resumePropertyUndo } from '@/store/circuitStore';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
 
 // ── Property field definitions per component type ─────────────────────────────
@@ -166,6 +166,8 @@ function NumberInput({
             const n = parseFloat(e.target.value);
             if (!isNaN(n)) onChange(Math.max(field.min, Math.min(field.max, n)));
           }}
+          onFocus={pausePropertyUndo}
+          onBlur={resumePropertyUndo}
           className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
                      rounded px-2 py-1 border border-white/[0.08]
                      focus:outline-none focus:border-[#7c6fff]/60
@@ -207,6 +209,10 @@ function LogNumberInput({
         max={100}
         step={0.1}
         value={sliderValue}
+        onMouseDown={pausePropertyUndo}
+        onMouseUp={resumePropertyUndo}
+        onTouchStart={pausePropertyUndo}
+        onTouchEnd={resumePropertyUndo}
         onChange={(e) => {
           const t = parseFloat(e.target.value);
           if (Number.isNaN(t)) return;
@@ -237,6 +243,8 @@ function ColorInput({
       <input
         type="color"
         value={value}
+        onFocus={pausePropertyUndo}
+        onBlur={resumePropertyUndo}
         onChange={(e) => onChange(e.target.value)}
         className="w-7 h-7 rounded border border-white/[0.12] bg-transparent cursor-pointer p-0.5"
       />
@@ -391,6 +399,10 @@ function Inspector({ component }: { component: PlacedComponent }) {
                     max={1}
                     step={0.01}
                     value={Math.max(0, Math.min(1, getValue(field) as number))}
+                    onMouseDown={pausePropertyUndo}
+                    onMouseUp={resumePropertyUndo}
+                    onTouchStart={pausePropertyUndo}
+                    onTouchEnd={resumePropertyUndo}
                     onChange={(e) => setProperty(component.id, field.key, parseFloat(e.target.value))}
                     className="w-full accent-[#7c6fff]"
                   />

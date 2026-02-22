@@ -36,7 +36,7 @@ function WelcomeOverlay() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('noWelcome') || params.has('autoload')) return;
+    if (params.has('noWelcome') || params.has('autoload') || params.has('c')) return;
     if (!localStorage.getItem(WELCOME_KEY)) setVisible(true);
   }, []);
 

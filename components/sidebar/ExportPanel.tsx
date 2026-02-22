@@ -4,6 +4,7 @@ import { useMemo, useRef, type ChangeEvent } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { exportSPICE } from '@/features/export/exportNetlist';
 import { useToastStore } from '@/store/toastStore';
+import { CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
 
 export default function ExportPanel() {
   const nodes = useCircuitStore((state) => state.nodes);
@@ -51,6 +52,18 @@ export default function ExportPanel() {
     fileInputRef.current?.click();
   };
 
+  const onCopyLink = async () => {
+    const json = saveToJSON();
+    try {
+      const encoded = await compressCircuit(json);
+      const url = `${window.location.origin}${window.location.pathname}?${CIRCUIT_URL_PARAM}=${encoded}`;
+      await navigator.clipboard.writeText(url);
+      addToast('Circuit link copied to clipboard!', 'info');
+    } catch {
+      addToast('Failed to copy link', 'error');
+    }
+  };
+
   const onLoadJSONFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -96,6 +109,12 @@ export default function ExportPanel() {
         className="w-full text-[10px] py-1.5 rounded bg-[#a05eff]/20 text-[#d2abff] hover:bg-[#a05eff]/30 transition-colors"
       >
         Load JSON
+      </button>
+      <button
+        onClick={onCopyLink}
+        className="w-full text-[10px] py-1.5 rounded bg-[#ff9500]/15 text-[#ffb84d] hover:bg-[#ff9500]/25 transition-colors"
+      >
+        🔗 Copy link
       </button>
 
       <input

@@ -20,6 +20,7 @@ import { branchCurrents, voltages } from '@/simulation/SimBridge';
 import { buildNetlist } from '@/simulation/mna/NetlistBuilder';
 import type { NetlistElement } from '@/simulation/mna/MNASolver';
 import { useToastStore } from '@/store/toastStore';
+import { CIRCUIT_URL_PARAM, decompressCircuit } from '@/features/sharing/circuitUrl';
 
 interface ResistiveBranch {
   branchIndex: number;
@@ -91,13 +92,24 @@ export default function SimController() {
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
   const lastPowerSampleRef = useRef(0);
 
-  // Auto-load circuit from localStorage on mount (P0-1)
+  // Auto-load: ?c= URL param takes priority over localStorage (T1.2)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const params  = new URLSearchParams(window.location.search);
+    const encoded = params.get(CIRCUIT_URL_PARAM);
+    if (encoded) {
+      decompressCircuit(encoded)
+        .then((json) => {
+          loadFromJSON(json);
+          // Clean the URL so refreshing doesn't re-load stale shared state
+          window.history.replaceState({}, '', window.location.pathname);
+        })
+        .catch(() => addToast('Invalid circuit link — could not decode', 'error'));
+      return;
+    }
     const savedJSON = window.localStorage.getItem(CIRCUIT_SAVE_KEY);
-    if (!savedJSON) return;
-    loadFromJSON(savedJSON);
-  }, [loadFromJSON]);
+    if (savedJSON) loadFromJSON(savedJSON);
+  }, [loadFromJSON, addToast]);
 
   // ── Create worker + SAB on mount ────────────────────────────────────────────
   useEffect(() => {
