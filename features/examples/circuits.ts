@@ -120,6 +120,67 @@ const potDividerPotB   = topNodeId(CENTER_COL - 4, 4);
 const potDividerRes    = topNodeId(CENTER_COL + 2, 4);
 const potDividerLedK   = topNodeId(CENTER_COL + 4, 4);
 
+const starterPotDimBatPos = topNodeId(5, 2);
+const starterPotDimBatNeg = topNodeId(6, 2);
+const starterPotDimPotA = topNodeId(15, 0);
+const starterPotDimPotW = topNodeId(15, 2);
+const starterPotDimPotB = topNodeId(15, 4);
+const starterPotDimLedA = topNodeId(25, 2);
+const starterPotDimLedK = topNodeId(26, 2);
+
+const starterSwitchLedBatPos = topNodeId(5, 2);
+const starterSwitchLedBatNeg = topNodeId(6, 2);
+const starterSwitchLedSwP1 = topNodeId(15, 2);
+const starterSwitchLedSwP2 = topNodeId(16, 2);
+const starterSwitchLedR1 = topNodeId(20, 2);
+const starterSwitchLedR2 = topNodeId(21, 2);
+const starterSwitchLedLedA = topNodeId(25, 2);
+const starterSwitchLedLedK = topNodeId(26, 2);
+
+const starterVoltageDividerBatPos = topNodeId(5, 2);
+const starterVoltageDividerBatNeg = topNodeId(6, 2);
+const starterVoltageDividerR1P1 = topNodeId(15, 2);
+const starterVoltageDividerR1P2 = topNodeId(16, 2);
+const starterVoltageDividerMid = topNodeId(18, 2);
+const starterVoltageDividerR2P1 = topNodeId(20, 2);
+const starterVoltageDividerR2P2 = topNodeId(21, 2);
+const starterVoltageDividerLedA = topNodeId(18, 2);
+const starterVoltageDividerLedK = topNodeId(6, 2);
+
+const starterRcTimBatPos = topNodeId(5, 2);
+const starterRcTimBatNeg = topNodeId(6, 2);
+const starterRcTimR1P1 = topNodeId(15, 2);
+const starterRcTimR1P2 = topNodeId(16, 2);
+const starterRcTimCapA = topNodeId(20, 2);
+const starterRcTimCapB = topNodeId(21, 2);
+
+const starterBjtSwitchBatPos = topNodeId(5, 2);
+const starterBjtSwitchBatNeg = topNodeId(6, 2);
+const starterBjtSwitchBase = topNodeId(20, 1);
+const starterBjtSwitchCollector = topNodeId(20, 0);
+const starterBjtSwitchEmitter = topNodeId(20, 2);
+const starterBjtSwitchBaseResP2 = topNodeId(20, 1);
+const starterBjtSwitchLedA = topNodeId(25, 2);
+const starterBjtSwitchLedK = topNodeId(26, 2);
+
+const starterBlinkerBatPos = topNodeId(5, 2);
+const starterBlinkerBatNeg = topNodeId(6, 2);
+const starterBlinkerVcc = topNodeId(15, 2);
+const starterBlinkerGnd = topNodeId(16, 2);
+const starterBlinkerTrig = topNodeId(20, 2);
+const starterBlinkerOut = topNodeId(25, 2);
+const starterBlinkerR1P2 = topNodeId(20, 2);
+const starterBlinkerCapA = topNodeId(25, 2);
+const starterBlinkerLedA = topNodeId(25, 2);
+const starterBlinkerLedK = topNodeId(26, 2);
+
+const starterArduinoPin13 = topNodeId(26, 2);
+const starterArduinoResA = topNodeId(26, 2);
+const starterArduinoResB = topNodeId(27, 2);
+const starterArduinoLedA = topNodeId(27, 2);
+const starterArduinoLedK = topNodeId(28, 2);
+const starterArduinoGnd = railNode('tn', 1);
+
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
     id: 'battery-only',
@@ -454,6 +515,430 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
       nodes: {},
       wires: [],
     },
+  },
+  {
+    id: 'pot-dimmer',
+    name: 'Potentiometer Dimmer',
+    description: 'Battery, potentiometer and LED with brightness control',
+    components: [
+      {
+        id: 'example-starter-pot-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterPotDimBatPos },
+          { name: 'neg', nodeId: starterPotDimBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-pot',
+        type: 'potentiometer',
+        anchorPos: midpoint(topNodePos(14, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'a', nodeId: starterPotDimPotA },
+          { name: 'wiper', nodeId: starterPotDimPotW },
+          { name: 'b', nodeId: starterPotDimPotB },
+        ],
+        props: { resistance: 10000, wiper: 0.5 },
+      },
+      {
+        id: 'example-starter-pot-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(25, 2), topNodePos(26, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterPotDimLedA },
+          { name: 'cathode', nodeId: starterPotDimLedK },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-pot-w1', fromNodeId: starterPotDimBatPos, toNodeId: starterPotDimPotA, color: '#cc4444' },
+      { id: 'example-starter-pot-w2', fromNodeId: starterPotDimPotW, toNodeId: starterPotDimLedA, color: '#22aa22' },
+      { id: 'example-starter-pot-w3', fromNodeId: starterPotDimPotB, toNodeId: starterPotDimBatNeg, color: '#333333' },
+      { id: 'example-starter-pot-w4', fromNodeId: starterPotDimLedK, toNodeId: starterPotDimBatNeg, color: '#333333' },
+    ],
+  },
+  {
+    id: 'switch-led',
+    name: 'Battery + Switch + LED',
+    description: 'Tactile switch controls current to an LED through a 220Ω resistor',
+    components: [
+      {
+        id: 'example-starter-switch-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterSwitchLedBatPos },
+          { name: 'neg', nodeId: starterSwitchLedBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-switch',
+        type: 'tactileSwitch',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterSwitchLedSwP1 },
+          { name: 'p2', nodeId: starterSwitchLedSwP2 },
+        ],
+        props: { closed: 0 },
+      },
+      {
+        id: 'example-starter-switch-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(20, 2), topNodePos(21, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterSwitchLedR1 },
+          { name: 'p2', nodeId: starterSwitchLedR2 },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-starter-switch-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(25, 2), topNodePos(26, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterSwitchLedLedA },
+          { name: 'cathode', nodeId: starterSwitchLedLedK },
+        ],
+        props: {},
+      },
+    ],
+    wires: [
+      { id: 'example-starter-switch-w1', fromNodeId: starterSwitchLedBatPos, toNodeId: starterSwitchLedSwP1, color: '#cc4444' },
+      { id: 'example-starter-switch-w2', fromNodeId: starterSwitchLedSwP2, toNodeId: starterSwitchLedR1, color: '#22aa22' },
+      { id: 'example-starter-switch-w3', fromNodeId: starterSwitchLedR2, toNodeId: starterSwitchLedLedA, color: '#2288cc' },
+      { id: 'example-starter-switch-w4', fromNodeId: starterSwitchLedLedK, toNodeId: starterSwitchLedBatNeg, color: '#333333' },
+    ],
+  },
+  {
+    id: 'voltage-divider-demo',
+    name: 'Voltage Divider with Probe',
+    description: 'Battery and two 10 kΩ resistors in series with LED at midpoint',
+    components: [
+      {
+        id: 'example-starter-divider-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterVoltageDividerBatPos },
+          { name: 'neg', nodeId: starterVoltageDividerBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-divider-r1',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterVoltageDividerR1P1 },
+          { name: 'p2', nodeId: starterVoltageDividerR1P2 },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-starter-divider-r2',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(20, 2), topNodePos(21, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterVoltageDividerR2P1 },
+          { name: 'p2', nodeId: starterVoltageDividerR2P2 },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-starter-divider-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(18, 2), topNodePos(19, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterVoltageDividerLedA },
+          { name: 'cathode', nodeId: starterVoltageDividerLedK },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-divider-w1', fromNodeId: starterVoltageDividerR1P2, toNodeId: starterVoltageDividerMid, color: '#22aa22' },
+      { id: 'example-starter-divider-w2', fromNodeId: starterVoltageDividerMid, toNodeId: starterVoltageDividerR2P1, color: '#22aa22' },
+      { id: 'example-starter-divider-w3', fromNodeId: starterVoltageDividerR2P2, toNodeId: starterVoltageDividerBatNeg, color: '#333333' },
+      { id: 'example-starter-divider-w4', fromNodeId: starterVoltageDividerLedA, toNodeId: starterVoltageDividerMid, color: '#aa0000' },
+      { id: 'example-starter-divider-w5', fromNodeId: starterVoltageDividerLedK, toNodeId: starterVoltageDividerBatNeg, color: '#333333' },
+    ],
+  },
+  {
+    id: 'rc-timing',
+    name: 'RC Timing',
+    description: 'Battery with resistor and capacitor pair for timing/charging behavior',
+    components: [
+      {
+        id: 'example-starter-rc-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterRcTimBatPos },
+          { name: 'neg', nodeId: starterRcTimBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-rc-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterRcTimR1P1 },
+          { name: 'p2', nodeId: starterRcTimR1P2 },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-starter-rc-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(20, 2), topNodePos(21, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterRcTimCapA },
+          { name: 'neg', nodeId: starterRcTimCapB },
+        ],
+        props: { capacitance: 100 },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-rc-w1', fromNodeId: starterRcTimR1P2, toNodeId: starterRcTimCapA, color: '#22aa22' },
+      { id: 'example-starter-rc-w2', fromNodeId: starterRcTimCapB, toNodeId: starterRcTimBatNeg, color: '#333333' },
+      { id: 'example-starter-rc-w3', fromNodeId: starterRcTimR1P1, toNodeId: starterRcTimBatPos, color: '#22aa22' },
+    ],
+  },
+  {
+    id: 'bjt-switch-demo',
+    name: 'NPN BJT LED Switch',
+    description: 'NPN transistor switch with base bias and LED output resistor',
+    components: [
+      {
+        id: 'example-starter-bjt-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterBjtSwitchBatPos },
+          { name: 'neg', nodeId: starterBjtSwitchBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-bjt-base-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(18, 2), topNodePos(20, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterBjtSwitchBatPos },
+          { name: 'p2', nodeId: starterBjtSwitchBaseResP2 },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-starter-bjt-transistor',
+        type: 'bjt',
+        anchorPos: midpoint(topNodePos(20, 1), topNodePos(20, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'base', nodeId: starterBjtSwitchBase },
+          { name: 'collector', nodeId: starterBjtSwitchCollector },
+          { name: 'emitter', nodeId: starterBjtSwitchBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-bjt-led-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(22, 2), topNodePos(24, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterBjtSwitchBatPos },
+          { name: 'p2', nodeId: starterBjtSwitchLedA },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-starter-bjt-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(25, 2), topNodePos(26, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterBjtSwitchLedA },
+          { name: 'cathode', nodeId: starterBjtSwitchLedK },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-bjt-w1', fromNodeId: starterBjtSwitchBaseResP2, toNodeId: starterBjtSwitchBase, color: '#22aa22' },
+      { id: 'example-starter-bjt-w2', fromNodeId: starterBjtSwitchLedK, toNodeId: starterBjtSwitchCollector, color: '#222222' },
+    ],
+  },
+  {
+    id: 'blinker-555-demo',
+    name: '555 Timer Blinker',
+    description: '555 timer with RC timing network and LED output',
+    components: [
+      {
+        id: 'example-starter-555-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterBlinkerBatPos },
+          { name: 'neg', nodeId: starterBlinkerBatNeg },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-555-timer',
+        type: 'timer555',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(18, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'vcc', nodeId: starterBlinkerVcc },
+          { name: 'gnd', nodeId: starterBlinkerGnd },
+          { name: 'out', nodeId: starterBlinkerOut },
+          { name: 'trig', nodeId: starterBlinkerTrig },
+          { name: 'thresh', nodeId: starterBlinkerTrig },
+        ],
+        props: {
+          r1: 1000,
+          r2: 10000,
+          capacitance: 10,
+        },
+      },
+      {
+        id: 'example-starter-555-r1',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(16, 2), topNodePos(17, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterBlinkerVcc },
+          { name: 'p2', nodeId: starterBlinkerR1P2 },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'example-starter-555-r2',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(21, 2), topNodePos(23, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterBlinkerR1P2 },
+          { name: 'p2', nodeId: starterBlinkerOut },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-starter-555-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(24, 2), topNodePos(25, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: starterBlinkerCapA },
+          { name: 'neg', nodeId: starterBlinkerGnd },
+        ],
+        props: { capacitance: 10 },
+      },
+      {
+        id: 'example-starter-555-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(25, 2), topNodePos(26, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterBlinkerLedA },
+          { name: 'cathode', nodeId: starterBlinkerLedK },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-555-w1', fromNodeId: starterBlinkerBatPos, toNodeId: starterBlinkerVcc, color: '#cc4444' },
+      { id: 'example-starter-555-w2', fromNodeId: starterBlinkerBatNeg, toNodeId: starterBlinkerGnd, color: '#333333' },
+      { id: 'example-starter-555-w3', fromNodeId: starterBlinkerCapA, toNodeId: starterBlinkerOut, color: '#22aa22' },
+      { id: 'example-starter-555-w4', fromNodeId: starterBlinkerOut, toNodeId: starterBlinkerLedA, color: '#aa0000' },
+      { id: 'example-starter-555-w5', fromNodeId: starterBlinkerLedK, toNodeId: starterBlinkerBatNeg, color: '#333333' },
+    ],
+  },
+  {
+    id: 'arduino-blink',
+    name: 'Arduino Blink',
+    description: 'Arduino Uno pin 13 and LED with 220Ω resistor',
+    components: [
+      {
+        id: 'example-starter-arduino',
+        type: 'arduino',
+        anchorPos: midpoint(topNodePos(10, 2), topNodePos(23, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'd13', nodeId: starterArduinoPin13 },
+          { name: 'd12', nodeId: topNodeId(18, 2) },
+          { name: 'd11', nodeId: topNodeId(17, 2) },
+          { name: 'd10', nodeId: topNodeId(16, 2) },
+          { name: 'd9', nodeId: topNodeId(15, 2) },
+          { name: 'd8', nodeId: topNodeId(14, 2) },
+          { name: 'd7', nodeId: topNodeId(13, 2) },
+          { name: 'd6', nodeId: topNodeId(12, 2) },
+          { name: 'd5', nodeId: topNodeId(11, 2) },
+          { name: 'd4', nodeId: topNodeId(10, 2) },
+          { name: 'd3', nodeId: topNodeId(9, 2) },
+          { name: 'd2', nodeId: topNodeId(8, 2) },
+          { name: 'd1', nodeId: topNodeId(7, 2) },
+          { name: 'd0', nodeId: topNodeId(6, 2) },
+          { name: 'a0', nodeId: topNodeId(5, 2) },
+          { name: 'a1', nodeId: topNodeId(4, 2) },
+          { name: 'a2', nodeId: topNodeId(3, 2) },
+          { name: 'a3', nodeId: topNodeId(2, 2) },
+          { name: 'a4', nodeId: topNodeId(1, 2) },
+          { name: 'a5', nodeId: topNodeId(0, 2) },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-starter-arduino-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(26, 2), topNodePos(27, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: starterArduinoResA },
+          { name: 'p2', nodeId: starterArduinoResB },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'example-starter-arduino-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(27, 2), topNodePos(28, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: starterArduinoLedA },
+          { name: 'cathode', nodeId: starterArduinoLedK },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [
+      { id: 'example-starter-arduino-w1', fromNodeId: starterArduinoPin13, toNodeId: starterArduinoResA, color: '#22aa22' },
+      { id: 'example-starter-arduino-w2', fromNodeId: starterArduinoLedA, toNodeId: starterArduinoResB, color: '#22aa22' },
+      { id: 'example-starter-arduino-w3', fromNodeId: starterArduinoLedK, toNodeId: starterArduinoGnd, color: '#333333' },
+    ],
   },
   {
     name: 'LED + Resistor',

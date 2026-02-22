@@ -19,6 +19,7 @@ export const MODULES: Module[] = [
     subtitle: 'What voltage and current actually are',
     concept:
       'Electricity is the flow of electrons through a conductor. Voltage is the pressure that pushes them. Current is how many flow per second. In this module you\'ll see both — measured in real time.',
+    autoLoadId: 'battery-only',
     steps: [
       {
         id: 'place-battery',
@@ -44,6 +45,7 @@ export const MODULES: Module[] = [
     concept:
       'Electricity can only flow in a closed loop. A battery with nothing connected to it does nothing — even with voltage at its terminals. You need a path from + back to −.',
     prerequisiteId: 'hello-electricity',
+    autoLoadId: 'battery-resistor',
     steps: [
       {
         id: 'place-battery',
@@ -74,6 +76,7 @@ export const MODULES: Module[] = [
     concept:
       'An LED (Light-Emitting Diode) only conducts in one direction. Connect it backwards and nothing happens. Connect it right, and it glows. This module shows why polarity matters.',
     prerequisiteId: 'complete-circle',
+    autoLoadId: 'battery-led-resistor',
     steps: [
       {
         id: 'place-battery',
@@ -136,6 +139,7 @@ export const MODULES: Module[] = [
     concept:
       'More resistance → less current → dimmer LED. Less resistance → more current → brighter LED. But there\'s a minimum resistance needed to protect the LED. You\'ll find it.',
     prerequisiteId: 'bodyguard',
+    autoLoadId: 'pot-dimmer',
     steps: [
       {
         id: 'place-pot',
@@ -160,6 +164,7 @@ export const MODULES: Module[] = [
     concept:
       'A switch interrupts current flow. When open, no current flows. When closed, the circuit completes. This is the basis of all digital electronics — 0 and 1, off and on.',
     prerequisiteId: 'dimmer',
+    autoLoadId: 'switch-led',
     steps: [
       {
         id: 'build-switch-circuit',
@@ -182,6 +187,7 @@ export const MODULES: Module[] = [
     concept:
       'Two resistors in series share the voltage proportionally. If R1 = R2, each gets half. The potentiometer is a voltage divider with a movable tap point.',
     prerequisiteId: 'take-control',
+    autoLoadId: 'voltage-divider-demo',
     steps: [
       {
         id: 'build-divider',
@@ -204,6 +210,7 @@ export const MODULES: Module[] = [
     concept:
       'A capacitor stores charge like a tiny battery. When power is applied, it charges slowly through a resistor. The time constant τ = R × C determines how fast.',
     prerequisiteId: 'voltage-sharing',
+    autoLoadId: 'rc-timing',
     steps: [
       {
         id: 'build-rc',
@@ -228,6 +235,7 @@ export const MODULES: Module[] = [
     concept:
       'A transistor is an electronic switch. A small base current controls a much larger collector current. This is how computers amplify and switch signals billions of times per second.',
     prerequisiteId: 'memory-cell',
+    autoLoadId: 'bjt-switch-demo',
     steps: [
       {
         id: 'build-bjt',
@@ -251,6 +259,7 @@ export const MODULES: Module[] = [
     concept:
       'The 555 timer is one of the most useful chips ever made. In astable mode it oscillates — automatically switching output between high and low at a frequency you control with R and C.',
     prerequisiteId: 'electronic-switch',
+    autoLoadId: 'blinker-555-demo',
     steps: [
       {
         id: 'place-555',
@@ -274,6 +283,7 @@ export const MODULES: Module[] = [
     concept:
       'A microcontroller is a tiny computer on a chip. It runs code you write, reads sensors, and controls outputs. In this module you\'ll upload a sketch and watch it blink an LED.',
     prerequisiteId: 'blinker',
+    autoLoadId: 'arduino-blink',
     steps: [
       {
         id: 'place-arduino',
