@@ -7,7 +7,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useDragStore } from '@/store/dragStore';
 import { useScopeStore } from '@/store/scopeStore';
-import { voltages } from '@/simulation/SimBridge';
+import { simTimestamp, voltages } from '@/simulation/SimBridge';
 
 // ── Mode indicator ─────────────────────────────────────────────────────────────
 function ModeChip({ label, color }: { label: string; color: string }) {
@@ -35,6 +35,13 @@ function formatPower(power: number): string {
     return `${safePower.toFixed(1)} W`;
   }
   return `${mw.toFixed(1)} mW`;
+}
+
+function formatSimTime(seconds: number): string {
+  if (seconds < 0.001) return '0ms';
+  if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
 }
 
 export default function StatusBar() {
@@ -79,6 +86,7 @@ export default function StatusBar() {
   const setSimSpeed = useUIStore((s) => s.setSimSpeed);
   const simPaused = useUIStore((s) => s.simPaused);
   const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
+  const [simTimeS, setSimTimeS] = useState(0);
   const [healthWarningDismissed, setHealthWarningDismissed] = useState(false);
 
   useEffect(() => {
@@ -98,6 +106,7 @@ export default function StatusBar() {
     }`;
 
   // Count non-null distinct nets (for net count display)
+  const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
   const netCount = useCircuitStore((s) => {
     const ids = new Set<number>();
     for (const n of Object.values(s.nodes)) {
@@ -115,6 +124,14 @@ export default function StatusBar() {
   else if (selectedComponentId) { modeLabel = 'Select'; modeColor = '#44bb88'; }
 
   const dot = SIM_DOT[simStatus];
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSimTimeS(simTimestamp ? simTimestamp[0] ?? 0 : 0);
+    }, 200);
+
+    return () => clearInterval(id);
+  }, []);
 
   let contextText = '';
   let contextTextClass = 'text-[10px]';
@@ -233,6 +250,14 @@ export default function StatusBar() {
             {speed}×
           </button>
         ))}
+      </div>
+
+      <div className="flex items-center gap-3 px-3 pb-1 text-[9px] font-mono text-white/25">
+        <span title="Component count">{componentCount} parts</span>
+        <span title="Net count">{netCount} nets</span>
+        {simTimeS > 0 && (
+          <span title="Simulated time elapsed">⏱ {formatSimTime(simTimeS)}</span>
+        )}
       </div>
 
       <div className="flex items-center gap-2 px-3 pb-2 min-h-[20px]">

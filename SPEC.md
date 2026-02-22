@@ -1,122 +1,86 @@
-# SPEC: Analog Simulation Pause / Resume
+# SPEC: Circuit Statistics in StatusBar
 
-Add a ⏸/▶ toggle to pause and resume the analog simulation transient loop,
-plus a spacebar shortcut. Pausing freezes the SAB so the oscilloscope and
-LED brightness hold their last values without flickering or resetting.
+Show a compact circuit summary in the StatusBar:
+component count, net count, and sim time (for transient circuits).
+
+The StatusBar already shows sim status, power, and mode chip.
+Add a stats line with these three numbers.
 
 ## Read First
-- `simulation/workers/analog.worker.ts` — look for `startLoop()`, `stopLoop()`,
-  and the `self.onmessage` handler block. No PAUSE message exists yet.
-- `store/uiStore.ts` — add `simPaused` + `toggleSimPaused` (pattern: simSpeed/setSimSpeed)
-- `components/SimController.tsx` — where to add the effect that forwards pause state to worker
-- `components/sidebar/StatusBar.tsx` — where to add the ⏸/▶ button
-- `components/KeyboardShortcuts.tsx` — where to bind spacebar
+- `components/sidebar/StatusBar.tsx` — find a good place to insert the stats line.
+  Look at the existing layout: status dot row, icon row, mode chip row, warning banner.
+- `store/circuitStore.ts` — `components` map and `nodes` map
+- `store/uiStore.ts` — check if simulation time is stored here, or look at SimBridge
+- `simulation/SimBridge.ts` — `timestampView` Float64Array — `timestampView[0]` holds
+  sim time in seconds (written by analog.worker.ts every tick)
 
-## Part 1: analog.worker.ts — handle PAUSE / RESUME
+## Part 1: Component count
 
-Add a new union to the message type near the top where `SetSpeedMsg` is defined:
-```ts
-type PauseMsg = { type: 'PAUSE' };
-type ResumeMsg = { type: 'RESUME' };
-```
-
-Update `self.onmessage` signature to include the new types:
-```ts
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
-```
-
-In the message handler block, after the `SET_SPEED` handler and before the
-`UPDATE_NETLIST` guard, add:
-```ts
-if (msg.type === 'PAUSE') {
-  stopLoop();
-  return;
-}
-if (msg.type === 'RESUME') {
-  if (wasRunning) startLoop();
-  return;
-}
-```
-
-Add a module-level `let wasRunning = false;` just above the `startLoop` function.
-In `startLoop()`, set `wasRunning = true;` as the first line.
-In `stopLoop()`, capture `wasRunning = intervalId !== null;` BEFORE clearing intervalId.
-
-This ensures RESUME only restarts the loop when it was actually running (capacitor
-circuits), not for pure DC circuits where no interval was started.
-
-## Part 2: uiStore.ts — add simPaused
-
-Add to the interface and initial state:
-```ts
-simPaused: boolean;
-toggleSimPaused: () => void;
-```
-Initial: `simPaused: false`.
-Action: `toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused }))`.
-
-## Part 3: SimController.tsx — forward pause/resume to worker
-
-Read the existing file to find `workerRef` and the existing `simSpeed` effect (around line 267–270).
-
-Add a selector and effect right after the simSpeed effect:
+In StatusBar.tsx, already computed is `netCount` (from nodes).
+Add component count:
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
+const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
+```
 
+## Part 2: Simulation time
+
+The sim timestamp is in `simulation/SimBridge.ts` as `timestampView`.
+Since it's a SAB-backed Float64Array, it can be read on the main thread at any time.
+
+Read from it in a `useEffect` / `useState` pattern with a `setInterval`:
+```tsx
+const [simTimeS, setSimTimeS] = useState(0);
 useEffect(() => {
-  if (!workerRef.current) return;
-  workerRef.current.postMessage({ type: simPaused ? 'PAUSE' : 'RESUME' });
-}, [simPaused]);
+  const id = setInterval(() => {
+    const { timestampView } = await import('@/simulation/SimBridge');
+    if (timestampView) setSimTimeS(timestampView[0] ?? 0);
+  }, 200);
+  return () => clearInterval(id);
+}, []);
 ```
 
-## Part 4: StatusBar.tsx — ⏸/▶ button
-
-Read the existing file. Find the speed chip buttons (the `[1, 2, 5, 10].map(...)` block).
-Add a ⏸/▶ button immediately BEFORE the speed chips:
+Actually, import SimBridge at the top level (not dynamic) — it's already used elsewhere
+in the main thread (SimController imports from it). Read the file to see how SimBridge
+exports are imported in existing components.
 
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
-
-<button
-  type="button"
-  onClick={toggleSimPaused}
-  title={simPaused ? 'Resume simulation (Space)' : 'Pause simulation (Space)'}
-  className={`w-6 h-5 flex items-center justify-center rounded text-[11px] transition-colors ${
-    simPaused
-      ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-      : 'text-white/40 hover:text-white/70 hover:bg-white/10'
-  }`}
->
-  {simPaused ? '▶' : '⏸'}
-</button>
+import { timestampView } from '@/simulation/SimBridge';
+// In a 200ms interval:
+setSimTimeS(timestampView ? timestampView[0] ?? 0 : 0);
 ```
 
-## Part 5: KeyboardShortcuts.tsx — spacebar
+### Format sim time
 
-Read the existing file. Find the section that handles single-key shortcuts (after
-the meta-key block, near the `key === 'f'` handler).
-
-Add:
 ```tsx
-if (key === ' ') {
-  e.preventDefault();
-  useUIStore.getState().toggleSimPaused();
-  return;
+function formatSimTime(seconds: number): string {
+  if (seconds < 0.001) return '0ms';
+  if (seconds < 1)     return `${(seconds * 1000).toFixed(0)}ms`;
+  if (seconds < 60)    return `${seconds.toFixed(1)}s`;
+  return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
 }
 ```
 
-## Zustand selector rule (CRITICAL)
-Always individual selectors — NEVER inline objects:
+## Part 3: Stats display in StatusBar
+
+Add a compact stats row between the icon row and the mode chip row:
+
 ```tsx
-const simPaused = useUIStore(s => s.simPaused);         // CORRECT
-const { simPaused } = useUIStore(s => ({ ... }));       // WRONG — crash
+<div className="flex items-center gap-3 px-3 pb-1 text-[9px] font-mono text-white/25">
+  <span title="Component count">{componentCount} parts</span>
+  <span title="Net count">{netCount} nets</span>
+  {simTimeS > 0 && (
+    <span title="Simulated time elapsed">⏱ {formatSimTime(simTimeS)}</span>
+  )}
+</div>
 ```
+
+This shows e.g.: `5 parts   3 nets   ⏱ 142ms`
 
 ## Important
-- Files: `simulation/workers/analog.worker.ts`, `store/uiStore.ts`,
-  `components/SimController.tsx`, `components/sidebar/StatusBar.tsx`,
-  `components/KeyboardShortcuts.tsx`
-- Pausing a DC-only circuit (no loop running) is harmless — the button still
-  toggles state, the worker ignores RESUME if wasRunning is false
+- Only touch `components/sidebar/StatusBar.tsx`
+- `timestampView` may be `null` initially (before SAB is initialized) — guard with `?? 0`
+- The 200ms polling interval for sim time is fine — no need for faster updates
+- Only show sim time when `simTimeS > 0` (DC circuits don't advance sim time)
+- `netCount` is already computed in StatusBar.tsx — reuse it
+- Zustand selectors: always individual, never inline objects
 - Run `pnpm build` — must pass with zero TypeScript errors
