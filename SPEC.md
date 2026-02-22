@@ -1,61 +1,75 @@
-# SPEC: Module Auto-Load + Health Checker False Positive Fix
+# SPEC: Module Spotlight — Visual Cues for Active Step
 
-Two small fixes. Read each file fully before editing.
+The `ModuleStep` type already has two hint fields that are not yet wired up:
+- `spotlightTarget?: 'sidebar-parts' | 'breadboard' | 'oscilloscope' | 'properties'`
+- `highlightComponent?: ComponentKind`
 
-## Fix 1: Health Checker False Positive
+Implement both so beginners know WHERE to look when a step is active.
 
-File: `components/SimController.tsx`
+## Read First
+- `components/StepCard.tsx` — add spotlightTarget display here
+- `components/sidebar/ComponentTile.tsx` — add pulse ring for highlightComponent
+- `features/modules/types.ts` — ModuleStep interface (already has the fields)
+- `store/moduleStore.ts` — how to read activeStep
+- `components/sidebar/Sidebar.tsx` — sidebar structure for optional section glow
 
-The health checker currently fires "No current flowing" even when the canvas has 0 or 1 components.
+## Part 1: StepCard spotlightTarget hint
 
-Find the health check logic (checks at most every 3s, looks for all-zero voltages).
+In `components/StepCard.tsx`, after the instruction `<p>`, add a small directional cue when `step.spotlightTarget` is set.
 
-Change the "no complete circuit" check:
-- BEFORE: `components >= 2 && battery exists && all voltages near 0`
-- AFTER: `components >= 3 && battery exists && led exists && all voltages near 0`
-
-The minimum meaningful circuit is: battery + resistor + LED. Require at least 3 components total AND a battery AND an LED before firing this warning. This eliminates the false positive on empty canvas and on partially-built circuits.
-
-Also: the "floating pin" check should only fire if there are >= 2 components placed.
-
-## Fix 2: Auto-Load Circuit When Starting a Module
-
-File: `store/moduleStore.ts` and `app/page.tsx`
-
-When `startModule(id)` is called, if the module has an `autoLoadId` field, load that circuit.
-
-### How example circuits are loaded
-
-In `app/page.tsx`, look for how the example loader works. The `EXAMPLE_CIRCUITS` array from `features/examples/circuits.ts` is used. Circuits are loaded via `useCircuitStore.getState().loadFromJSON(circuit)`.
-
-### Changes to moduleStore.ts
-
-The `startModule` action currently just sets state. Change it to also accept a callback or use a side effect to trigger circuit loading.
-
-Actually, the cleaner approach: in `app/page.tsx`, watch `activeModuleId` changes and trigger the circuit load there.
-
-Add to `app/page.tsx`:
-```tsx
-// In the Home component, after the module store imports:
-const activeModuleId = useModuleStore((s) => s.activeModuleId);
-
-// In a useEffect:
-useEffect(() => {
-  if (!activeModuleId) return;
-  const mod = MODULES.find((m) => m.id === activeModuleId);
-  if (!mod?.autoLoadId) return;
-  const circuit = EXAMPLE_CIRCUITS.find((c) => c.id === mod.autoLoadId);
-  if (circuit) {
-    useCircuitStore.getState().loadFromJSON(circuit.circuit);
-  }
-}, [activeModuleId]);
+Map target to human text:
+```
+'sidebar-parts'  → '← Add a component from the Parts panel'
+'breadboard'     → '↑ Place it on the breadboard'
+'oscilloscope'   → 'Open the oscilloscope (key O)'
+'properties'     → '← Check the Properties inspector'
 ```
 
-Make sure to import `MODULES` from `@/features/modules/definitions` and `EXAMPLE_CIRCUITS` from `@/features/examples/circuits`.
+Render it as a subtle pill below the instruction, only when spotlightTarget is truthy:
+```tsx
+{step.spotlightTarget && (
+  <div className="mt-1.5 inline-flex items-center gap-1 bg-[#7c6fff]/10 border border-[#7c6fff]/20 rounded-full px-2.5 py-0.5">
+    <span className="text-[#7c6fff]/80 text-[10px]">{SPOTLIGHT_LABELS[step.spotlightTarget]}</span>
+  </div>
+)}
+```
 
-Also import `useModuleStore` from `@/store/moduleStore`.
+Define `SPOTLIGHT_LABELS` as a const above the component.
 
-Read `app/page.tsx` fully to see existing imports and where to add this.
-Read `features/examples/circuits.ts` to check the `id` field exists on each example.
+## Part 2: ComponentTile highlight ring
+
+In `components/sidebar/ComponentTile.tsx`, read `activeStep.highlightComponent` from moduleStore:
+```tsx
+const highlightComponent = useModuleStore((s) => s.activeStep?.highlightComponent ?? null);
+```
+
+When the tile's component type matches `highlightComponent`, add a pulsing ring to the tile:
+- Add `ring-1 ring-[#7c6fff]/70 animate-pulse` to the tile's className when highlighted
+- Keep it subtle — don't change size or layout, just the ring
+
+Read the file to find the tile wrapper element and add the conditional className.
+
+## Part 3: Sidebar section glow (optional, keep simple)
+
+In `components/sidebar/Sidebar.tsx`, when `activeStep?.spotlightTarget === 'sidebar-parts'`, add a subtle ring to the parts section:
+```tsx
+const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
+// On the parts panel container div, add:
+className={`... ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
+```
+
+Keep it very subtle — this is just a visual nudge, not a modal overlay.
+
+## Important notes
+- Import `useModuleStore` from `@/store/moduleStore`
+- Use individual selectors (NOT inline objects) to avoid React 18 useSyncExternalStore crashes:
+  ```tsx
+  // CORRECT:
+  const highlightComponent = useModuleStore((s) => s.activeStep?.highlightComponent ?? null);
+  // WRONG (causes infinite loop):
+  const { highlightComponent } = useModuleStore((s) => ({ highlightComponent: s.activeStep?.highlightComponent }));
+  ```
+- Only add spotlight fields to module definitions that actually use them — don't add to all steps
+- Update at least 2–3 steps in `features/modules/definitions.ts` with `spotlightTarget` and `highlightComponent` values to demonstrate the system works
 
 Run `pnpm build` — must pass with zero errors.

@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useModuleStore } from '@/store/moduleStore';
 
+const SPOTLIGHT_LABELS = {
+  'sidebar-parts': '← Add a component from the Parts panel',
+  'breadboard': '↑ Place it on the breadboard',
+  'oscilloscope': 'Open the oscilloscope (key O)',
+  'properties': '← Check the Properties inspector',
+} as const;
+
 export default function StepCard() {
   const activeModule = useModuleStore((s) => s.activeModule);
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
@@ -66,6 +73,11 @@ export default function StepCard() {
         </div>
 
         <p className="text-white/90 text-sm font-medium mb-1">{step.instruction}</p>
+        {step.spotlightTarget && (
+          <div className="mt-1.5 inline-flex items-center gap-1 bg-[#7c6fff]/10 border border-[#7c6fff]/20 rounded-full px-2.5 py-0.5">
+            <span className="text-[#7c6fff]/80 text-[10px]">{SPOTLIGHT_LABELS[step.spotlightTarget]}</span>
+          </div>
+        )}
         {step.hint && (
           <div>
             <button
