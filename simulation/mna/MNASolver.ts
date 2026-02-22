@@ -341,7 +341,9 @@ export function solveDC(
     voltages[id] = lastX[toRow(id)];
   }
 
-  const branchCurrents = new Float32Array(resistors.length + vsources.length + opamps.length + inductors.length);
+  const branchCurrents = new Float32Array(
+    resistors.length + vsources.length + opamps.length + inductors.length + diodes.length,
+  );
   let branchIndex = 0;
 
   for (const resistor of resistors) {
@@ -377,6 +379,14 @@ export function solveDC(
     const current = geq * (vA - vB) + iPrev;
     branchCurrents[branchIndex++] = current;
     inductorCurrentsOut[el.id] = current;
+  }
+  // Diode branch currents (from converged node voltages, matching branch index order below)
+  for (const el of diodes) {
+    const vA = el.netA > 0 ? voltages[el.netA] : 0;
+    const vB = el.netB > 0 ? voltages[el.netB] : 0;
+    const vd = Math.max(VD_MIN, Math.min(VD_MAX, vA - vB));
+    const expV = Math.exp(vd / VT);
+    branchCurrents[branchIndex++] = IS * (expV - 1);
   }
 
   if (inductors.length > 0 && dt === undefined) {

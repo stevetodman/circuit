@@ -1,105 +1,102 @@
-# SPEC: Motor Back-EMF Model + Tactile Switch Open/Close
+# SPEC: Overload / Smoke Detection
 
 ## Goal
-Make the motor and tactile switch components electrically meaningful in the MNA simulation.
-Do NOT break any existing functionality. Run `pnpm build` to verify — must pass with zero errors.
+Detect when components are operating beyond safe limits and warn the user visually.
+This is a beginner-safety feature — makes the simulator feel realistic.
+Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## 1. Tactile Switch — Open/Close Model
+## Thresholds
 
-### Current state
-Switch is stamped as a fixed low-value resistor (~0.1 Ω) regardless of open/closed state.
-
-### Desired behavior
-- When switch is **closed** (clicked ON): stamp as a very low resistance (0.001 Ω) — essentially a short
-- When switch is **open** (default, clicked OFF): stamp as a very high resistance (1e9 Ω) — essentially open circuit
-- The switch `props.closed` boolean already exists and is toggled on click in the canvas
-
-### Files to change
-**`simulation/mna/NetlistBuilder.ts`**
-- Find the `case 'switch':` block
-- Read `props.closed` (default false = open)
-- Stamp `R = props.closed ? 0.001 : 1e9` instead of current hardcoded value
-
-**`features/export/exportNetlist.ts`**
-- Update the switch SPICE export to use the same logic:
-  - Closed: `R<n> <nodeA> <nodeB> 0.001`
-  - Open: `R<n> <nodeA> <nodeB> 1e9`
+| Component | Condition | Threshold |
+|-----------|-----------|-----------|
+| Resistor  | Power dissipation | > 0.25 W (¼W standard) |
+| LED       | Forward current | > 30 mA |
+| Diode     | Forward current | > 1 A |
+| Wire      | Current | > 2 A |
 
 ---
 
-## 2. Motor — DC Motor with Back-EMF
+## Implementation
 
-### Current state
-Motor is stamped as a resistor (~100 Ω). No dynamic behavior.
+### 1. Detection in analog.worker.ts
 
-### Desired behavior
-Model a DC motor as: series resistance (Ra) + back-EMF voltage source.
-- **Winding resistance**: Ra = `props.resistance ?? 10` (Ω) — default 10 Ω
-- **Back-EMF constant**: Ke = 0.01 V·s/rad — fixed, no need for a prop
-- **Motor current**: I = (V_applied - V_backemf) / Ra
-- **Angular velocity**: ω = I / Ke (rad/s), clamped to ≥ 0
-- **Back-EMF voltage**: V_backemf = Ke × ω
+After each MNA solve (both DC and transient), compute per-component power/current and
+check thresholds. Post a message to main thread if any component is over limit.
 
-This is a nonlinear element — solve iteratively with Newton-Raphson or use a companion model:
-At each DC step, given previous ω_prev, stamp:
-- Series resistor Ra between netA and netB
-- Voltage source V_backemf in series (or equivalently: modify RHS b vector)
+**Message format:**
+```typescript
+{ type: 'OVERLOAD', violations: Array<{ id: string, kind: string, value: number, limit: number }> }
+```
 
-**Simpler companion model (recommended):**
-Since the MNA solver does NR already, treat the motor as a linear element each iteration:
-1. Compute `V_applied = voltages[netA] - voltages[netB]` from previous solution
-2. `I_motor = V_applied / (Ra + 1e-6)` (use total series R)
-3. `ω = max(0, I_motor / Ke)`
-4. `V_bemf = Ke * ω`
-5. Stamp as resistor Ra with a series voltage source V_bemf:
-   - Add controlled voltage source stamp to MNA b vector
+In `simulation/workers/analog.worker.ts`:
+- After `solver.solveDC(netlist, ...)` returns voltages/currents:
+  - For each resistor: `P = V^2 / R` or `P = I^2 * R`. If P > 0.25, add to violations.
+  - For each LED/diode: read branch current from solution. If I > 0.03 (LED) or I > 1.0 (diode), add violation.
+  - For wires: read branch currents from SAB `branchCurrents[]`. If |I| > 2.0, add violation.
+- Throttle: only post OVERLOAD message at most once per second (use a timestamp).
+- Post `{ type: 'OVERLOAD', violations }` to main thread. If violations is empty, post `{ type: 'OVERLOAD_CLEAR' }`.
 
-Actually, simplest correct approach: stamp motor as a Thevenin equivalent:
-- R_thevenin = Ra
-- V_thevenin = V_bemf (from previous iteration)
-- Use standard voltage source + resistor stamps
+### 2. SimController.tsx — receive and store
 
-For the first iteration (no previous state), use V_bemf = 0.
-
-### Files to change
-
-**`simulation/mna/MNASolver.ts`** or **`simulation/mna/NetlistBuilder.ts`**:
-- Find motor case, change from pure R stamp to R + V_source stamp
-- Keep a module-level `motorState: Map<string, { omega: number }>` in the solver or worker
-- Update omega each transient tick
-
-**`simulation/workers/analog.worker.ts`**:
-- In the transient loop, after each MNA solve, update motor state for next iteration
-- Write motor speed (normalized 0–1) to a visible location if possible
-
-**`features/schematic/symbols/index.tsx`**:
-- Improve MotorSymbol: currently a circle with 'M'. Make it look like:
-  - Circle with 'M' label (keep)
-  - Two terminal leads extending left and right from the circle
-  - Terminal dots at both ends
-  - Value label below showing resistance (e.g. "10Ω")
-
-**`features/schematic/SchematicView.tsx`**:
-- Add motor to the value label function: `case 'motor': return \`Ra=${props.resistance ?? 10}Ω\``
-
-**`features/export/exportNetlist.ts`**:
-- Update motor SPICE: export as `R<n>_Ra <a> <mid> {Ra}` + `V<n>_bemf <mid> <b> 0` (0V placeholder since SPICE won't simulate the back-EMF dynamically)
-
-### PropertiesInspector
-**`components/sidebar/PropertiesInspector.tsx`**:
-- Add motor fields:
+In `components/SimController.tsx`:
+- Add handler for `'OVERLOAD'` message from analog worker:
+  ```typescript
+  case 'OVERLOAD':
+    useUIStore.getState().setOverloadIds(data.violations.map(v => v.id));
+    if (data.violations.length > 0) {
+      const worst = data.violations[0];
+      toastStore.getState().showToast(
+        `Overload: ${worst.kind} drawing ${worst.value.toFixed(0)}mA (limit ${worst.limit*1000}mA)`,
+        'warn'
+      );
+    }
+    break;
+  case 'OVERLOAD_CLEAR':
+    useUIStore.getState().setOverloadIds([]);
+    break;
   ```
-  { kind: 'number', key: 'resistance', label: 'Winding R', default: 10, min: 0.1, max: 1000, step: 0.1, unit: 'Ω' }
-  ```
+
+### 3. uiStore.ts — store overloaded component IDs
+
+In `store/uiStore.ts`:
+- Add `overloadIds: string[]` field (default: `[]`)
+- Add `setOverloadIds(ids: string[]) => void` action
+
+### 4. Visual feedback in 3D scene
+
+In `components/canvas/parts/ComponentRenderer.tsx` (or each individual part):
+- Read `overloadIds` from uiStore
+- If this component's ID is in overloadIds, apply a red emissive glow or red tint
+- Use a pulsing animation (sin wave on emissiveIntensity) to indicate danger
+
+Simplest implementation: in `ComponentRenderer.tsx`, wrap children with a `<group>`:
+```tsx
+const overloadIds = useUIStore(s => s.overloadIds);
+const isOverloaded = overloadIds.includes(componentId);
+// pass isOverloaded down as prop to child parts, or use context
+```
+
+For each part (Resistor.tsx, LED.tsx, etc.): accept optional `overloaded?: boolean` prop.
+When overloaded, set mesh material emissive to red (#ff2200) with pulsing intensity.
+
+If it's complex to thread props, a simpler approach:
+- In ComponentRenderer.tsx, when overloaded, render an additional `<mesh>` around the component
+  as a red glowing indicator (small sphere or ring at the component center).
+
+### 5. Toast message
+
+The toast already exists in the project (`store/toastStore.ts`, `components/Toast.tsx`).
+Use `toastStore.getState().showToast(message, 'warn')` — do NOT create new notification system.
 
 ---
 
 ## Implementation Notes
 
-- Do NOT change the 3D mesh/visuals for either component — only simulation and schematic symbol
-- Do NOT add new dependencies
-- Keep all changes minimal and focused
-- After implementing, run `pnpm build` — must succeed with zero TypeScript errors
-- The switch open/close is the priority — simpler and more impactful for beginners
+- Throttle OVERLOAD messages to avoid flooding — post at most once per second
+- Clear overload state when no violations (post OVERLOAD_CLEAR)
+- Toast should show the most severe violation only
+- Visual red glow is the priority — even a simple color change is fine
+- Do NOT break any existing build — run `pnpm build` and fix TypeScript errors
+- Do NOT add new npm dependencies

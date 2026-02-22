@@ -10,10 +10,12 @@
  *
  * Message protocol (worker → main):
  *   { type: 'VOLTAGES_READY', singular?: boolean }
+ *   { type: 'OVERLOAD', violations: Array<{ id: string; kind: string; value: number; limit: number }> }
+ *   { type: 'OVERLOAD_CLEAR' }
  *   { type: 'SIM_ERROR', message: string }
  */
 import { buildNetlist } from '../mna/NetlistBuilder';
-import { solveDC, type Netlist } from '../mna/MNASolver';
+import { solveDC, type Netlist, type NetlistElement, type SolveResult } from '../mna/MNASolver';
 import type { CircuitNode, PlacedComponent, Wire } from '../../types/circuit';
 import {
   MAX_NETS, MAX_BRANCHES,
@@ -22,6 +24,20 @@ import {
 
 const DT_MS = 1;
 const MOTOR_KE = 0.01;
+const OVERLOAD_THROTTLE_MS = 1_000;
+const RESISTOR_POWER_LIMIT_W = 0.25;
+const LED_CURRENT_LIMIT_A = 0.03;
+const DIODE_CURRENT_LIMIT_A = 1;
+const WIRE_CURRENT_LIMIT_A = 2;
+
+type DiodeKind = 'diode' | 'led';
+
+interface OverloadViolation {
+  id: string;
+  kind: string;
+  value: number;
+  limit: number;
+}
 
 interface UpdateNetlistMsg {
   type:       'UPDATE_NETLIST';
@@ -29,6 +45,113 @@ interface UpdateNetlistMsg {
   components: Record<string, PlacedComponent>;
   wires:      Record<string, Wire>;
   sab:        SharedArrayBuffer;
+}
+
+function buildComponentKindByElementId(
+  components: Record<string, PlacedComponent>,
+): Record<string, DiodeKind> {
+  const out: Record<string, DiodeKind> = {};
+  for (const component of Object.values(components)) {
+    if (component.type === 'led') {
+      out[component.id] = 'led';
+      continue;
+    }
+
+    if (component.type === 'diode' || component.type === 'schottky' || component.type === 'zener') {
+      out[component.id] = 'diode';
+      if (component.type === 'zener') {
+        out[`${component.id}-fwd`] = 'diode';
+        out[`${component.id}-rev`] = 'diode';
+      }
+    }
+  }
+
+  return out;
+}
+
+function buildBranchIndexByElementId(elements: readonly NetlistElement[]): Record<string, number> {
+  let branchIndex = 0;
+  const map: Record<string, number> = {};
+
+  for (const element of elements) {
+    if (
+      element.kind === 'resistor' ||
+      element.kind === 'vsource' ||
+      element.kind === 'opamp' ||
+      element.kind === 'inductor' ||
+      element.kind === 'diode'
+    ) {
+      map[element.id] = branchIndex;
+      branchIndex += 1;
+    }
+  }
+
+  return map;
+}
+
+function getDiodeKind(elementId: string, kinds: Record<string, DiodeKind>): DiodeKind {
+  return kinds[elementId] ?? 'diode';
+}
+
+function gatherOverloadViolations(
+  netlist: Netlist,
+  voltages: Float32Array,
+  branchCurrents: Float32Array,
+  branchIndexByElementId: Record<string, number>,
+  diodeKindByElementId: Record<string, DiodeKind>,
+): OverloadViolation[] {
+  const violations: OverloadViolation[] = [];
+
+  for (const element of netlist.elements) {
+    if (element.kind === 'resistor') {
+      const vA = element.netA >= 0 && element.netA < voltages.length ? voltages[element.netA] : 0;
+      const vB = element.netB >= 0 && element.netB < voltages.length ? voltages[element.netB] : 0;
+      const drop = vA - vB;
+      const power = (drop * drop) / Math.max(element.value, 1e-12);
+      if (power > RESISTOR_POWER_LIMIT_W && Number.isFinite(power)) {
+        const branchIndex = branchIndexByElementId[element.id];
+        const branchCurrent = Math.abs(branchCurrents[branchIndex] ?? drop / Math.max(element.value, 1e-12));
+        violations.push({
+          id: element.id,
+          kind: 'resistor',
+          value: branchCurrent * 1000,
+          limit: Math.sqrt(RESISTOR_POWER_LIMIT_W / Math.max(element.value, 1e-12)),
+        });
+      }
+      continue;
+    }
+
+    if (element.kind !== 'diode') continue;
+
+    const branchIndex = branchIndexByElementId[element.id];
+    const branchCurrent = Math.abs(branchCurrents[branchIndex] ?? 0);
+    const kind = getDiodeKind(element.id, diodeKindByElementId);
+    const limit = kind === 'led' ? LED_CURRENT_LIMIT_A : DIODE_CURRENT_LIMIT_A;
+    if (branchCurrent > limit) {
+      violations.push({
+        id: element.id,
+        kind,
+        value: branchCurrent * 1000,
+        limit,
+      });
+    }
+  }
+
+  for (const [wireId, wireBranchIndex] of Object.entries(netlist.wireBranchIndex ?? {})) {
+    const branchIndex = Number(wireBranchIndex);
+    if (!Number.isFinite(branchIndex)) continue;
+    const current = Math.abs(branchCurrents[branchIndex] ?? 0);
+    if (current > WIRE_CURRENT_LIMIT_A) {
+      violations.push({
+        id: wireId,
+        kind: 'wire',
+        value: current * 1000,
+        limit: WIRE_CURRENT_LIMIT_A,
+      });
+    }
+  }
+
+  return violations.sort((a, b) => (b.value / b.limit) - (a.value / a.limit));
 }
 
 interface Timer555Model {
@@ -47,10 +170,13 @@ const motorState: Map<string, { omega: number }> = new Map();
 let timer555Components: Timer555Model[] = [];
 // P1-12: cumulative sim time — avoids wall-clock drift under CPU load
 let simTimeMs = 0;
+let lastOverloadPostMs = 0;
 
 let voltageView: Float32Array | null = null;
 let branchCurrentView: Float32Array | null = null;
 let timestampView: Float64Array | null = null;
+let branchIndexByElementId: Record<string, number> = {};
+let diodeKindByElementId: Record<string, DiodeKind> = {};
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -136,6 +262,38 @@ function applyTimerOutputs(now: number): void {
   }
 }
 
+function publishOverload(result: SolveResult | null): void {
+  const now = Date.now();
+  if (now - lastOverloadPostMs < OVERLOAD_THROTTLE_MS) return;
+
+  if (!currentNetlist || !branchCurrentView) {
+    lastOverloadPostMs = now;
+    self.postMessage({ type: 'OVERLOAD_CLEAR' });
+    return;
+  }
+
+  if (!result) {
+    lastOverloadPostMs = now;
+    self.postMessage({ type: 'OVERLOAD_CLEAR' });
+    return;
+  }
+
+  const violations = gatherOverloadViolations(
+    currentNetlist,
+    result.voltages,
+    result.branchCurrents,
+    branchIndexByElementId,
+    diodeKindByElementId,
+  );
+
+  lastOverloadPostMs = now;
+  if (violations.length > 0) {
+    self.postMessage({ type: 'OVERLOAD', violations });
+  } else {
+    self.postMessage({ type: 'OVERLOAD_CLEAR' });
+  }
+}
+
 function tick(): void {
   if (!currentNetlist || !voltageView) return;
   // P1-12: advance cumulative sim time rather than using wall clock
@@ -149,12 +307,16 @@ function tick(): void {
       prevInductorCurrents,
       motorState,
     );
-    if (!result) return;
+    if (!result) {
+      publishOverload(null);
+      return;
+    }
     updateMotorState(result.voltages, currentNetlist);
     prevVoltages = result.voltages;
     prevInductorCurrents = result.inductorCurrents ?? {};
     writeVoltages(result.voltages);
     writeBranchCurrents(result.branchCurrents);
+    publishOverload(result);
   } else if (prevVoltages) {
     writeVoltages(prevVoltages);
   }
@@ -177,7 +339,7 @@ function stopLoop() {
 }
 
 self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
-    const msg = e.data;
+  const msg = e.data;
   if (msg.type !== 'UPDATE_NETLIST') return;
 
   if (!voltageView || voltageView.buffer !== msg.sab) {
@@ -189,7 +351,10 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
   try {
     motorState.clear();
     simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
+    lastOverloadPostMs    = 0;
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
+    branchIndexByElementId = buildBranchIndexByElementId(currentNetlist.elements);
+    diodeKindByElementId  = buildComponentKindByElementId(msg.components);
     netlistNeedsTransientLoop = currentNetlist.elements.some((el) =>
       el.kind === 'capacitor' || el.kind === 'inductor' || el.kind === 'motor',
     );
@@ -206,9 +371,11 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
       if (!result.converged) { // P1-15: surface NR non-convergence to main thread
         self.postMessage({ type: 'SIM_WARN', message: 'Simulation may be inaccurate: Newton-Raphson solver did not converge. Check diode/BJT connections.' });
       }
+      publishOverload(result);
     } else {
       voltageView?.fill(0);
       branchCurrentView?.fill(0);
+      publishOverload(null);
     }
 
     applyTimerOutputs(simTimeMs);
@@ -225,5 +392,7 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
     voltageView?.fill(0);
     branchCurrentView?.fill(0);
     self.postMessage({ type: 'SIM_ERROR', message });
+    lastOverloadPostMs = Date.now();
+    self.postMessage({ type: 'OVERLOAD_CLEAR' });
   }
 };

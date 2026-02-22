@@ -19,6 +19,7 @@ interface UIState {
   simError: string | null;
   simErrorDismissed: boolean;
   power: number;
+  overloadIds: string[];
   showCurrentLabels: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
@@ -38,6 +39,7 @@ interface UIState {
   setSimError:         (error: string | null) => void;
   dismissSimError:     () => void;
   setPower:            (power: number) => void;
+  setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
@@ -65,6 +67,7 @@ export const useUIStore = create<UIState>()((set) => ({
   simError:      null,
   simErrorDismissed: false,
   power:         0,
+  overloadIds:   [],
   showCurrentLabels: false,
   sab:           null,
   showHelp:      false,
@@ -87,6 +90,7 @@ export const useUIStore = create<UIState>()((set) => ({
   }),
   dismissSimError: () => set({ simErrorDismissed: true }),
   setPower:      (power) => set({ power }),
+  setOverloadIds: (ids) => set({ overloadIds: ids }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setSAB:         (sab) => set({ sab }),
   toggleHelp:     () => set((state) => ({ showHelp: !state.showHelp })),
