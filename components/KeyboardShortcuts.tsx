@@ -35,6 +35,8 @@ export default function KeyboardShortcuts() {
   const rotateDrag          = useDragStore((s) => s.rotate);
   const toggleSchematic     = useSchematicStore((s) => s.toggle);
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
+  const requestZoomIn       = useUIStore((s) => s.requestZoomIn);
+  const requestZoomOut      = useUIStore((s) => s.requestZoomOut);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
   const toggleWireVoltageColors = useUIStore((s) => s.toggleWireVoltageColors);
@@ -102,6 +104,18 @@ export default function KeyboardShortcuts() {
       if (key === 'f') {
         e.preventDefault();
         requestZoomToFit();
+        return;
+      }
+
+      // Zoom in / out
+      if (key === '+' || key === '=') {
+        e.preventDefault();
+        requestZoomIn();
+        return;
+      }
+      if (key === '-') {
+        e.preventDefault();
+        requestZoomOut();
         return;
       }
 
@@ -192,7 +206,8 @@ export default function KeyboardShortcuts() {
   }, [
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
-    requestZoomToFit, requestCameraPreset, toggleDesignators, toggleWireVoltageColors,
+    requestZoomToFit, requestZoomIn, requestZoomOut, requestCameraPreset,
+    toggleDesignators, toggleWireVoltageColors,
     toggleValueLabels, closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
   ]);
