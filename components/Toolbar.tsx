@@ -82,6 +82,8 @@ export default function Toolbar() {
       toggleWireVoltageColors: s.toggleWireVoltageColors,
     }))
   );
+  const showValueLabels = useUIStore((s) => s.showValueLabels);
+  const toggleValueLabels = useUIStore((s) => s.toggleValueLabels);
 
   const { open: schematicOpen, toggle: toggleSchematic } = useSchematicStore(
     useShallow((s) => ({ open: s.open, toggle: s.toggle }))
@@ -164,6 +166,13 @@ export default function Toolbar() {
         active={showWireVoltageColors}
       >
         V Voltage
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleValueLabels}
+        title="Values (W)"
+        active={showValueLabels}
+      >
+        Ω
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleSchematic}

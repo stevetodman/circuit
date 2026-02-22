@@ -27,6 +27,7 @@ interface UIState {
   showCurrentLabels: boolean;
   showPolarityLabels: boolean;
   showWireVoltageColors: boolean;
+  showValueLabels: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showDesignators: boolean;
@@ -64,6 +65,7 @@ interface UIState {
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
   toggleDesignators:   () => void;
+  toggleValueLabels:  () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
   closeContextMenu:    () => void;
   openWireMenu:       (wireId: string, x: number, y: number) => void;
@@ -102,6 +104,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showCurrentLabels: false,
   showPolarityLabels: true,
   showWireVoltageColors: true,
+  showValueLabels: true,
   sab:           null,
   showHelp:      false,
   showDesignators: true,
@@ -138,6 +141,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setSAB:         (sab) => set({ sab }),
   toggleHelp:     () => set((state) => ({ showHelp: !state.showHelp })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
+  toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
