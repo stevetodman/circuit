@@ -229,6 +229,7 @@ export default function Sidebar() {
   const schematicOpen = useSchematicStore((state) => state.open);
   const toggleSchematic = useSchematicStore((state) => state.toggle);
   const toggleHelp = useUIStore((state) => state.toggleHelp);
+  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const addToast = useToastStore((state) => state.addToast);
   const circuitName = useCircuitStore((s) => s.circuitName);
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
@@ -265,7 +266,7 @@ export default function Sidebar() {
         <span className="text-[13px] font-semibold tracking-wide text-white/90">
           Circuit Sandbox
         </span>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={toggleHelp}
@@ -285,6 +286,15 @@ export default function Sidebar() {
             <SchematicIcon active={schematicOpen} />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          title="Collapse sidebar (B)"
+          className="ml-auto w-6 h-6 rounded flex items-center justify-center
+                     text-white/30 hover:text-white/70 hover:bg-white/[0.08] transition-colors text-[14px]"
+        >
+          ‹
+        </button>
       </div>
 
       <div className="px-3 pt-2 pb-1 border-b border-white/[0.06]">

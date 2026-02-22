@@ -25,6 +25,7 @@ const SECTIONS = [
       ['L', 'Toggle designator labels'],
       ['I', 'Toggle wire current labels'],
       ['P', 'Toggle polarity labels (+/−)'],
+      ['B', 'Show / hide sidebar'],
       ['W', 'Toggle component value labels (Ω, µF, V)'],
       ['V', 'Toggle wire voltage colours'],
       ['F', 'Zoom to fit'],

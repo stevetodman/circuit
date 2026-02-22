@@ -1,70 +1,90 @@
-# SPEC: Oscilloscope PNG Export
+# SPEC: Sidebar Collapse Toggle
 
-Add a "Save PNG" button to the oscilloscope panel that downloads the current
-waveform view as a PNG image. Students can use this to document their experiments.
+## Goal
+Add a button in the sidebar header and a `B` keyboard shortcut to hide/show
+the sidebar, giving more canvas space on small screens.
 
-## Read First
-- `features/oscilloscope/Oscilloscope.tsx` — find `canvasRef`, the header button
-  row (where Auto, freeze buttons are), and the canvas element.
-- The canvas already renders the full waveform — we just need `canvas.toDataURL()`
-  and trigger a download link.
+## Current State
+- Sidebar is always visible at 240–260px width
+- `uiStore` does NOT have a `showSidebar` field
+- `app/page.tsx` renders `<Sidebar>` unconditionally
+- No keyboard shortcut or button to collapse it
 
-## Implementation
+## Changes Required
 
-### Step 1: Add download function
-
-Inside the `Oscilloscope` component (not in a sub-component), add a callback:
-
-```tsx
-const handleExportPNG = useCallback(() => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  const url = canvas.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'oscilloscope.png';
-  a.click();
-}, []);
+### `store/uiStore.ts`
+Add to the state interface (near `showHelp`):
+```ts
+showSidebar: boolean;
+toggleSidebar: () => void;
+```
+Add to the initial state object:
+```ts
+showSidebar: true,
+```
+Add to the actions object:
+```ts
+toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
 ```
 
-### Step 2: Add button to header
-
-In the oscilloscope header (the flex row with Auto, ⏸/▶, and channel + buttons),
-add a "↓" or "⤓" download button at the far right, after the existing buttons:
-
+### `app/page.tsx`
+Import `useUIStore`. Read `showSidebar`:
 ```tsx
+const showSidebar = useUIStore((s) => s.showSidebar);
+```
+Conditionally render the Sidebar:
+```tsx
+{showSidebar && <Sidebar />}
+```
+When sidebar is hidden, show a small floating button on the left edge of the
+canvas to reveal it again:
+```tsx
+{!showSidebar && (
+  <button
+    onClick={() => useUIStore.getState().toggleSidebar()}
+    className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-6 h-12 bg-[#1a1a1f]
+               border border-white/[0.1] rounded-r flex items-center justify-center
+               text-white/40 hover:text-white/80 hover:bg-white/[0.08] transition-colors"
+    title="Show sidebar (B)"
+  >
+    ›
+  </button>
+)}
+```
+The main layout flex-row should still work — when Sidebar is absent the canvas
+stretches to fill.
+
+### `components/sidebar/Sidebar.tsx`
+Add a collapse button in the sidebar header area (the div with circuit name).
+Import `useUIStore`. Add a small `‹` button at the end of the header row:
+```tsx
+const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+// In JSX, at the end of the header div:
 <button
-  type="button"
-  onClick={handleExportPNG}
-  title="Save waveform as PNG"
-  className="w-7 h-7 rounded flex items-center justify-center text-white/35 hover:text-white/80 hover:bg-white/10 transition-colors text-[13px]"
+  onClick={toggleSidebar}
+  title="Collapse sidebar (B)"
+  className="ml-auto w-6 h-6 rounded flex items-center justify-center
+             text-white/30 hover:text-white/70 hover:bg-white/[0.08] transition-colors text-[14px]"
 >
-  ↓
+  ‹
 </button>
 ```
 
-Read the file to find the exact header button pattern and copy it.
-
-### Step 3: Canvas background for export
-
-The canvas currently has a transparent background (or uses CSS for the dark background).
-To ensure the PNG has a dark background (not transparent), modify the draw loop:
-
-At the very start of the canvas draw function (before drawing anything else), add:
+### `components/KeyboardShortcuts.tsx`
+Add a `B` key handler (no meta):
 ```tsx
-ctx.fillStyle = '#0d0d0f';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+if (!meta && key === 'b') {
+  e.preventDefault();
+  useUIStore.getState().toggleSidebar();
+  return;
+}
 ```
+Add it near the other toggle shortcuts (L, I, P, V, O, S).
 
-This ensures the exported PNG has a dark background matching the UI.
-Check if this line already exists — if so, don't add it again.
+### `components/HelpOverlay.tsx`
+Add `['B', 'Show / hide sidebar']` to the View section rows.
 
-## Important
-- Only touch `features/oscilloscope/Oscilloscope.tsx`
-- The download happens immediately on click — no confirmation needed
-- `canvas.toDataURL()` returns a data URL; creating and clicking an `<a>` element
-  is the standard browser download trick
-- The downloaded filename should be `oscilloscope.png`
-- When `frozen` is true, the canvas still holds the last frame — the export works
-  in both frozen and live states
-- Run `pnpm build` — must pass with zero TypeScript errors
+## What NOT to do
+- Do NOT animate the sidebar collapse — just show/hide
+- Do NOT change sidebar width — just conditionally render it
+- Keep the existing flex layout in page.tsx working

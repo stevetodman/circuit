@@ -162,6 +162,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (!meta && key === 'b') {
+        e.preventDefault();
+        useUIStore.getState().toggleSidebar();
+        return;
+      }
+
       if (key === 'w') {
         e.preventDefault();
         toggleValueLabels();

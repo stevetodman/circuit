@@ -30,6 +30,7 @@ interface UIState {
   showValueLabels: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
+  showSidebar: boolean;
   showDesignators: boolean;
   zoomToFit: boolean;
   arduinoTabRequested: number;
@@ -65,6 +66,7 @@ interface UIState {
   toggleWireVoltageColors: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
+  toggleSidebar:       () => void;
   toggleDesignators:   () => void;
   toggleValueLabels:  () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
@@ -109,6 +111,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showValueLabels: true,
   sab:           null,
   showHelp:      false,
+  showSidebar:   true,
   showDesignators: true,
   zoomToFit:     false,
   arduinoTabRequested: 0,
@@ -143,6 +146,7 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleWireVoltageColors: () => set((state) => ({ showWireVoltageColors: !state.showWireVoltageColors })),
   setSAB:         (sab) => set({ sab }),
   toggleHelp:     () => set((state) => ({ showHelp: !state.showHelp })),
+  toggleSidebar:  () => set((s) => ({ showSidebar: !s.showSidebar })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
