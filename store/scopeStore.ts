@@ -11,6 +11,7 @@ interface ScopeState {
   open: boolean;
   channels: Channel[];
   toggle: () => void;
+  toggleOpen: () => void;
   addChannel: (netId: number, label?: string) => void;
   removeChannel: (netId: number) => void;
 }
@@ -22,6 +23,10 @@ export const useScopeStore = create<ScopeState>()((set, get) => ({
   channels: [],
 
   toggle() {
+    set({ open: !get().open });
+  },
+
+  toggleOpen() {
     set({ open: !get().open });
   },
 

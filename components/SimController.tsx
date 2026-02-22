@@ -92,6 +92,8 @@ export default function SimController() {
   const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
   const lastPowerSampleRef = useRef(0);
   const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allZeroSinceRef = useRef<number | null>(null);
+  const noVoltageWarnedRef = useRef(false);
 
   // Auto-load: ?c= URL param takes priority over localStorage (T1.2)
   useEffect(() => {
@@ -162,6 +164,29 @@ export default function SimController() {
           }
         } else {
           setSimStatus('running');
+        }
+
+        const componentCount = Object.keys(useCircuitStore.getState().components).length;
+        let hasNonZeroVoltage = false;
+        for (let i = 0; i < voltages.length; i += 1) {
+          const v = voltages[i] ?? 0;
+          if (Number.isFinite(v) && Math.abs(v) > 0.01) {
+            hasNonZeroVoltage = true;
+            break;
+          }
+        }
+
+        const simStatus = useUIStore.getState().simStatus;
+        if (componentCount >= 2 && !hasNonZeroVoltage && simStatus !== 'error') {
+          if (allZeroSinceRef.current === null) {
+            allZeroSinceRef.current = Date.now();
+          } else if (!noVoltageWarnedRef.current && Date.now() - allZeroSinceRef.current > 2000) {
+            addToast('No voltage detected. Check: is there a complete path from + to − through all components?', 'warn');
+            noVoltageWarnedRef.current = true;
+          }
+        } else {
+          allZeroSinceRef.current = null;
+          noVoltageWarnedRef.current = false;
         }
 
         const { channels } = useScopeStore.getState();

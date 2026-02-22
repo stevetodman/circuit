@@ -3,6 +3,7 @@
 import { useRef, memo } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
 import { MAX_NETS } from '@/types/circuit';
@@ -53,6 +54,7 @@ function LED({
   const domeRef = useRef<THREE.Mesh>(null);
 
   const opacity = transparent ? 0.75 : 1;
+  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
   const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
   const cathodeSide = cathodeX >= 0 ? 1 : -1;
   const cathodeMarkerPos: Vec3 = [cathodeSide * 0.21, 0.295, 0];
@@ -119,6 +121,25 @@ function LED({
         <boxGeometry args={[0.006, 0.13, 0.26]} />
         <meshStandardMaterial color="#1e1e1e" roughness={0.95} />
       </mesh>
+
+      <Text
+        position={[anodeX, 0.15, 0]}
+        fontSize={0.05}
+        color="#22ff88"
+        anchorX="center"
+        anchorY="bottom"
+      >
+        +
+      </Text>
+      <Text
+        position={[cathodeX, 0.15, 0]}
+        fontSize={0.05}
+        color="#ff4444"
+        anchorX="center"
+        anchorY="bottom"
+      >
+        −
+      </Text>
 
       {/* Leads */}
       {pinOffsets.map((offset, index) => (
