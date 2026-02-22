@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useCircuitStore, useCircuitHistory } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
+import { useScopeStore } from '@/store/scopeStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -49,6 +50,13 @@ export default function KeyboardShortcuts() {
       if ((e.key === 'r' || e.key === 'R') && !isInputFocused() && selectedComponentId) {
         e.preventDefault();
         rotateComponent(selectedComponentId);
+        return;
+      }
+
+      // Toggle oscilloscope
+      if (e.key.toLowerCase() === 'o' && !isInputFocused()) {
+        e.preventDefault();
+        useScopeStore.getState().toggle();
         return;
       }
 

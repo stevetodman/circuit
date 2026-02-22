@@ -14,6 +14,9 @@ import { useCircuitStore } from '@/store/circuitStore';
 import { init as initSimBridge } from '@/simulation/SimBridge';
 import { SAB_TOTAL_BYTES } from '@/types/circuit';
 import { useUIStore } from '@/store/uiStore';
+import { useScopeStore } from '@/store/scopeStore';
+import { pushSample } from '@/features/oscilloscope/scopeBuffer';
+import { voltages } from '@/simulation/SimBridge';
 
 export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
@@ -44,6 +47,13 @@ export default function SimController() {
       const { type, message } = e.data as { type: string; message?: string };
       if (type === 'VOLTAGES_READY') {
         setSimStatus('running');
+        const { channels } = useScopeStore.getState();
+        for (const ch of channels) {
+          const value = voltages[ch.netId];
+          if (Number.isFinite(value)) {
+            pushSample(ch.netId, value);
+          }
+        }
       } else if (type === 'SIM_ERROR') {
         console.warn('[Sim] Solver error:', message);
         setSimStatus('error', message);
