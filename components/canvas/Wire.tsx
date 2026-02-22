@@ -46,6 +46,7 @@ function formatCurrent(amps: number): string {
 export default function Wire({ wire, branchIndex }: WireProps) {
   const removeWire = useCircuitStore((s) => s.removeWire);
   const showCurrentLabels = useUIStore((s) => s.showCurrentLabels);
+  const overloadIds = useUIStore((s) => s.overloadIds);
   const fromPos = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.worldPos);
   const toPos = useCircuitStore((s) => s.nodes[wire.toNodeId]?.worldPos);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -80,6 +81,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   }, [fromPos, toPos]);
 
   const hasBranchIndex = safeBranchIndex >= 0;
+  const isOverloaded = overloadIds.includes(wire.id);
 
   useEffect(() => {
     return () => {
@@ -105,6 +107,17 @@ export default function Wire({ wire, branchIndex }: WireProps) {
     const speed = Math.max(0.6, Math.min(4, Math.abs(current) * 2 + 0.6));
     const phase = direction * speed;
     const pulse = 0.5 + 0.5 * Math.sin(phase * clock.getElapsedTime());
+
+    if (isOverloaded) {
+      const overloadPulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
+      matRef.current.color.set('#ff2200');
+      matRef.current.emissive.set('#ff2200');
+      matRef.current.emissiveIntensity = 0.35 + 0.45 * overloadPulse;
+      return;
+    }
+
+    matRef.current.color.set(wire.color);
+    matRef.current.emissive.set(wire.color);
     matRef.current.emissiveIntensity = 0.06 + 0.14 * pulse;
   });
 

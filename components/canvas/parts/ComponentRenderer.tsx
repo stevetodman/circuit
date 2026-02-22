@@ -1,7 +1,9 @@
 'use client';
 
+import { useRef } from 'react';
 import { Text } from '@react-three/drei';
-import type { ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import * as THREE from 'three';
 import type { ComponentType, Vec3 } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
@@ -91,6 +93,19 @@ export default function ComponentRenderer({
   const rotYRad = (rotationY * Math.PI) / 180;
   const dragging = useDragStore((state) => state.dragging);
   const showDesignators = useUIStore((state) => state.showDesignators);
+  const overloadIds = useUIStore((state) => state.overloadIds);
+  const isOverloaded = overloadIds.includes(componentId);
+  const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  useFrame(({ clock }) => {
+    if (!overloadMaterialRef.current) return;
+    if (!isOverloaded) {
+      overloadMaterialRef.current.emissiveIntensity = 0;
+      return;
+    }
+    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
+    overloadMaterialRef.current.emissiveIntensity = 0.2 + pulse * 0.6;
+  });
 
   let inner: React.ReactNode;
   switch (type) {
@@ -283,6 +298,21 @@ export default function ComponentRenderer({
         >
           {designator}
         </Text>
+      )}
+      {isOverloaded && (
+        <mesh position={[0, 0.22, 0]}>
+          <sphereGeometry args={[0.2, 20, 16]} />
+          <meshStandardMaterial
+            ref={overloadMaterialRef}
+            color="#ff2200"
+            emissive="#ff2200"
+            emissiveIntensity={0}
+            transparent
+            opacity={0.35}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
       )}
     </group>
   );

@@ -151,9 +151,19 @@ export default function SimController() {
     attachCrashHandlers(worker, 'Analog');
 
     worker.onmessage = (e) => {
-      const { type, message } = e.data as { type: string; message?: string; singular?: boolean };
+      const {
+        type,
+        message,
+        singular,
+        violations,
+      } = e.data as {
+        type: string;
+        message?: string;
+        singular?: boolean;
+        violations?: Array<{ id: string; kind: string; value: number; limit: number }>;
+      };
       if (type === 'VOLTAGES_READY') {
-        if (e.data.singular) {
+        if (singular) {
           setSimStatus('running');
           const now = performance.now();
           if (now - lastFloatWarnRef.current > 8000) {
@@ -187,9 +197,18 @@ export default function SimController() {
         setSimStatus('error');
         setSimError(typeof message === 'string' ? message : 'Simulation error');
         setPower(0);
+        useUIStore.getState().setOverloadIds([]);
         if (typeof message === 'string') addToast(message, 'error');
       } else if (type === 'SIM_WARN') {
         if (typeof message === 'string') addToast(message, 'warn');
+      } else if (type === 'OVERLOAD') {
+        useUIStore.getState().setOverloadIds((violations ?? []).map((v) => v.id));
+        if (violations && violations.length > 0) {
+          const worst = violations[0];
+          addToast(`Overload: ${worst.kind} drawing ${worst.value.toFixed(0)}mA (limit ${worst.limit * 1000}mA)`, 'warn');
+        }
+      } else if (type === 'OVERLOAD_CLEAR') {
+        useUIStore.getState().setOverloadIds([]);
       }
     };
 
