@@ -1,102 +1,141 @@
-# SPEC: Overload / Smoke Detection
+# SPEC: Arduino Serial Monitor
 
 ## Goal
-Detect when components are operating beyond safe limits and warn the user visually.
-This is a beginner-safety feature — makes the simulator feel realistic.
+Surface `Serial.print()` / `Serial.println()` output in the ArduinoPanel UI.
+avr8js already emulates the USART hardware — we just need to wire it to the UI.
 Run `pnpm build` to verify — must pass with zero errors.
 
 ---
 
-## Thresholds
+## How avr8js Serial Works
 
-| Component | Condition | Threshold |
-|-----------|-----------|-----------|
-| Resistor  | Power dissipation | > 0.25 W (¼W standard) |
-| LED       | Forward current | > 30 mA |
-| Diode     | Forward current | > 1 A |
-| Wire      | Current | > 2 A |
+avr8js exposes USART via `AVRUSART` class:
+```typescript
+import { AVRUSART } from '@es-labs/avr8js';  // or wherever it's exported in the project
+
+const usart = new AVRUSART(cpu, usartConfig, 16e6);
+usart.onByteTransmit = (byte: number) => {
+  // byte is the ASCII code of the character sent by Serial.print()
+  const char = String.fromCharCode(byte);
+  // accumulate and send to main thread
+};
+```
+
+Check the existing import in `simulation/workers/arduino.worker.ts` to find the exact
+import path and config object name. Search for `AVRUSART` or `usart` in that file.
 
 ---
 
 ## Implementation
 
-### 1. Detection in analog.worker.ts
+### 1. arduino.worker.ts — capture serial output
 
-After each MNA solve (both DC and transient), compute per-component power/current and
-check thresholds. Post a message to main thread if any component is over limit.
+In `simulation/workers/arduino.worker.ts`:
 
-**Message format:**
+After creating the CPU and existing peripherals (AVRADC, ports), add:
 ```typescript
-{ type: 'OVERLOAD', violations: Array<{ id: string, kind: string, value: number, limit: number }> }
+import { AVRUSART } from '<same-package-as-AVRADC>';
+
+// In UPLOAD_HEX handler, after existing setup:
+let serialBuffer = '';
+const usart = new AVRUSART(cpu, usartConfig, 16e6);  // check exact config name
+
+usart.onByteTransmit = (byte: number) => {
+  const char = String.fromCharCode(byte);
+  serialBuffer += char;
+  // Flush on newline or when buffer > 256 chars
+  if (char === '\n' || serialBuffer.length > 256) {
+    self.postMessage({ type: 'SERIAL_OUTPUT', text: serialBuffer });
+    serialBuffer = '';
+  }
+};
 ```
 
-In `simulation/workers/analog.worker.ts`:
-- After `solver.solveDC(netlist, ...)` returns voltages/currents:
-  - For each resistor: `P = V^2 / R` or `P = I^2 * R`. If P > 0.25, add to violations.
-  - For each LED/diode: read branch current from solution. If I > 0.03 (LED) or I > 1.0 (diode), add violation.
-  - For wires: read branch currents from SAB `branchCurrents[]`. If |I| > 2.0, add violation.
-- Throttle: only post OVERLOAD message at most once per second (use a timestamp).
-- Post `{ type: 'OVERLOAD', violations }` to main thread. If violations is empty, post `{ type: 'OVERLOAD_CLEAR' }`.
+Also flush any remaining buffer periodically (every 100ms) even without newline.
 
-### 2. SimController.tsx — receive and store
+### 2. SimController.tsx — receive serial output
 
 In `components/SimController.tsx`:
-- Add handler for `'OVERLOAD'` message from analog worker:
+- Add handler for `'SERIAL_OUTPUT'` message from arduino worker:
   ```typescript
-  case 'OVERLOAD':
-    useUIStore.getState().setOverloadIds(data.violations.map(v => v.id));
-    if (data.violations.length > 0) {
-      const worst = data.violations[0];
-      toastStore.getState().showToast(
-        `Overload: ${worst.kind} drawing ${worst.value.toFixed(0)}mA (limit ${worst.limit*1000}mA)`,
-        'warn'
-      );
-    }
-    break;
-  case 'OVERLOAD_CLEAR':
-    useUIStore.getState().setOverloadIds([]);
+  case 'SERIAL_OUTPUT':
+    useUIStore.getState().appendSerialOutput(data.text);
     break;
   ```
 
-### 3. uiStore.ts — store overloaded component IDs
+### 3. uiStore.ts — store serial output
 
 In `store/uiStore.ts`:
-- Add `overloadIds: string[]` field (default: `[]`)
-- Add `setOverloadIds(ids: string[]) => void` action
+- Add `serialOutput: string` (default: `''`)
+- Add `appendSerialOutput(text: string): void` — append to serialOutput, cap at 10,000 chars
+  (trim from front if over limit to prevent memory leak)
+- Add `clearSerialOutput(): void` — set to `''`
 
-### 4. Visual feedback in 3D scene
-
-In `components/canvas/parts/ComponentRenderer.tsx` (or each individual part):
-- Read `overloadIds` from uiStore
-- If this component's ID is in overloadIds, apply a red emissive glow or red tint
-- Use a pulsing animation (sin wave on emissiveIntensity) to indicate danger
-
-Simplest implementation: in `ComponentRenderer.tsx`, wrap children with a `<group>`:
-```tsx
-const overloadIds = useUIStore(s => s.overloadIds);
-const isOverloaded = overloadIds.includes(componentId);
-// pass isOverloaded down as prop to child parts, or use context
+On `UPLOAD_HEX` (new sketch uploaded), clear serial output:
+```typescript
+case 'UPLOAD_HEX':
+  useUIStore.getState().clearSerialOutput();
+  // ... existing code
 ```
 
-For each part (Resistor.tsx, LED.tsx, etc.): accept optional `overloaded?: boolean` prop.
-When overloaded, set mesh material emissive to red (#ff2200) with pulsing intensity.
+### 4. ArduinoPanel.tsx — display serial monitor
 
-If it's complex to thread props, a simpler approach:
-- In ComponentRenderer.tsx, when overloaded, render an additional `<mesh>` around the component
-  as a red glowing indicator (small sphere or ring at the component center).
+In `components/sidebar/ArduinoPanel.tsx`:
+- Add a "Serial Monitor" section below the existing hex upload / controls
+- Read `serialOutput` from uiStore
+- Display in a scrollable `<pre>` or `<div>` with monospace font, dark background
+- Auto-scroll to bottom when new output arrives (use `useEffect` + `ref.scrollTop = ref.scrollHeight`)
+- Add a "Clear" button that calls `clearSerialOutput()`
+- Show placeholder text "No serial output yet. Upload a sketch with Serial.print()." when empty
 
-### 5. Toast message
+**UI design:**
+```
+[Serial Monitor]                              [Clear]
+┌─────────────────────────────────────────────────────┐
+│ Hello World!                                        │
+│ Sensor: 512                                         │
+│ Sensor: 489                                         │
+│ ...                                                 │
+└─────────────────────────────────────────────────────┘
+```
 
-The toast already exists in the project (`store/toastStore.ts`, `components/Toast.tsx`).
-Use `toastStore.getState().showToast(message, 'warn')` — do NOT create new notification system.
+Style to match existing ArduinoPanel dark theme:
+- Background: `bg-[#0a0a0c]`
+- Text: `text-green-400` (classic terminal green) or `text-white/70`
+- Font: `font-mono text-xs`
+- Height: fixed at 160px with `overflow-y-auto`
+- Border: `border border-white/10 rounded`
+
+Only show Serial Monitor section when `serialOutput.length > 0` OR always show it
+(always show is simpler and more discoverable).
+
+### 5. Baud Rate
+avr8js AVRUSART handles baud rate automatically from the UBRR register.
+Standard Arduino `Serial.begin(9600)` sets up UBRR correctly. No manual config needed.
+
+---
+
+## Testing
+
+Upload the following Arduino sketch to test:
+```cpp
+void setup() {
+  Serial.begin(9600);
+}
+void loop() {
+  Serial.println("Hello from Arduino!");
+  delay(1000);
+}
+```
+
+The serial monitor should show "Hello from Arduino!" appearing once per simulated second.
 
 ---
 
 ## Implementation Notes
 
-- Throttle OVERLOAD messages to avoid flooding — post at most once per second
-- Clear overload state when no violations (post OVERLOAD_CLEAR)
-- Toast should show the most severe violation only
-- Visual red glow is the priority — even a simple color change is fine
-- Do NOT break any existing build — run `pnpm build` and fix TypeScript errors
-- Do NOT add new npm dependencies
+- Do NOT add new npm packages
+- Check if AVRUSART is already imported in arduino.worker.ts — it may already be there
+- The `usartConfig` — look for it in the avr8js package (usually `usart0Config` or similar)
+- If avr8js doesn't export AVRUSART from the expected path, search node_modules for the correct import
+- Run `pnpm build` — fix all TypeScript errors before considering done

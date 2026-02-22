@@ -213,15 +213,45 @@ export default function SimController() {
     };
 
     const arduinoWorker = (window as { arduinoWorker?: Worker }).arduinoWorker;
-    if (arduinoWorker) {
-      attachCrashHandlers(arduinoWorker, 'Arduino');
-    }
+    const serialOutputHandler = (e: MessageEvent) => {
+      const { type, text } = e.data as { type?: string; text?: string };
+      if (type === 'SERIAL_OUTPUT') {
+        if (typeof text === 'string') {
+          useUIStore.getState().appendSerialOutput(text);
+        }
+        return;
+      }
+      if (type === 'READY') {
+        useUIStore.getState().clearSerialOutput();
+      }
+    };
+
+    let currentArduinoWorker = arduinoWorker;
+    const attachArduinoWorker = (nextWorker: Worker) => {
+      if (currentArduinoWorker) {
+        currentArduinoWorker.removeEventListener('message', serialOutputHandler);
+      }
+      currentArduinoWorker = nextWorker;
+      nextWorker.addEventListener('message', serialOutputHandler);
+      attachCrashHandlers(nextWorker, 'Arduino');
+    };
+
+    if (arduinoWorker) attachArduinoWorker(arduinoWorker);
+    const arduinoWorkerPoll = setInterval(() => {
+      const nextWorker = (window as { arduinoWorker?: Worker }).arduinoWorker;
+      if (!nextWorker || nextWorker === currentArduinoWorker) return;
+      attachArduinoWorker(nextWorker);
+    }, 250);
 
     readyRef.current = true;
 
     return () => {
       worker.terminate();
       workerRef.current = null;
+      clearInterval(arduinoWorkerPoll);
+      if (currentArduinoWorker) {
+        currentArduinoWorker.removeEventListener('message', serialOutputHandler);
+      }
       readyRef.current  = false;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

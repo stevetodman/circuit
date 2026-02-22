@@ -42,9 +42,6 @@ const PIN_NAME_TO_NUM: Record<string, number> = {
   a0: 14, a1: 15, a2: 16, a3: 17, a4: 18, a5: 19,
 };
 
-// Serial monitor character cap — prevents unbounded memory growth
-const MAX_SERIAL_CHARS = 50_000;
-
 function formatCycles(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`;
@@ -65,7 +62,9 @@ export default function ArduinoPanel() {
   const [hexText,   setHexText]   = useState('');
   const [hexName,   setHexName]   = useState<string | null>(null);
   const [cycleCount,setCycleCount]= useState(0);
-  const [serialLog, setSerialLog] = useState('');
+  const serialOutput = useUIStore((s) => s.serialOutput);
+  const clearSerialOutput = useUIStore((s) => s.clearSerialOutput);
+  const serialMonitorRef = useRef<HTMLPreElement | null>(null);
 
   // Derive whether we are looking at an Arduino component
   const component = selectedId ? components[selectedId] : null;
@@ -90,6 +89,7 @@ export default function ArduinoPanel() {
     if (workerRef.current) {
       workerRef.current.postMessage({ type: 'STOP' });
       workerRef.current.terminate();
+      (window as { arduinoWorker?: Worker }).arduinoWorker = undefined;
       workerRef.current = null;
     }
     setRunning(false);
@@ -104,7 +104,14 @@ export default function ArduinoPanel() {
   }, [isArduino, stopWorker]);
 
   // Terminate worker on component unmount
-  useEffect(() => () => { workerRef.current?.terminate(); }, []);
+  useEffect(() => () => {
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: 'STOP' });
+      workerRef.current.terminate();
+      (window as { arduinoWorker?: Worker }).arduinoWorker = undefined;
+      workerRef.current = null;
+    }
+  }, []);
 
   // Re-send pin map whenever topology changes while a sketch is running
   useEffect(() => {
@@ -128,26 +135,20 @@ export default function ArduinoPanel() {
     workerRef.current = worker;
     setPaused(false);
     setCycleCount(0);
-    setSerialLog('');
+    clearSerialOutput();
     setHexName(fileName);
+    (window as { arduinoWorker?: Worker }).arduinoWorker = worker;
 
     worker.onmessage = (e) => {
-      const { type, data, cycles, message } = e.data as {
+      const { type, cycles, message } = e.data as {
         type: string;
-        data?: string;
         cycles?: number;
         message?: string;
       };
       if (type === 'READY')         setRunning(true);
-      if (type === 'SERIAL_OUTPUT') {
-        setSerialLog((prev) => {
-          const next = prev + (data ?? '');
-          return next.length > MAX_SERIAL_CHARS ? next.slice(-MAX_SERIAL_CHARS) : next;
-        });
-      }
       if (type === 'RUNTIME_ERROR') {
-        console.error('[Arduino]', message ?? data);
-        addToast(`Arduino runtime error: ${message ?? data ?? 'unknown'}`, 'error');
+        console.error('[Arduino]', message);
+        addToast(`Arduino runtime error: ${message ?? 'unknown'}`, 'error');
       }
       if (type === 'CYCLE_COUNT' && cycles != null) setCycleCount(cycles);
     };
@@ -155,6 +156,11 @@ export default function ArduinoPanel() {
     worker.postMessage({ type: 'UPLOAD_HEX', hex, sab });
     worker.postMessage({ type: 'UPDATE_PIN_MAP', pinMap: buildPinMap(), sab });
   }, [sab, addToast, buildPinMap]);
+
+  useEffect(() => {
+    if (!serialMonitorRef.current) return;
+    serialMonitorRef.current.scrollTop = serialMonitorRef.current.scrollHeight;
+  }, [serialOutput]);
 
   const pause = useCallback(() => {
     workerRef.current?.postMessage({ type: 'PAUSE' });
@@ -249,14 +255,25 @@ export default function ArduinoPanel() {
       )}
 
       {/* Serial monitor */}
-      {serialLog.length > 0 && (
-        <div className="mt-1">
-          <p className="text-[9px] text-white/25 uppercase tracking-widest mb-1">Serial</p>
-          <div className="bg-black/40 rounded p-2 h-16 overflow-y-auto font-mono text-[9px] text-[#22cc66] whitespace-pre-wrap">
-            {serialLog}
-          </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[9px] text-white/25 uppercase tracking-widest">Serial Monitor</p>
+          <button
+            onClick={clearSerialOutput}
+            className="text-[9px] px-2 py-1 rounded bg-white/[0.07] text-white/40 hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+          >
+            Clear
+          </button>
         </div>
-      )}
+        <pre
+          ref={serialMonitorRef}
+          className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 h-40 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap"
+        >
+          {serialOutput.length > 0
+            ? serialOutput
+            : 'No serial output yet. Upload a sketch with Serial.print().'}
+        </pre>
+      </div>
     </div>
   );
 }
