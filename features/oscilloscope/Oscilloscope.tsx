@@ -1,8 +1,10 @@
 'use client';
 
 import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { getSamples, SCOPE_SAMPLES, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
+import { getSamples, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
 import { type Channel } from '@/store/scopeStore';
+import { useUIStore } from '@/store/uiStore';
+import { useCircuitStore } from '@/store/circuitStore';
 
 interface OscilloscopeProps {
   open: boolean;
@@ -19,7 +21,6 @@ const DEFAULT_Y_MAX = 15;
 const H_DIVISIONS = 10;
 const V_DIVISIONS = 8;
 const MARGIN = { left: 34, right: 8, top: 24, bottom: 18 };
-const BUFFER_SIZE = SCOPE_SAMPLES;
 
 function drawGrid(
   ctx: CanvasRenderingContext2D,
@@ -62,6 +63,11 @@ export default function Oscilloscope({
   const [invalidInput, setInvalidInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const hoveredNetId  = useCircuitStore((s) =>
+    hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
+  );
+
   useEffect(() => {
     if (addingChannel) {
       inputRef.current?.focus();
@@ -70,10 +76,15 @@ export default function Oscilloscope({
 
   const handleStartAdd = useCallback(() => {
     if (channels.length >= MAX_CHANNELS) return;
+    // If a pin is hovered, probe it immediately without showing the input
+    if (hoveredNetId != null && Number.isFinite(hoveredNetId)) {
+      onAddChannel(hoveredNetId);
+      return;
+    }
     setInputValue('');
     setInvalidInput(false);
     setAddingChannel(true);
-  }, [channels.length]);
+  }, [channels.length, hoveredNetId, onAddChannel]);
 
   const handleCancelAdd = useCallback(() => {
     setAddingChannel(false);
@@ -219,16 +230,10 @@ export default function Oscilloscope({
       ctx.strokeRect(plot.left, plot.top, plot.width, plot.height);
       ctx.restore();
 
-      // sample marker / debug text
-      const sampleText = channelsRef.current[0]
-        ? `samples: ${getSamples(channelsRef.current[0].netId).length}/${SCOPE_SAMPLES}`
-        : `samples: 0/${SCOPE_SAMPLES}`;
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillText(sampleText, PANEL_WIDTH - ctx.measureText(sampleText).width - 8, PANEL_HEIGHT - 6);
-
-      // X-axis: show sample count
+      // X-axis label
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
       ctx.textAlign = 'center';
-      ctx.fillText(`← ${BUFFER_SIZE} samples →`, PANEL_WIDTH / 2, PANEL_HEIGHT - 2);
+      ctx.fillText('← Time →', PANEL_WIDTH / 2, PANEL_HEIGHT - 2);
 
       window.requestAnimationFrame(render);
     };
@@ -319,10 +324,10 @@ export default function Oscilloscope({
           <button
             onClick={handleStartAdd}
             disabled={channels.length >= MAX_CHANNELS}
-            className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${channels.length >= MAX_CHANNELS ? 'border-white/8 text-white/30' : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'}`}
-            title="Add a channel"
+            className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${channels.length >= MAX_CHANNELS ? 'border-white/8 text-white/30' : hoveredNetId != null ? 'border-cyan-400/60 text-cyan-300 hover:border-cyan-300' : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'}`}
+            title={hoveredNetId != null ? `Probe net ${hoveredNetId}` : 'Hover a pin on the board, then click here'}
           >
-            +
+            {hoveredNetId != null ? '+ Probe' : '+'}
           </button>
         )}
         <button

@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useDragStore } from '@/store/dragStore';
 import Sidebar from '@/components/sidebar/Sidebar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
@@ -84,20 +85,23 @@ function WelcomeOverlay() {
   );
 }
 
-// ── Wiring hint pill (shown while drawing a wire) ─────────────────────────────
+// ── Wiring / placement hint pill ─────────────────────────────────────────────
 function WiringHint() {
-  const wiringMode     = useCircuitStore((s) => s.wiringMode);
   const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
+  const dragging       = useDragStore((s) => s.dragging);
 
-  if (!wiringMode && !selectedNodeId) return null;
+  let message: string | null = null;
+  if (selectedNodeId) {
+    message = 'Click another pin to connect — Escape to cancel';
+  } else if (dragging) {
+    message = 'Click to place · R to rotate · Escape to cancel';
+  }
 
-  const message = selectedNodeId
-    ? 'Click another pin to connect — Escape to cancel'
-    : 'Click any pin to start a wire';
+  if (!message) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-      <div className="bg-black/80 border border-[#2299cc]/40 text-[#5bb8e8] text-[12px] font-mono px-4 py-2 rounded-full backdrop-blur-sm whitespace-nowrap">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+      <div className="bg-black/70 border border-white/[0.12] text-white/70 text-[11px] font-mono px-3 py-1.5 rounded-full backdrop-blur-sm whitespace-nowrap">
         {message}
       </div>
     </div>

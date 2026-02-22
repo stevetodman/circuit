@@ -80,7 +80,7 @@ export default function StatusBar() {
       </div>
       <div className="text-[10px] font-mono text-white/60">⚡ {formatPower(power)}</div>
       {simStatus === 'error' && (
-        <span className="text-[10px] text-red-400 truncate max-w-[140px]" title={simError ?? ''}>
+        <span className="text-[10px] text-red-400" title={simError ?? ''}>
           {simError ?? 'Sim error'}
         </span>
       )}
