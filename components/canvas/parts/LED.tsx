@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { MAX_NETS } from '@/types/circuit';
 import { voltages } from '@/simulation/SimBridge';
 
 interface LEDProps {
@@ -60,9 +61,9 @@ function LED({
     const bodyMat = bodyRef.current.material as THREE.MeshStandardMaterial;
     const domeMat = domeRef.current.material as THREE.MeshStandardMaterial;
 
-    // Compute voltage across the LED (anode − cathode)
-    const va = anodeNetId   != null ? voltages[anodeNetId]   : 0;
-    const vb = cathodeNetId != null ? voltages[cathodeNetId] : 0;
+    // Compute voltage across the LED (anode − cathode) — P1-20: bounds guard
+    const va = anodeNetId   != null && anodeNetId   < MAX_NETS ? voltages[anodeNetId]   : 0;
+    const vb = cathodeNetId != null && cathodeNetId < MAX_NETS ? voltages[cathodeNetId] : 0;
     const vd = va - vb;
 
     // Emit when forward biased above ~1.5 V, saturate at 2.5 V+

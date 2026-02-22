@@ -87,6 +87,7 @@ function solve(G: Float64Array, b: Float64Array, n: number): Float64Array | null
 export interface SolveResult {
   voltages: Float32Array;
   branchCurrents: Float32Array;
+  converged: boolean; // P1-15: false if NR did not converge within NR_ITER
 }
 
 // ── DC operating-point solver ──────────────────────────────────────────────────
@@ -102,6 +103,7 @@ export function solveDC(
     return {
       voltages: new Float32Array(1),
       branchCurrents: new Float32Array(0),
+      converged: true,
     };
   }
 
@@ -118,6 +120,7 @@ export function solveDC(
     return {
       voltages: new Float32Array(netCount),
       branchCurrents: new Float32Array(0),
+      converged: true,
     };
   }
 
@@ -128,6 +131,7 @@ export function solveDC(
   const Vd = new Float64Array(diodes.length).fill(0.65);
   const Vbe = new Float64Array(bjts.length).fill(0.65);
   let lastX: Float64Array | null = null;
+  let nrConverged = true; // P1-15: track NR convergence
 
   for (let iter = 0; iter < NR_ITER; iter++) {
     const G = new Float64Array(n * n);
@@ -213,13 +217,13 @@ export function solveDC(
     const r = new Float32Array(netCount);
     for (let id = 1; id < netCount; id++) r[id] = x[toRow(id)];
 
-    let converged = true;
+    let iterConverged = true;
     for (let di = 0; di < diodes.length; di++) {
       const el   = diodes[di];
       const va   = el.netA > 0 ? r[el.netA] : 0;
       const vb   = el.netB > 0 ? r[el.netB] : 0;
       const newVd = va - vb;
-      if (Math.abs(newVd - Vd[di]) > NR_TOL) converged = false;
+      if (Math.abs(newVd - Vd[di]) > NR_TOL) iterConverged = false;
       Vd[di] = newVd;
     }
     for (let ti = 0; ti < bjts.length; ti++) {
@@ -227,10 +231,12 @@ export function solveDC(
       const vB = el.netB > 0 ? r[el.netB] : 0;
       const vE = el.netC != null && el.netC > 0 ? r[el.netC] : 0;
       const newVbe = Math.max(-5.0, Math.min(0.7, vB - vE));
-      if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) converged = false;
+      if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) iterConverged = false;
       Vbe[ti] = newVbe;
     }
-    if (converged) break;
+    if (iterConverged) break;
+    // If we exhaust all iterations without converging, flag it
+    if (iter === NR_ITER - 1) nrConverged = false;
   }
 
   if (!lastX) return null;
@@ -253,7 +259,11 @@ export function solveDC(
     branchCurrents[branchIndex++] = lastX[nonGroundNodeCount + vi];
   }
 
-  return { voltages, branchCurrents };
+  if (!nrConverged) {
+    console.warn('[MNA] Newton-Raphson did not converge within', NR_ITER, 'iterations');
+  }
+
+  return { voltages, branchCurrents, converged: nrConverged };
 }
 
 // ── Helper: stamp a 2-terminal element ────────────────────────────────────────

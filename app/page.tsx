@@ -9,6 +9,8 @@ import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SimController from '@/components/SimController';
 import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import Toast from '@/components/Toast';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -36,19 +38,22 @@ export default function Home() {
       style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
       <SimController />
+      <Toast />
       <HelpOverlay />
       <KeyboardShortcuts />
-      <Sidebar />
+      <ErrorBoundary><Sidebar /></ErrorBoundary>
       <main className="relative flex-1 min-w-0 h-full">
         <Scene />
-        <Oscilloscope
-          open={scopeOpen}
-          channels={channels}
-          onClose={scopeToggle}
-          onAddChannel={addChannel}
-          onRemoveChannel={removeChannel}
-        />
-        <SchematicView visible={schematicOpen} />
+        <ErrorBoundary>
+          <Oscilloscope
+            open={scopeOpen}
+            channels={channels}
+            onClose={scopeToggle}
+            onAddChannel={addChannel}
+            onRemoveChannel={removeChannel}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary><SchematicView visible={schematicOpen} /></ErrorBoundary>
       </main>
     </div>
   );

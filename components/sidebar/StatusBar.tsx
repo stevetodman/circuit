@@ -26,8 +26,9 @@ const SIM_DOT: Record<'idle' | 'running' | 'error', { color: string; label: stri
 export default function StatusBar() {
   const wiringMode = useCircuitStore((s) => s.wiringMode);
   const dragging   = useDragStore((s) => s.dragging);
-  const selectedNodeId      = useCircuitStore((s) => s.selectedNodeId);
-  const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
+  const selectedNodeId       = useCircuitStore((s) => s.selectedNodeId);
+  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
+  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
 
   const { simStatus, simError, hoveredNodeId } = useUIStore((s) => ({
     simStatus: s.simStatus,
@@ -76,7 +77,10 @@ export default function StatusBar() {
       {/* Net count + hovered pin */}
       <div className="flex items-center justify-between text-[9px] font-mono text-white/25">
         <span>{netCount} net{netCount !== 1 ? 's' : ''}</span>
-        {hoveredNodeId && (
+        {selectedComponentIds.length > 1 && (
+          <span className="text-white/50">{selectedComponentIds.length} selected</span>
+        )}
+        {hoveredNodeId && !selectedComponentIds.length && (
           <span className="text-white/40">{hoveredNodeId}</span>
         )}
       </div>

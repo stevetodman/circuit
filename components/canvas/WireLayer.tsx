@@ -1,9 +1,11 @@
 'use client';
 
+import { memo } from 'react';
 import Wire from './Wire';
 import { useCircuitStore } from '@/store/circuitStore';
 
-export default function WireLayer() {
+// P2-22: memo prevents re-render when unrelated store slices change
+function WireLayer() {
   const wires = useCircuitStore((s) => s.wires);
 
   return (
@@ -14,3 +16,5 @@ export default function WireLayer() {
     </>
   );
 }
+
+export default memo(WireLayer);

@@ -57,9 +57,11 @@ export default function WirePreview() {
     const curve   = new THREE.CatmullRomCurve3([from, mid, to]);
     const newGeom = new THREE.TubeGeometry(curve, 20, 0.018, 6, false);
 
-    if (geomRef.current) geomRef.current.dispose();
+    // P1-17: assign before dispose so the mesh never holds a disposed geometry reference
+    const oldGeom   = geomRef.current;
     geomRef.current = newGeom;
     mesh.geometry   = newGeom;
+    if (oldGeom) oldGeom.dispose();
     mesh.visible    = true;
   });
 

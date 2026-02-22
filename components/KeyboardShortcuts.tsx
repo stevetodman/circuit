@@ -38,21 +38,23 @@ export default function KeyboardShortcuts() {
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
-      // Undo
-      if (meta && !e.shiftKey && e.key === 'z') {
+      // P1-9: check input focus before all shortcuts (including undo/redo)
+      // so browser-native text undo (Ctrl+Z in inputs) is not intercepted
+      if (isInputFocused()) return;
+
+      // Undo — P1-8: use lowercased `key` to handle Shift+Z consistently
+      if (meta && !e.shiftKey && key === 'z') {
         e.preventDefault();
         useCircuitHistory().getState().undo();
         return;
       }
 
-      // Redo
-      if (meta && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+      // Redo — P1-8: use lowercased `key` so macOS Shift+Z (e.key='Z') works
+      if (meta && (e.shiftKey && key === 'z' || key === 'y')) {
         e.preventDefault();
         useCircuitHistory().getState().redo();
         return;
       }
-
-      if (isInputFocused()) return;
 
       // Show help
       if (key === '?') {

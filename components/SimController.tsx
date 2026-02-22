@@ -10,7 +10,7 @@
  * Mount this component once in app/page.tsx (outside the Canvas).
  */
 import { useEffect, useRef } from 'react';
-import { useCircuitStore } from '@/store/circuitStore';
+import { CIRCUIT_SAVE_KEY, useCircuitStore } from '@/store/circuitStore';
 import { init as initSimBridge } from '@/simulation/SimBridge';
 import { SAB_TOTAL_BYTES } from '@/types/circuit';
 import { useUIStore } from '@/store/uiStore';
@@ -18,6 +18,7 @@ import { useScopeStore } from '@/store/scopeStore';
 import { pushSample } from '@/features/oscilloscope/scopeBuffer';
 import { voltages } from '@/simulation/SimBridge';
 import { buildNetlist } from '@/simulation/mna/NetlistBuilder';
+import { useToastStore } from '@/store/toastStore';
 
 export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
@@ -27,7 +28,17 @@ export default function SimController() {
   const nodes         = useCircuitStore((s) => s.nodes);
   const components    = useCircuitStore((s) => s.components);
   const wires         = useCircuitStore((s) => s.wires);
+  const loadFromJSON  = useCircuitStore((s) => s.loadFromJSON);
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
+  const addToast      = useToastStore((s) => s.addToast);
+
+  // Auto-load circuit from localStorage on mount (P0-1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedJSON = window.localStorage.getItem(CIRCUIT_SAVE_KEY);
+    if (!savedJSON) return;
+    loadFromJSON(savedJSON);
+  }, [loadFromJSON]);
 
   // ── Create worker + SAB on mount ────────────────────────────────────────────
   useEffect(() => {
@@ -64,6 +75,9 @@ export default function SimController() {
       } else if (type === 'SIM_ERROR') {
         console.warn('[Sim] Solver error:', message);
         setSimStatus('error', message);
+        if (typeof message === 'string') addToast(message, 'error');
+      } else if (type === 'SIM_WARN') {
+        if (typeof message === 'string') addToast(message, 'warn');
       }
     };
 

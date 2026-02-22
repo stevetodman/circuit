@@ -12,6 +12,7 @@
  *   555 / arduino / tactileSwitch → skipped (future milestones)
  */
 import type { CircuitNode, PlacedComponent, Wire } from '@/types/circuit';
+import { MAX_NETS } from '@/types/circuit';
 import type { NetlistElement, Netlist } from './MNASolver';
 
 export function buildNetlist(
@@ -29,6 +30,11 @@ export function buildNetlist(
     if (node.netId != null && node.netId > maxNet) maxNet = node.netId;
   }
   const netCount = maxNet + 1;
+
+  // P0-4: guard against exceeding SAB capacity
+  if (netCount > MAX_NETS) {
+    throw new Error(`Circuit exceeds maximum net count (${MAX_NETS}). Simplify the circuit.`);
+  }
 
   // Lookup: given a component and pin name, return the netId (or null)
   function pinNet(comp: PlacedComponent, pinName: string): number | null {

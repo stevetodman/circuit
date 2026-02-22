@@ -59,6 +59,8 @@ let running     = false;
 let paused      = false;
 let rafHandle:  ReturnType<typeof setInterval> | null = null;
 let cycleHandle: ReturnType<typeof setInterval> | null = null;
+// P1-16: batch serial bytes per burst instead of one postMessage per byte
+let serialBuffer = '';
 
 // Map: Arduino pin number → SAB digitalStates index (set by UPDATE_PIN_MAP)
 const pinToNetIdx: Record<number, number> = {};
@@ -86,6 +88,7 @@ function syncGPIO() {
 
   // Write AVR output pin states to shared memory
   for (const [pinStr, netIdx] of Object.entries(pinToNetIdx)) {
+    if (netIdx < 0 || netIdx >= MAX_NETS) continue; // P0-3: bounds guard
     const pin  = Number(pinStr);
     const map  = UNO_PIN_MAP[pin];
     if (!map) continue;
@@ -97,6 +100,7 @@ function syncGPIO() {
 
   // Read analog net voltages from SAB and feed AVR input pin state
   for (const [arduinoPin, netIdx] of Object.entries(pinToNetIdx)) {
+    if (netIdx < 0 || netIdx >= MAX_NETS) continue; // P0-3: bounds guard
     const voltage = digitalStateView[netIdx];
     const mapping = UNO_PIN_MAP[Number(arduinoPin)];
     if (!mapping) continue;
@@ -116,6 +120,11 @@ function runBurst() {
     cpu.tick();
   }
   syncGPIO();
+  // P1-16: flush batched serial bytes once per 1ms burst
+  if (serialBuffer) {
+    self.postMessage({ type: 'SERIAL_OUTPUT', data: serialBuffer });
+    serialBuffer = '';
+  }
 }
 
 // ── Message handler ────────────────────────────────────────────────────────────
@@ -139,6 +148,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       running = false;
       paused = false;
       cpu = null;
+      serialBuffer = ''; // P1-16: clear stale serial data
 
       // Attach SAB view
       digitalStateView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
@@ -156,7 +166,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       new AVRTimer(cpu, timer0Config);
       const usart = new AVRUSART(cpu, usart0Config, 16e6);
       usart.onByteTransmit = (byte: number) => {
-        self.postMessage({ type: 'SERIAL_OUTPUT', data: String.fromCharCode(byte) });
+        serialBuffer += String.fromCharCode(byte); // P1-16: buffer; flushed in runBurst
       };
 
       // Start run loop

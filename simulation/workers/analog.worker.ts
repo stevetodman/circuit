@@ -42,6 +42,8 @@ let currentNetlist: Netlist | null = null;
 let netlistHasCapacitor = false;
 let prevVoltages: Float32Array | null = null;
 let timer555Components: Timer555Model[] = [];
+// P1-12: cumulative sim time — avoids wall-clock drift under CPU load
+let simTimeMs = 0;
 
 let voltageView: Float32Array | null = null;
 let branchCurrentView: Float32Array | null = null;
@@ -66,7 +68,6 @@ function loadTimerModels(
   nodes: Record<string, CircuitNode>,
   components: Record<string, PlacedComponent>,
 ): Timer555Model[] {
-  const now = performance.now();
   const timers: Timer555Model[] = [];
 
   for (const comp of Object.values(components)) {
@@ -80,7 +81,7 @@ function loadTimerModels(
     const capacitance = asNumber(comp.props.capacitance, 1e-6);
     const denominator = (r1 + 2 * r2) * capacitance;
     const frequency   = denominator > 0 ? 1.44 / denominator : 0;
-    timers.push({ outNetId, vccNetId, frequency, startedAt: now });
+    timers.push({ outNetId, vccNetId, frequency, startedAt: simTimeMs });
   }
 
   return timers;
@@ -104,6 +105,7 @@ function applyTimerOutputs(now: number): void {
   if (!voltageView || timer555Components.length === 0) return;
 
   for (const timer of timer555Components) {
+    if (timer.outNetId < 0 || timer.outNetId >= MAX_NETS) continue; // P0-2: bounds guard
     if (timer.frequency <= 0) {
       voltageView[timer.outNetId] = 0;
       continue;
@@ -120,7 +122,8 @@ function applyTimerOutputs(now: number): void {
 
 function tick(): void {
   if (!currentNetlist || !voltageView) return;
-  const now = performance.now();
+  // P1-12: advance cumulative sim time rather than using wall clock
+  simTimeMs += DT_MS;
 
   if (netlistHasCapacitor) {
     const result = solveDC(currentNetlist, DT_MS / 1000, prevVoltages ?? undefined);
@@ -132,8 +135,8 @@ function tick(): void {
     writeVoltages(prevVoltages);
   }
 
-  applyTimerOutputs(now);
-  if (timestampView) timestampView[0] = now;
+  applyTimerOutputs(simTimeMs);
+  if (timestampView) timestampView[0] = simTimeMs;
   self.postMessage({ type: 'VOLTAGES_READY', singular: false });
 }
 
@@ -160,6 +163,7 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
   }
 
   try {
+    simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
     netlistHasCapacitor   = currentNetlist.elements.some((el) => el.kind === 'capacitor');
     timer555Components    = loadTimerModels(msg.nodes, msg.components);
@@ -170,12 +174,15 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg>) => {
     if (result) {
       writeVoltages(result.voltages);
       writeBranchCurrents(result.branchCurrents);
+      if (!result.converged) { // P1-15: surface NR non-convergence to main thread
+        self.postMessage({ type: 'SIM_WARN', message: 'Simulation may be inaccurate: Newton-Raphson solver did not converge. Check diode/BJT connections.' });
+      }
     } else {
       voltageView?.fill(0);
       branchCurrentView?.fill(0);
     }
 
-    applyTimerOutputs(performance.now());
+    applyTimerOutputs(simTimeMs);
 
     if (netlistHasCapacitor || timer555Components.length > 0) {
       startLoop();

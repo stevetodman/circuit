@@ -82,7 +82,12 @@ export function runNetAnalysis(
     }
   };
 
-  const groundNodes = nodeIds.filter((id) => id.startsWith('bb-tn-') || id.startsWith('bb-bn-'));
+  // P1-11: only assign ground (netId=0) to rail nodes that have actual connections
+  // (wires or component pins). Isolated negative rail holes should not get netId=0.
+  const groundNodes = nodeIds.filter((id) =>
+    (id.startsWith('bb-tn-') || id.startsWith('bb-bn-')) &&
+    (adj[id]?.size ?? 0) > 0
+  );
   for (const gndId of groundNodes) {
     if (!visited.has(gndId)) {
       bfs(gndId, 0);

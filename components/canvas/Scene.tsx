@@ -105,9 +105,11 @@ function applyZoomToFit(
 }
 
 export default function Scene() {
-  const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
-  const selectComponent     = useCircuitStore((s) => s.selectComponent);
-  const components          = useCircuitStore((s) => Object.values(s.components) as PlacedComponentView[]);
+  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
+  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
+  const selectComponent      = useCircuitStore((s) => s.selectComponent);
+  const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
+  const components           = useCircuitStore((s) => Object.values(s.components) as PlacedComponentView[]);
   const nodes               = useCircuitStore((s) => s.nodes);
   const doZoomToFit          = useUIStore((s) => s.zoomToFit);
   const clearZoomToFit        = useUIStore((s) => s.clearZoomToFit);
@@ -176,11 +178,15 @@ export default function Scene() {
               anchorPos={component.anchorPos}
               rotationY={component.rotationY}
               pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
-              selected={selectedComponentId === component.id}
+              selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
               anodeNetId={pinNet('anode')}
               cathodeNetId={pinNet('cathode')}
               onClick={(event) => {
                 event.stopPropagation();
+                if (event.shiftKey) {
+                  toggleSelectedComponent(component.id);
+                  return;
+                }
                 selectComponent(selectedComponentId === component.id ? null : component.id);
               }}
             />

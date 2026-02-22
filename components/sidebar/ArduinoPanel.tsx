@@ -114,10 +114,26 @@ export default function ArduinoPanel() {
   // Stop worker on unmount
   useEffect(() => () => { workerRef.current?.terminate(); }, []);
 
+  // P0-7: re-send pin map whenever topology changes while a sketch is running
+  useEffect(() => {
+    if (!workerRef.current || !running || !sab) return;
+    workerRef.current.postMessage({ type: 'UPDATE_PIN_MAP', pinMap: buildPinMap(), sab });
+  }, [component.pins, nodes, running, buildPinMap, sab]);
+
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // P1-18: validate file size (ATmega328P has 32 KB flash; .hex overhead makes 256 KB a safe ceiling)
+    const MAX_HEX_SIZE = 256 * 1024;
+    if (file.size > MAX_HEX_SIZE) {
+      alert('File too large (max 256 KB for ATmega328P)');
+      return;
+    }
     file.text().then((text) => {
+      if (!text.includes(':') || !text.trim().endsWith(':00000001FF')) {
+        alert('Invalid Intel HEX format');
+        return;
+      }
       setHexText(text);
       setHexName(file.name);
     });

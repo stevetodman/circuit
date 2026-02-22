@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getSamples, SCOPE_SAMPLES } from '@/features/oscilloscope/scopeBuffer';
+import { getSamples, SCOPE_SAMPLES, MAX_CHANNELS } from '@/features/oscilloscope/scopeBuffer';
 import { type Channel } from '@/store/scopeStore';
 
 interface OscilloscopeProps {
@@ -59,12 +59,13 @@ export default function Oscilloscope({
   const [autoScale, setAutoScale] = useState(false);
 
   const handleAdd = useCallback(() => {
+    if (channels.length >= MAX_CHANNELS) return; // P1-19: enforce channel limit before prompting
     const raw = window.prompt('Enter a net ID (0-255) to probe');
     if (raw === null) return;
     const parsed = Number.parseInt(raw.trim(), 10);
     if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed < 0 || parsed > 255) return;
     onAddChannel(parsed);
-  }, [onAddChannel]);
+  }, [onAddChannel, channels.length]);
 
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
