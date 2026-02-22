@@ -275,7 +275,7 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       selectNode(id) {
-        set({ selectedNodeId: id });
+        set({ selectedNodeId: id, wiringMode: id != null });
       },
 
       selectComponent(id) {

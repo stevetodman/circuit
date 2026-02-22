@@ -21,6 +21,8 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
 import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
 import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
+import WiringBanner from '@/components/WiringBanner';
+import PinTooltip from '@/components/canvas/PinTooltip';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -132,6 +134,8 @@ export default function Home() {
       <main className="relative flex-1 min-w-0 h-full">
         <Toolbar />
         <div className="absolute inset-0 top-[36px]">
+          <WiringBanner />
+          <PinTooltip />
           <Scene />
           <EmptyStateGallery />
           <WiringHint />

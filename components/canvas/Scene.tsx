@@ -157,6 +157,7 @@ function SceneInteractions() {
   const startBoxSelect = useUIStore((state) => state.startBoxSelect);
   const updateBoxSelect = useUIStore((state) => state.updateBoxSelect);
   const clearBoxSelect = useUIStore((state) => state.clearBoxSelect);
+  const setMousePos     = useUIStore((state) => state.setMousePos);
   const setSelectedComponentIds = useCircuitStore((state) => state.setSelectedComponentIds);
 
   useEffect(() => {
@@ -207,6 +208,7 @@ function SceneInteractions() {
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      setMousePos(event.clientX, event.clientY);
       if (!useUIStore.getState().boxSelect) return;
       updateBoxSelect(event.clientX, event.clientY);
       event.preventDefault();
@@ -254,7 +256,7 @@ function SceneInteractions() {
       gl.domElement.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setSelectedComponentIds]);
+  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds]);
 
   return null;
 }
