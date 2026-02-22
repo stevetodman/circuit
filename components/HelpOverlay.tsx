@@ -46,7 +46,7 @@ const SECTIONS = [
       ['Right-click component', 'Context menu (delete, rotate…)'],
       ['Drag from palette', 'Place a component'],
       ['Drag on empty canvas', 'Box-select multiple components'],
-      ['Ctrl/Cmd+click component', 'Add to / remove from selection'],
+      ['Ctrl/Cmd or Shift + click', 'Add to / remove from selection'],
       ['Click tactile switch', 'Toggle switch open/closed'],
       ['Escape', 'Deselect / cancel drag'],
       ['A', 'Open Arduino panel'],

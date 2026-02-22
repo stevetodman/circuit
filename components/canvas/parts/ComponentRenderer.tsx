@@ -5,6 +5,7 @@ import { Text } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { ComponentType, PlacedComponent, Vec3 } from '@/types/circuit';
+import { useCircuitStore } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
 import LED from './LED';
@@ -142,6 +143,18 @@ export default function ComponentRenderer({
     overloadMaterialRef.current.emissiveIntensity = 0.2 + pulse * 0.6;
   });
 
+  const toggleSelectedComponent = useCircuitStore((state) => state.toggleSelectedComponent);
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    if (event.nativeEvent.shiftKey) {
+      toggleSelectedComponent(componentId);
+      return;
+    }
+
+    if (onClick) {
+      onClick(event);
+    }
+  };
+
   let inner: React.ReactNode;
   switch (type) {
     case 'led':
@@ -151,7 +164,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
           anodeNetId={anodeNetId}
           cathodeNetId={cathodeNetId}
         />
@@ -164,7 +177,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -175,7 +188,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
           closed={componentProps?.closed as number | undefined}
         />
       );
@@ -188,7 +201,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -199,7 +212,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -210,7 +223,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -221,7 +234,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -232,7 +245,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -243,7 +256,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -256,7 +269,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -267,7 +280,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -278,7 +291,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -289,7 +302,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -300,7 +313,7 @@ export default function ComponentRenderer({
           selected={selected}
           transparent={transparent}
           pinOffsets={pinOffsets}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
       break;
@@ -309,7 +322,7 @@ export default function ComponentRenderer({
         <FallbackPart
           pinOffsets={pinOffsets}
           selected={selected}
-          onClick={onClick}
+          onClick={handleClick}
         />
       );
   }
