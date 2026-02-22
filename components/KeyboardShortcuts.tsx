@@ -26,7 +26,9 @@ export default function KeyboardShortcuts() {
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const selectNode          = useCircuitStore((s) => s.selectNode);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const dragging           = useDragStore((s) => s.dragging);
   const cancelDrag          = useDragStore((s) => s.cancel);
+  const rotateDrag          = useDragStore((s) => s.rotate);
   const toggleSchematic     = useSchematicStore((s) => s.toggle);
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
@@ -70,10 +72,17 @@ export default function KeyboardShortcuts() {
       if (key === '1') { e.preventDefault(); requestCameraPreset('default'); return; }
       if (key === '2') { e.preventDefault(); requestCameraPreset('top');     return; }
 
-      // Rotate selected component
-      if (key === 'r' && selectedComponentId) {
-        e.preventDefault();
-        rotateComponent(selectedComponentId);
+      // Rotate selected component or dragged component
+      if (key === 'r') {
+        if (dragging) {
+          e.preventDefault();
+          rotateDrag();
+          return;
+        }
+        if (selectedComponentId) {
+          e.preventDefault();
+          rotateComponent(selectedComponentId);
+        }
         return;
       }
 
@@ -103,7 +112,9 @@ export default function KeyboardShortcuts() {
     return () => window.removeEventListener('keydown', handler);
   }, [
     deleteSelected,
+    dragging,
     rotateComponent,
+    rotateDrag,
     selectedComponentId,
     selectNode,
     selectComponent,

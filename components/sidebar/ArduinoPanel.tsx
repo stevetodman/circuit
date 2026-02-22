@@ -47,7 +47,10 @@ export default function ArduinoPanel() {
   const workerRef   = useRef<Worker | null>(null);
   const sabRef      = useRef<SharedArrayBuffer | null>(null);
   const [running,   setRunning]   = useState(false);
+  const [paused,    setPaused]    = useState(false);
   const [hexText,   setHexText]   = useState('');
+  const [hexName,   setHexName]   = useState<string | null>(null);
+  const [cycleCount,setCycleCount]=useState(0);
   const [serialLog, setSerialLog] = useState<string[]>([]);
 
   // Only show for the placed Arduino component
@@ -76,7 +79,7 @@ export default function ArduinoPanel() {
     return sabRef.current;
   }, []);
 
-  const uploadAndRun = useCallback((hex: string) => {
+  const uploadAndRun = useCallback((hex: string, fileName: string) => {
     if (workerRef.current) workerRef.current.terminate();
 
     const sab    = ensureSAB();
@@ -84,12 +87,16 @@ export default function ArduinoPanel() {
       new URL('../../simulation/workers/arduino.worker.ts', import.meta.url),
     );
     workerRef.current = worker;
+    setPaused(false);
+    setCycleCount(0);
+    setHexName(fileName);
 
     worker.onmessage = (e) => {
-      const { type, data } = e.data as { type: string; data?: string };
+      const { type, data, cycles } = e.data as { type: string; data?: string; cycles?: number };
       if (type === 'READY')         setRunning(true);
       if (type === 'SERIAL_OUTPUT') setSerialLog(prev => [...prev.slice(-99), data ?? '']);
       if (type === 'RUNTIME_ERROR') console.error('[Arduino]', data);
+      if (type === 'CYCLE_COUNT' && cycles != null) setCycleCount(cycles);
     };
 
     worker.postMessage({ type: 'UPLOAD_HEX', hex, sab });
@@ -101,6 +108,17 @@ export default function ArduinoPanel() {
     workerRef.current?.terminate();
     workerRef.current = null;
     setRunning(false);
+    setPaused(false);
+  }, []);
+
+  const pause = useCallback(() => {
+    workerRef.current?.postMessage({ type: 'PAUSE' });
+    setPaused(true);
+  }, []);
+
+  const resume = useCallback(() => {
+    workerRef.current?.postMessage({ type: 'RESUME' });
+    setPaused(false);
   }, []);
 
   // Stop worker on unmount
@@ -109,7 +127,10 @@ export default function ArduinoPanel() {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    file.text().then((text) => { setHexText(text); });
+    file.text().then((text) => {
+      setHexText(text);
+      setHexName(file.name);
+    });
   };
 
   return (
@@ -124,13 +145,13 @@ export default function ArduinoPanel() {
             Choose file…
           </span>
           <input type="file" accept=".hex" className="hidden" onChange={onFileChange} />
-          {hexText && <span className="text-[9px] text-white/30">loaded</span>}
+          {hexName && <span className="text-[9px] text-white/30">{hexName}</span>}
         </label>
       </div>
 
       {/* Quick blink button */}
       <button
-        onClick={() => uploadAndRun(BLINK_HEX)}
+        onClick={() => uploadAndRun(BLINK_HEX, 'blink.hex')}
         className="w-full text-[10px] py-1.5 rounded bg-[#22cc66]/20 text-[#22cc66] hover:bg-[#22cc66]/30 transition-colors"
       >
         Run Blink (pin 13)
@@ -139,12 +160,22 @@ export default function ArduinoPanel() {
       {/* Run / Stop */}
       {hexText && (
         <div className="flex gap-2">
+          {running && hexName && (
+            <span className="text-[9px] text-white/35 self-center">Running sketch: {hexName}</span>
+          )}
           <button
-            onClick={() => uploadAndRun(hexText)}
+            onClick={() => uploadAndRun(hexText, hexName ?? 'sketch.hex')}
             disabled={running}
             className="flex-1 text-[10px] py-1.5 rounded bg-[#2299cc]/20 text-[#2299cc] hover:bg-[#2299cc]/30 disabled:opacity-40 transition-colors"
           >
             {running ? 'Running…' : 'Upload & Run'}
+          </button>
+          <button
+            onClick={paused ? resume : pause}
+            disabled={!running}
+            className="text-[10px] py-1.5 rounded bg-[#ffcc33]/20 text-[#ffcc33] hover:bg-[#ffcc33]/30 disabled:opacity-40 transition-colors"
+          >
+            {paused ? 'Resume' : 'Pause'}
           </button>
           <button
             onClick={stopWorker}
@@ -155,6 +186,8 @@ export default function ArduinoPanel() {
           </button>
         </div>
       )}
+
+      {running && <p className="text-[9px] text-white/50">Cycles: {cycleCount}</p>}
 
       {/* Serial monitor */}
       {serialLog.length > 0 && (
