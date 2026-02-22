@@ -26,6 +26,7 @@ import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
 import WiringBanner from '@/components/WiringBanner';
 import PinTooltip from '@/components/canvas/PinTooltip';
 import ModuleIntroOverlay from '@/components/ModuleIntroOverlay';
+import CanvasOverlay from '@/components/CanvasOverlay';
 import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
 
@@ -163,6 +164,7 @@ export default function Home() {
           <WiringBanner />
           <PinTooltip />
           <Scene />
+          <CanvasOverlay />
           <EmptyStateGallery />
           <WiringHint />
           <CameraHint />

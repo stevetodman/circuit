@@ -265,12 +265,29 @@ function SceneInteractions() {
 // CameraController must live inside <Canvas> so useFrame has access to the R3F context
 function CameraController() {
   const doZoomToFit    = useUIStore((s) => s.zoomToFit);
+  const zoomInRequested  = useUIStore((s) => s.zoomInRequested);
+  const zoomOutRequested = useUIStore((s) => s.zoomOutRequested);
   const clearZoomToFit = useUIStore((s) => s.clearZoomToFit);
   const cameraPreset   = useUIStore((s) => s.cameraPreset);
   const clearCameraPreset = useUIStore((s) => s.clearCameraPreset);
   const componentsMap  = useCircuitStore((s) => s.components);
 
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    const cam = controlsRef.current.object as THREE.PerspectiveCamera;
+    cam.position.lerp(controlsRef.current.target, 0.2);
+    cam.updateProjectionMatrix();
+  }, [zoomInRequested]);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    const cam = controlsRef.current.object as THREE.PerspectiveCamera;
+    const dir = cam.position.clone().sub(controlsRef.current.target);
+    cam.position.copy(controlsRef.current.target).addScaledVector(dir, 1.25);
+    cam.updateProjectionMatrix();
+  }, [zoomOutRequested]);
 
   useFrame((state) => {
     const controls = controlsRef.current;
