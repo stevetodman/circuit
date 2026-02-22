@@ -6,6 +6,7 @@ import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import Breadboard from './Breadboard';
+import BreadboardLabels from './BreadboardLabels';
 import PinGrid from './Pin';
 import WireLayer from './WireLayer';
 import WirePreview from './WirePreview';
@@ -352,6 +353,7 @@ export default function Scene() {
 
           {/* Scene geometry */}
           <Breadboard />
+          <BreadboardLabels />
           <WireLayer />
           <WirePreview />
           <PinGrid />
