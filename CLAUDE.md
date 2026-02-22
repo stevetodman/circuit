@@ -85,10 +85,11 @@ components/
     ExportPanel.tsx     SPICE .cir download
     ScopeButton.tsx     Open oscilloscope shortcut
     StatusBar.tsx       Sim status dot + mode chip + hovered pin display
+  ContextMenu.tsx       Right-click context menu (delete/rotate/duplicate/properties)
   ErrorBoundary.tsx     Wraps Sidebar, Oscilloscope, SchematicView in page.tsx
   HelpOverlay.tsx       ? key modal — full keyboard shortcut reference
   KeyboardShortcuts.tsx Global keyboard handler (mount once in page.tsx)
-  SimController.tsx     Worker lifecycle + SAB init + topology → UPDATE_NETLIST
+  SimController.tsx     Worker lifecycle + SAB init + topology → UPDATE_NETLIST; power calc
   Toast.tsx             Transient notification bar (sim errors, warnings)
 constants/
   breadboard.ts         PITCH, COLS, ROWS, BOARD_TOP_Y, SNAP_THRESHOLD (single source of truth)
@@ -99,13 +100,14 @@ features/
   schematic/
     SchematicView.tsx   SVG overlay (toggled with S key); shows empty-state message when no components
     SchematicLayout.ts  elkjs ELK layered layout: netlist → {x,y,w,h} per component + cache
-    symbols/index.tsx   IEEE SVG symbols: R, LED, C, BJT, 555, Arduino, Motor, Switch
+    symbols/index.tsx   IEEE SVG symbols: R, LED, C, BJT, 555, Arduino, Motor, Switch,
+                        Diode, MOSFET, OpAmp, Inductor, Potentiometer
                         SYMBOL_SIZES and SchematicLayout COMPONENT_SIZES are kept in sync
   examples/
     circuits.ts         Pre-built example circuits (blink, voltage divider, RC)
     ExampleLoader.tsx   Dropdown to load examples
   export/
-    exportNetlist.ts    Circuit topology → SPICE .cir string (covers all 9 component types)
+    exportNetlist.ts    Circuit topology → SPICE .cir string (covers all 14 component types)
 simulation/
   SimBridge.ts          Module-level SAB-backed typed arrays + init(sab)
   mna/
@@ -116,7 +118,8 @@ simulation/
     arduino.worker.ts   avr8js ATmega328P at 16 MHz, GPIO ↔ SAB digitalStates
 store/
   circuitStore.ts       Zustand + zundo: nodes, components, wires, undo/redo
-  uiStore.ts            Non-topology UI: hoveredNodeId, simStatus, sab, showHelp, zoom/camera
+  uiStore.ts            Non-topology UI: hoveredNodeId, simStatus, sab, showHelp, zoom/camera,
+                        showDesignators, showCurrentLabels, power, contextMenu, boxSelect
   scopeStore.ts         Oscilloscope channels + open/close
   schematicStore.ts     Schematic open/close
   dragStore.ts          Active drag: type, position, rotationY, snap
@@ -150,7 +153,11 @@ types/
 
 **Symbol sizes** — `SYMBOL_SIZES` in `features/schematic/symbols/index.tsx` and `COMPONENT_SIZES` in `features/schematic/SchematicLayout.ts` must stay in sync. Both define the same pixel dimensions for each component type so ELK layout boxes match rendered SVG symbols exactly.
 
-**SPICE export** — `exportNetlist.ts` covers all 9 component types. BJT emits `Q<n> C B E NPN_GENERIC`, motor emits `R_MOTOR<n>` with a comment, tactile switch emits `SW<n>` with a `.model MYSW SW(...)` control model, 555 timer emits a comment line (not SPICE-native). Models are appended at the bottom of the `.cir` file.
+**SPICE export** — `exportNetlist.ts` covers all 14 component types. BJT → `Q<n> NPN_GENERIC`, diode → `D<n> DIODE_1N4148`, MOSFET → `M<n> NMOS_SIMPLE`, op-amp → `X<n> LM741`, inductor → `L<n>`, potentiometer → two `R<n>a`/`R<n>b` resistors. Models appended at bottom of `.cir`.
+
+**UX features** — Component designator labels (R1, C2…) float above each part in 3D; toggle with `L`. Right-click context menu on components (delete/rotate/duplicate/properties). Box-select: drag on empty canvas to select multiple components. Box-select state lives in `uiStore.boxSelect` + `boxSelectRect`. `SceneInteractions` in Scene.tsx handles pointer events; `BoxSelectOverlay` renders the CSS marquee.
+
+**Measurement** — Power dissipation computed in `SimController.tsx` (Σ|I·V_drop| for resistors, 500ms refresh) and stored in `uiStore.power`. Wire current labels (µA/mA/A) on wires via drei `<Text>`; toggle with `I`. Oscilloscope `+` button shows inline input instead of `window.prompt`.
 
 ## Stores at a Glance
 
