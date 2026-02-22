@@ -47,6 +47,22 @@ const rectNodePos = topNodeId(CENTER_COL + 10, 0);
 const rectNodeNeg = topNodeId(CENTER_COL + 12, 0);
 const rectNodeBridge = topNodeId(CENTER_COL + 14, 0);
 
+const rcNodeA = topNodeId(CENTER_COL - 16, 1);
+const rcNodeB = topNodeId(CENTER_COL - 14, 1);
+const rcNodeC = topNodeId(CENTER_COL - 12, 1);
+const rcNodeD = topNodeId(CENTER_COL - 10, 1);
+const rcGround = railNode('bn', 1);
+
+const switchNodeA = topNodeId(CENTER_COL - 8, 1);
+const switchNodeB = topNodeId(CENTER_COL - 6, 1);
+const switchNodeC = topNodeId(CENTER_COL - 4, 1);
+const switchNodeD = topNodeId(CENTER_COL - 2, 1);
+
+const timer555NodeVcc = topNodeId(CENTER_COL + 2, 1);
+const timer555NodeGnd = topNodeId(CENTER_COL + 4, 1);
+const timer555NodeTrig = topNodeId(CENTER_COL + 6, 1);
+const timer555NodeOut = topNodeId(CENTER_COL + 8, 1);
+
 export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
     name: 'LED + Resistor',
@@ -176,5 +192,179 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
       { id: 'example-divider-w2', fromNodeId: divNode2, toNodeId: divNode3, color: '#2255cc' },
       { id: 'example-divider-w3', fromNodeId: divNode1, toNodeId: divNode3, color: '#aa2222' },
     ],
+  },
+  {
+    name: 'RC Filter',
+    description: 'RC low-pass filter. Capacitor charges/discharges through resistor.',
+    components: [
+      {
+        id: 'example-rc-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(16, 1), topNodePos(18, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: rcNodeA },
+          { name: 'neg', nodeId: rcNodeB },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-rc-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(18, 1), topNodePos(20, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: rcNodeB },
+          { name: 'p2', nodeId: rcNodeC },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'example-rc-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(20, 1), topNodePos(22, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: rcNodeC },
+          { name: 'neg', nodeId: rcNodeD },
+        ],
+        props: { capacitance: 10 },
+      },
+    ],
+    wires: [
+      { id: 'example-rc-w1', fromNodeId: rcNodeD, toNodeId: rcGround, color: '#333333' },
+      { id: 'example-rc-w2', fromNodeId: rcGround, toNodeId: rcNodeA, color: '#333333' },
+    ],
+  },
+  {
+    name: 'NPN Switch',
+    description: 'NPN transistor used as a switch to drive an LED.',
+    components: [
+      {
+        id: 'example-switch-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(24, 1), topNodePos(26, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: switchNodeA },
+          { name: 'neg', nodeId: switchNodeD },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-switch-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(26, 1), topNodePos(28, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: switchNodeA },
+          { name: 'p2', nodeId: switchNodeB },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-switch-bjt',
+        type: 'bjt',
+        anchorPos: midpoint(topNodePos(28, 1), topNodePos(30, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'base', nodeId: switchNodeB },
+          { name: 'collector', nodeId: switchNodeC },
+          { name: 'emitter', nodeId: switchNodeD },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-switch-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(24, 1), topNodePos(28, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: switchNodeA },
+          { name: 'cathode', nodeId: switchNodeC },
+        ],
+        props: {},
+      },
+    ],
+    wires: [],
+  },
+  {
+    name: '555 Blinker',
+    description: '555 timer in astable mode. LED blinks at ~1Hz.',
+    components: [
+      {
+        id: 'example-555-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(34, 1), topNodePos(36, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: timer555NodeVcc },
+          { name: 'neg', nodeId: timer555NodeGnd },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-555-r1',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(34, 1), topNodePos(38, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: timer555NodeVcc },
+          { name: 'p2', nodeId: timer555NodeTrig },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'example-555-r2',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(38, 1), topNodePos(40, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: timer555NodeTrig },
+          { name: 'p2', nodeId: timer555NodeOut },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-555-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(40, 1), topNodePos(36, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: timer555NodeOut },
+          { name: 'neg', nodeId: timer555NodeGnd },
+        ],
+        props: { capacitance: 10 },
+      },
+      {
+        id: 'example-555-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(40, 1), topNodePos(36, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: timer555NodeOut },
+          { name: 'cathode', nodeId: timer555NodeGnd },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-555-timer',
+        type: 'timer555',
+        anchorPos: midpoint(topNodePos(34, 1), topNodePos(40, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'vcc', nodeId: timer555NodeVcc },
+          { name: 'gnd', nodeId: timer555NodeGnd },
+          { name: 'out', nodeId: timer555NodeOut },
+          { name: 'trig', nodeId: timer555NodeTrig },
+        ],
+        props: {
+          r1: 1000,
+          r2: 10000,
+          capacitance: 10,
+        },
+      },
+    ],
+    wires: [],
   },
 ];

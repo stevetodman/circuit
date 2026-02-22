@@ -1,105 +1,102 @@
-# SPEC: P1.3 Component Tooltips + P1.4 Empty Inspector State + F4.3 Engineering Notation
+# SPEC: P1.5 Example Gallery Redesign + More Examples
 
 ## Context
 Circuit Sandbox — React/Next.js/Tailwind. Run `pnpm build` to verify.
+Key files:
+- `features/examples/circuits.ts` — example circuit definitions
+- `features/examples/ExampleLoader.tsx` — renders the load UI in sidebar
 
 ## Problems to Fix
+The current example loader is a plain `<select>` dropdown with 3 examples.
+It's unclear what each circuit does without selecting it first.
+We need a more beginner-friendly gallery feel with cards.
 
-### P1.3 — Component Tooltips
-Hovering a part tile in the sidebar shows no information about what the
-component does, its typical use, or keyboard shortcut. Beginners get confused.
+## Changes
 
-### P1.4 — Empty Inspector State
-When no component is selected, `PropertiesInspector` returns null. The sidebar
-has a large empty space below the parts list. Add a helpful empty state.
+### `features/examples/circuits.ts`
+Add 3 more example circuits to `EXAMPLE_CIRCUITS` (keep the existing 3 first):
 
-### F4.3 — Engineering Notation in Inspector
-Resistance values show raw numbers like `1000` instead of `1kΩ`.
-Capacitance shows `0.000001 F` instead of `1µF`. These should use
-engineering notation in the display.
+**4. RC Filter** — battery + resistor + capacitor
+- 1kΩ resistor in series, 10µF capacitor to ground
+- description: 'RC low-pass filter. Capacitor charges/discharges through resistor.'
 
-## Files to Change
+**5. NPN Switch** — battery + resistor + NPN transistor + LED
+- Battery → base resistor (10kΩ) → BJT base, collector → LED → battery
+- description: 'NPN transistor used as a switch to drive an LED.'
 
-### `components/sidebar/ComponentTile.tsx`
-Add a `tooltip?: string` prop. Render it as a `title` attribute on the button:
+**6. 555 Blinker** — battery + 555 timer + LED + resistors
+- 555 in astable mode: R1=1kΩ, R2=10kΩ, C=10µF → LED on output
+- description: '555 timer in astable mode. LED blinks at ~1Hz.'
+
+For each new circuit, use the existing helper functions `bbNode`, `railNode`,
+`topNodePos`, `midpoint` from the same file. Choose column positions that
+don't conflict with existing examples (use cols 10-40 range, rows 0-1 typically).
+Place components at midpoints between breadboard nodes, just like the existing examples.
+
+Keep it simple — the simulation will handle the rest. The circuits just need
+valid node connections that form a complete loop.
+
+### `features/examples/ExampleLoader.tsx`
+Replace the `<select>` with an expandable button + card grid.
+
+**New UX:**
+1. A "Load Example" button with a chevron that toggles an expanded card grid
+2. When expanded, show each circuit as a small card:
+   - Circuit name (bold, 12px)
+   - Description (10px, muted)
+   - Tiny color swatch or icon based on circuit type (optional, skip if complex)
+3. Clicking a card:
+   - If board is empty → load immediately
+   - If board has content → show inline confirm (amber warning, same as p0-drag-guard spec)
+4. After loading → collapse the gallery
+
+**Implementation:**
 ```tsx
-<button ... title={tooltip ?? label}>
-```
-That gives us native browser tooltip on hover for free.
+const [expanded, setExpanded] = useState(false);
+const [pendingCircuit, setPendingCircuit] = useState<ExampleCircuit | null>(null);
 
-Also add the tooltip data to `Sidebar.tsx`'s PARTS array (see below).
-
-### `components/sidebar/Sidebar.tsx`
-In the `PARTS` array definition, add a `tooltip` field to each entry:
-```typescript
-const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode; tooltip: string }[] = [
-  { type: 'battery',       label: 'Battery',        tooltip: 'DC voltage source (1.5–30V). Powers your circuit.', icon: <Battery /> },
-  { type: 'wire',          label: 'Wire',            tooltip: 'Connect two pins. Click any pin to start.', icon: <WireIcon /> },
-  { type: 'resistor',      label: 'Resistor',        tooltip: 'Limits current flow. Set resistance in Ω.', icon: <Rect fill="#c8a060" /> },
-  { type: 'led',           label: 'LED',             tooltip: 'Light-Emitting Diode. Glows when current flows.', icon: <LED /> },
-  { type: 'capacitor',     label: 'Capacitor',       tooltip: 'Stores charge. Blocks DC, passes AC.', icon: <Circle fill="#4488cc" /> },
-  { type: 'bjt',           label: 'NPN Transistor',  tooltip: 'Bipolar transistor: amplifier or switch.', icon: <BJT /> },
-  { type: 'timer555',      label: '555 Timer',       tooltip: 'Generates square waves. Set frequency via R1, R2, C.', icon: <Timer555 /> },
-  { type: 'motor',         label: 'Motor',           tooltip: 'DC hobby motor. Spins when voltage is applied.', icon: <Motor /> },
-  { type: 'tactileSwitch', label: 'Tactile Switch',  tooltip: 'Momentary push-button switch. Toggle in inspector.', icon: <Circle fill="#666" /> },
-  { type: 'diode',         label: 'Diode',           tooltip: 'Allows current in one direction only (1N4148).', icon: <Diode /> },
-  { type: 'mosfet',        label: 'MOSFET',          tooltip: 'Voltage-controlled switch. Gate controls drain-source.', icon: <MOSFET /> },
-  { type: 'opamp',         label: 'Op-Amp',          tooltip: 'Operational amplifier. Amplifies voltage difference.', icon: <OpAmp /> },
-  { type: 'inductor',      label: 'Inductor',        tooltip: 'Stores energy in magnetic field. Opposes current change.', icon: <Inductor /> },
-  { type: 'potentiometer', label: 'Potentiometer',   tooltip: 'Variable resistor. Wiper position sets output voltage.', icon: <Potentiometer /> },
-  { type: 'arduino',       label: 'Arduino Uno',     tooltip: 'ATmega328P microcontroller. Upload sketches to run code.', icon: <Arduino /> },
-];
-```
-Pass `tooltip={p.tooltip}` to ComponentTile.
-
-### `components/sidebar/PropertiesInspector.tsx`
-Currently `PropertiesInspector()` returns null when nothing is selected.
-Change it to return a subtle empty state instead:
-
-```tsx
-export default function PropertiesInspector() {
-  const selectedId  = useCircuitStore((s) => s.selectedComponentId);
-  const components  = useCircuitStore((s) => s.components);
-  const hasAny = Object.keys(components).length > 0;  // re-read this from store
-
-  if (!selectedId) {
-    return (
-      <div className="border-t border-white/[0.06] px-4 py-4">
-        <p className="text-[10px] text-white/20 italic leading-relaxed">
-          {hasAny
-            ? 'Click a component to inspect its properties.'
-            : 'Drag a part from the panel above onto the breadboard to get started.'}
-        </p>
-      </div>
-    );
+// When a card is clicked:
+function handleSelect(circuit: ExampleCircuit) {
+  const hasContent = Object.keys(components).length > 0 || Object.keys(wires).length > 0;
+  if (hasContent) {
+    setPendingCircuit(circuit);
+  } else {
+    doLoad(circuit);
   }
-  const component = components[selectedId];
-  if (!component) return null;
-  return <Inspector component={component} />;
+}
+
+function doLoad(circuit: ExampleCircuit) {
+  // Clear scope channels (same as existing logic)
+  for (const ch of scopeChannels) { clearChannel(ch.netId); removeScopeChannel(ch.netId); }
+  loadExample(circuit);
+  setExpanded(false);
+  setPendingCircuit(null);
 }
 ```
 
-For `hasAny`, use `useCircuitStore((s) => Object.keys(s.components).length > 0)`.
-
-### Engineering notation helper (in `PropertiesInspector.tsx`)
-Add a helper function `engNotation(value: number, unit: string): string` that formats:
-- Megaunits: ≥1e6 → `1.0MΩ`
-- Kilounits: ≥1e3 → `1.0kΩ`
-- Milliunits: <1e-3 → `1.0mH`
-- Microunits: <1e-6 but used for µF → `1.0µF`
-- Nanounits: <1e-9 → `1.0nF`
-- Otherwise: `1.0Ω`
-
-Use this in `NumberInput` to display a read-only formatted value next to the
-input field (not replacing the input, just a hint label below it):
-```tsx
-// Below the NumberInput, show formatted value hint for large/small numbers
-{Math.abs(value) >= 1000 || (Math.abs(value) < 0.1 && value !== 0) ? (
-  <span className="text-[9px] text-white/30 font-mono">{engNotation(value, field.unit ?? '')}</span>
-) : null}
+**Card styles:**
+```
+rounded-md border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07]
+hover:border-white/[0.14] cursor-pointer transition-colors p-2.5
 ```
 
+**Confirm banner** (same pattern as p0-drag-guard):
+```
+mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300
+```
+
+**Expand toggle button:**
+```
+w-full flex items-center justify-between px-3 py-2 rounded-md
+text-[12px] text-white/50 hover:text-white/70 hover:bg-white/[0.05]
+transition-colors font-medium
+```
+
+**Autoload query param** — keep the existing `?autoload=N` behavior.
+The `useEffect` checks for `params.get('autoload')` — keep this unchanged.
+
 ## Rules
-- Do NOT change store logic, simulation, or layout structure
-- Do NOT add new files (put engNotation helper inside PropertiesInspector.tsx)
+- Do NOT use window.confirm
+- Do NOT change any store logic
+- The `?autoload=N` useEffect must still work
 - Run `pnpm build` and fix all TypeScript errors
