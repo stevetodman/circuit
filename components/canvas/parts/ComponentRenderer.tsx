@@ -7,12 +7,15 @@ import Resistor from './Resistor';
 import Battery from './Battery';
 
 interface ComponentRendererProps {
-  type: ComponentType;
-  anchorPos: Vec3;
-  pinOffsets?: Vec3[];
-  selected?: boolean;
-  transparent?: boolean;
-  onClick?: (event: ThreeEvent<MouseEvent>) => void;
+  type:          ComponentType;
+  anchorPos:     Vec3;
+  pinOffsets?:   Vec3[];
+  selected?:     boolean;
+  transparent?:  boolean;
+  onClick?:      (event: ThreeEvent<MouseEvent>) => void;
+  // Voltage props forwarded to LED
+  anodeNetId?:   number | null;
+  cathodeNetId?: number | null;
 }
 
 function FallbackPart({ anchorPos, pinOffsets = [], selected, onClick }: {
@@ -59,6 +62,8 @@ export default function ComponentRenderer({
   selected,
   transparent,
   onClick,
+  anodeNetId,
+  cathodeNetId,
 }: ComponentRendererProps) {
   switch (type) {
     case 'led':
@@ -69,6 +74,8 @@ export default function ComponentRenderer({
           transparent={transparent}
           pinOffsets={pinOffsets}
           onClick={onClick}
+          anodeNetId={anodeNetId}
+          cathodeNetId={cathodeNetId}
         />
       );
     case 'resistor':

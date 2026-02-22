@@ -39,6 +39,7 @@ export default function Scene() {
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
   const components          = useCircuitStore((s) => Object.values(s.components));
+  const nodes               = useCircuitStore((s) => s.nodes);
 
   return (
     <SceneErrorBoundary>
@@ -61,19 +62,29 @@ export default function Scene() {
         <DragManager />
 
         {/* Placed components */}
-        {components.map((component) => (
-          <ComponentRenderer
-            key={component.id}
-            type={component.type}
-            anchorPos={component.anchorPos}
-            pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
-            selected={selectedComponentId === component.id}
-            onClick={(event) => {
-              event.stopPropagation();
-              selectComponent(selectedComponentId === component.id ? null : component.id);
-            }}
-          />
-        ))}
+        {components.map((component) => {
+          // Resolve pin netIds for simulation-driven visuals (LED glow, etc.)
+          const pinNet = (name: string): number | null => {
+            const pin  = component.pins.find(p => p.name === name);
+            if (!pin) return null;
+            return nodes[pin.nodeId]?.netId ?? null;
+          };
+          return (
+            <ComponentRenderer
+              key={component.id}
+              type={component.type}
+              anchorPos={component.anchorPos}
+              pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
+              selected={selectedComponentId === component.id}
+              anodeNetId={pinNet('anode')}
+              cathodeNetId={pinNet('cathode')}
+              onClick={(event) => {
+                event.stopPropagation();
+                selectComponent(selectedComponentId === component.id ? null : component.id);
+              }}
+            />
+          );
+        })}
 
         {/* Orbit camera */}
         <OrbitControls
