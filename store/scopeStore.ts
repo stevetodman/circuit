@@ -10,8 +10,10 @@ export interface Channel {
 interface ScopeState {
   open: boolean;
   channels: Channel[];
+  frozen: boolean;
   toggle: () => void;
   toggleOpen: () => void;
+  toggleFrozen: () => void;
   addChannel: (netId: number, label?: string) => void;
   removeChannel: (netId: number) => void;
   clearChannels: () => void;
@@ -22,6 +24,7 @@ const CHANNEL_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0'];
 export const useScopeStore = create<ScopeState>()((set, get) => ({
   open: false,
   channels: [],
+  frozen: false,
 
   toggle() {
     set({ open: !get().open });
@@ -29,6 +32,10 @@ export const useScopeStore = create<ScopeState>()((set, get) => ({
 
   toggleOpen() {
     set({ open: !get().open });
+  },
+
+  toggleFrozen() {
+    set((s) => ({ frozen: !s.frozen }));
   },
 
   addChannel(netId, label) {
