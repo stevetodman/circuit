@@ -60,7 +60,7 @@ interface CircuitState extends TopologyState {
   wiringMode: boolean;
   setWireBranchIndices: (indices: Record<string, number>) => void;
 
-  addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[]): void;
+  addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
   removeComponent(id: string): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
@@ -89,12 +89,13 @@ export const useCircuitStore = create<CircuitState>()(
       selectedComponentId: null,
       wiringMode: false,
 
-      addComponent(type, pos, pins = []) {
+      addComponent(type, pos, pins = [], rotationY = 0) {
         const id = crypto.randomUUID();
+        const normalizedRotationY = ((rotationY % 360) + 360) % 360;
         set((state) => {
           const components = {
             ...state.components,
-            [id]: { id, type, anchorPos: pos, rotationY: 0, pins, props: {} },
+            [id]: { id, type, anchorPos: pos, rotationY: normalizedRotationY, pins, props: {} },
           };
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };

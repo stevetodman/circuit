@@ -16,6 +16,7 @@ export default function DragManager() {
   const dragging = useDragStore((state) => state.dragging);
   const type     = useDragStore((state) => state.type);
   const position = useDragStore((state) => state.position);
+  const rotationY = useDragStore((state) => state.rotationY);
 
   // Cursor: 'grabbing' while dragging a component, restore after
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function DragManager() {
     <ComponentRenderer
       type={type}
       anchorPos={position}
+      rotationY={rotationY}
       pinOffsets={pinOffsets}
       transparent
       onClick={(event) => event.stopPropagation()}

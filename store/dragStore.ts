@@ -12,8 +12,10 @@ interface DragState {
   dragging: boolean;
   type: ComponentType | null;
   position: Vec3;
+  rotationY: number;
   startDrag: (type: ComponentType) => void;
   updatePos: (pos: Vec3) => void;
+  rotate: () => void;
   commit: () => void;
   cancel: () => void;
 }
@@ -25,16 +27,29 @@ const distanceTo = (left: Vec3, right: Vec3) => {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 
+function rotateOffset(offset: Vec3, rotationY: number): Vec3 {
+  const rad = (rotationY * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return [
+    cos * offset[0] + sin * offset[2],
+    offset[1],
+    -sin * offset[0] + cos * offset[2],
+  ];
+}
+
 export const useDragStore = create<DragState>()((set, get) => ({
   dragging: false,
   type: null,
   position: BOARD_CENTER,
+  rotationY: 0,
 
   startDrag(type) {
     set({
       dragging: true,
       type,
       position: BOARD_CENTER,
+      rotationY: 0,
     });
   },
 
@@ -42,10 +57,14 @@ export const useDragStore = create<DragState>()((set, get) => ({
     set({ position: pos });
   },
 
+  rotate() {
+    set((state) => ({ rotationY: (state.rotationY + 90) % 360 }));
+  },
+
   commit() {
     const state = get();
     if (!state.type) {
-      set({ dragging: false, type: null, position: BOARD_CENTER });
+      set({ dragging: false, type: null, position: BOARD_CENTER, rotationY: 0 });
       return;
     }
 
@@ -55,10 +74,11 @@ export const useDragStore = create<DragState>()((set, get) => ({
     const pins: PinConnection[] = [];
 
     for (const pinDef of pinTemplates) {
+      const pinOffset = rotateOffset(pinDef.offset, state.rotationY);
       const pinWorld: Vec3 = [
-        snappedAnchor[0] + pinDef.offset[0],
-        snappedAnchor[1] + pinDef.offset[1],
-        snappedAnchor[2] + pinDef.offset[2],
+        snappedAnchor[0] + pinOffset[0],
+        snappedAnchor[1] + pinOffset[1],
+        snappedAnchor[2] + pinOffset[2],
       ];
 
       let bestNodeId: string | null = null;
@@ -80,18 +100,18 @@ export const useDragStore = create<DragState>()((set, get) => ({
 
       if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
         snappedAnchor = [
-          bestWorldPos[0] - pinDef.offset[0],
-          bestWorldPos[1] - pinDef.offset[1],
-          bestWorldPos[2] - pinDef.offset[2],
+          bestWorldPos[0] - pinOffset[0],
+          bestWorldPos[1] - pinOffset[1],
+          bestWorldPos[2] - pinOffset[2],
         ];
       }
     }
 
-    useCircuitStore.getState().addComponent(state.type, snappedAnchor, pins);
-    set({ dragging: false, type: null, position: BOARD_CENTER });
+    useCircuitStore.getState().addComponent(state.type, snappedAnchor, pins, state.rotationY);
+    set({ dragging: false, type: null, position: BOARD_CENTER, rotationY: 0 });
   },
 
   cancel() {
-    set({ dragging: false, type: null, position: BOARD_CENTER });
+    set({ dragging: false, type: null, position: BOARD_CENTER, rotationY: 0 });
   },
 }));

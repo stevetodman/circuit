@@ -15,6 +15,7 @@
  *   { type: 'READY' }
  *   { type: 'RUNTIME_ERROR', message: string }
  *   { type: 'SERIAL_OUTPUT', data: string }
+ *   { type: 'CYCLE_COUNT', cycles: number }
  */
 import {
   CPU,
@@ -53,9 +54,11 @@ let cpu:       CPU     | null = null;
 let portB:     AVRIOPort | null = null;
 let portC:     AVRIOPort | null = null;
 let portD:     AVRIOPort | null = null;
-let digitalView: Uint8Array   | null = null;
+let digitalStateView: Uint8Array   | null = null;
 let running     = false;
+let paused      = false;
 let rafHandle:  ReturnType<typeof setInterval> | null = null;
+let cycleHandle: ReturnType<typeof setInterval> | null = null;
 
 // Map: Arduino pin number → SAB digitalStates index (set by UPDATE_PIN_MAP)
 const pinToNetIdx: Record<number, number> = {};
@@ -79,7 +82,9 @@ function parseHex(hexString: string): Uint8Array {
 
 // ── GPIO → SAB bridge ──────────────────────────────────────────────────────────
 function syncGPIO() {
-  if (!digitalView) return;
+  if (!digitalStateView) return;
+
+  // Write AVR output pin states to shared memory
   for (const [pinStr, netIdx] of Object.entries(pinToNetIdx)) {
     const pin  = Number(pinStr);
     const map  = UNO_PIN_MAP[pin];
@@ -87,7 +92,17 @@ function syncGPIO() {
     const port = map.port === 'B' ? portB : map.port === 'C' ? portC : portD;
     if (!port) continue;
     const state = port.pinState(map.bit);
-    digitalView[netIdx] = state === PinState.High ? 1 : 0;
+    digitalStateView[netIdx] = state === PinState.High ? 1 : 0;
+  }
+
+  // Read analog net voltages from SAB and feed AVR input pin state
+  for (const [arduinoPin, netIdx] of Object.entries(pinToNetIdx)) {
+    const voltage = digitalStateView[netIdx];
+    const mapping = UNO_PIN_MAP[Number(arduinoPin)];
+    if (!mapping) continue;
+    const port = mapping.port === 'B' ? portB : mapping.port === 'C' ? portC : portD;
+    if (!port) continue;
+    port.setPin(mapping.bit, voltage > 0);
   }
 }
 
@@ -95,7 +110,7 @@ function syncGPIO() {
 const CYCLES_PER_MS = 16_000; // 16 MHz → 16000 cycles/ms
 
 function runBurst() {
-  if (!cpu || !running) return;
+  if (!cpu || !running || paused) return;
   const target = cpu.cycles + CYCLES_PER_MS;
   while (cpu.cycles < target) {
     cpu.tick();
@@ -120,11 +135,13 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
 
       // Stop existing CPU
       if (rafHandle != null) clearInterval(rafHandle);
+      if (cycleHandle != null) clearInterval(cycleHandle);
       running = false;
+      paused = false;
       cpu = null;
 
       // Attach SAB view
-      digitalView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
+      digitalStateView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
 
       // Parse and load program
       const prog = parseHex(msg.hex);
@@ -144,7 +161,11 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
 
       // Start run loop
       running = true;
+      paused = false;
       rafHandle = setInterval(runBurst, 1);
+      cycleHandle = setInterval(() => {
+        if (cpu) self.postMessage({ type: 'CYCLE_COUNT', cycles: cpu.cycles });
+      }, 1000);
       self.postMessage({ type: 'READY' });
       break;
     }
@@ -152,23 +173,31 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
     case 'UPDATE_PIN_MAP': {
       if (!msg.pinMap) break;
       Object.assign(pinToNetIdx, msg.pinMap);
-      if (msg.sab && !digitalView) {
-        digitalView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
+      if (msg.sab && !digitalStateView) {
+        digitalStateView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
       }
       break;
     }
 
     case 'PAUSE':
-      running = false;
+      paused = true;
       break;
 
     case 'RESUME':
-      if (cpu) running = true;
+      if (cpu) paused = false;
       break;
 
     case 'STOP':
-      if (rafHandle != null) clearInterval(rafHandle);
+      if (rafHandle != null) {
+        clearInterval(rafHandle);
+        rafHandle = null;
+      }
+      if (cycleHandle != null) {
+        clearInterval(cycleHandle);
+        cycleHandle = null;
+      }
       running = false;
+      paused = false;
       cpu = null;
       break;
   }
