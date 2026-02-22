@@ -259,19 +259,13 @@ function SceneInteractions() {
   return null;
 }
 
-export default function Scene() {
-  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
-  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
-  const getDesignator       = useCircuitStore((s) => s.getDesignator);
-  const selectComponent     = useCircuitStore((s) => s.selectComponent);
-  const openContextMenu     = useUIStore((s) => s.openContextMenu);
-  const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
-  const components           = useCircuitStore((s) => Object.values(s.components) as PlacedComponentView[]);
-  const nodes               = useCircuitStore((s) => s.nodes);
-  const doZoomToFit          = useUIStore((s) => s.zoomToFit);
-  const clearZoomToFit        = useUIStore((s) => s.clearZoomToFit);
-  const cameraPreset         = useUIStore((s) => s.cameraPreset);
-  const clearCameraPreset    = useUIStore((s) => s.clearCameraPreset);
+// CameraController must live inside <Canvas> so useFrame has access to the R3F context
+function CameraController() {
+  const doZoomToFit    = useUIStore((s) => s.zoomToFit);
+  const clearZoomToFit = useUIStore((s) => s.clearZoomToFit);
+  const cameraPreset   = useUIStore((s) => s.cameraPreset);
+  const clearCameraPreset = useUIStore((s) => s.clearCameraPreset);
+  const componentsMap  = useCircuitStore((s) => s.components);
 
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
@@ -282,7 +276,8 @@ export default function Scene() {
     const camera = state.camera as THREE.PerspectiveCamera;
 
     if (doZoomToFit) {
-      applyZoomToFit(camera, controls, components, camera.aspect);
+      const comps = Object.values(componentsMap) as PlacedComponentView[];
+      applyZoomToFit(camera, controls, comps, camera.aspect);
       clearZoomToFit();
       return;
     }
@@ -301,6 +296,34 @@ export default function Scene() {
   });
 
   return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan
+      enableZoom
+      enableRotate
+      minDistance={3}
+      maxDistance={35}
+      maxPolarAngle={Math.PI / 2.05}
+      target={[0, 0, 0]}
+      dampingFactor={0.08}
+      enableDamping
+    />
+  );
+}
+
+export default function Scene() {
+  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
+  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
+  const getDesignator       = useCircuitStore((s) => s.getDesignator);
+  const selectComponent     = useCircuitStore((s) => s.selectComponent);
+  const openContextMenu     = useUIStore((s) => s.openContextMenu);
+  const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
+  const componentsMap        = useCircuitStore((s) => s.components);
+  const nodes               = useCircuitStore((s) => s.nodes);
+
+  const components = Object.values(componentsMap) as PlacedComponentView[];
+
+  return (
     <SceneErrorBoundary>
       <div
         className="relative h-full w-full"
@@ -312,6 +335,7 @@ export default function Scene() {
           style={{ width: '100%', height: '100%', background: CANVAS_BG }}
         >
           <SceneInteractions />
+          <CameraController />
 
           {/* Three-point studio lighting */}
           <ambientLight intensity={1.2} />
@@ -363,20 +387,6 @@ export default function Scene() {
               />
             );
           })}
-
-          {/* Orbit camera */}
-          <OrbitControls
-            ref={controlsRef}
-            enablePan
-            enableZoom
-            enableRotate
-            minDistance={3}
-            maxDistance={35}
-            maxPolarAngle={Math.PI / 2.05}
-            target={[0, 0, 0]}
-            dampingFactor={0.08}
-            enableDamping
-          />
         </Canvas>
         <BoxSelectOverlay />
       </div>

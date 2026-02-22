@@ -1,5 +1,6 @@
 'use client';
 
+import { useShallow } from 'zustand/react/shallow';
 import { useScopeStore } from '@/store/scopeStore';
 
 function ScopeIcon() {
@@ -23,10 +24,10 @@ function ScopeIcon() {
 }
 
 export default function ScopeButton() {
-  const { open, toggle } = useScopeStore((state) => ({
+  const { open, toggle } = useScopeStore(useShallow((state) => ({
     open: state.open,
     toggle: state.toggle,
-  }));
+  })));
 
   return (
     <button

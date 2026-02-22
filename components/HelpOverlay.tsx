@@ -1,5 +1,6 @@
 'use client';
 
+import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/store/uiStore';
 
 const SECTIONS = [
@@ -40,7 +41,7 @@ const SECTIONS = [
 ];
 
 export default function HelpOverlay() {
-  const { showHelp, toggleHelp } = useUIStore((s) => ({ showHelp: s.showHelp, toggleHelp: s.toggleHelp }));
+  const { showHelp, toggleHelp } = useUIStore(useShallow((s) => ({ showHelp: s.showHelp, toggleHelp: s.toggleHelp })));
   if (!showHelp) return null;
 
   return (

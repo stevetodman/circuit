@@ -68,6 +68,7 @@ interface CircuitState extends TopologyState {
   selectedComponentIds: string[];
   setSelectedComponentIds: (ids: string[]) => void;
   wiringMode: boolean;
+  wireBranchIndices: Record<string, number>;
   setWireBranchIndices: (indices: Record<string, number>) => void;
   getDesignator: (componentId: string) => string;
 
@@ -194,6 +195,7 @@ export const useCircuitStore = create<CircuitState>()(
       selectedComponentId: null,
       selectedComponentIds: [],
       wiringMode: false,
+      wireBranchIndices: {},
 
       addComponent(type, pos, pins = [], rotationY = 0) {
         const id = crypto.randomUUID();
@@ -394,14 +396,9 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       setWireBranchIndices(indices) {
-        set((state) => {
-          const wires = { ...state.wires };
-          for (const [id, wire] of Object.entries(wires)) {
-            const branchIndex = indices[id];
-            wires[id] = branchIndex == null ? { ...wire, branchIndex: undefined } : { ...wire, branchIndex };
-          }
-          return { wires };
-        });
+        // Store separately so this does NOT mutate `wires` and re-trigger
+        // SimController's [nodes, components, wires] useEffect.
+        set({ wireBranchIndices: indices });
       },
 
       getDesignator: (componentId) => getDesignatorFromState(get().components, componentId),

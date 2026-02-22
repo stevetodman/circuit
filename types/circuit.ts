@@ -184,7 +184,6 @@ export interface Wire {
   fromNodeId: string;
   toNodeId: string;
   color: string;
-  branchIndex?: number;
 }
 
 export interface Snap {

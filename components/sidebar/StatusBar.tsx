@@ -1,5 +1,6 @@
 'use client';
 
+import { useShallow } from 'zustand/react/shallow';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useDragStore } from '@/store/dragStore';
@@ -39,12 +40,12 @@ export default function StatusBar() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
 
-  const { simStatus, simError, hoveredNodeId, power } = useUIStore((s) => ({
+  const { simStatus, simError, hoveredNodeId, power } = useUIStore(useShallow((s) => ({
     simStatus: s.simStatus,
     simError: s.simError,
     hoveredNodeId: s.hoveredNodeId,
     power: s.power,
-  }));
+  })));
 
   // Count non-null distinct nets (for net count display)
   const netCount = useCircuitStore((s) => {
