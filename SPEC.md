@@ -1,47 +1,92 @@
-# Circuit Sandbox — Feature Wave Log
+# SPEC: StepCard Polish — Next Module Button + Auto-Hint Timer
 
-Tracks completed feature waves. Each wave was implemented via parallel Codex agents in git worktrees.
+Two improvements to the StepCard:
+1. **"Next module →" button** in the completion banner so users don't wait for the 2.5s auto-dismiss
+2. **Auto-hint** — after 15s of inactivity on a step, the hint expands automatically
 
----
+## Read First
+- `components/StepCard.tsx` — look for the `justCompleted` branch (renders "Module complete!" banner) and the `hintVisible` state + "Need a hint?" button
+- `store/moduleStore.ts` — look for `startModule(id)`, `exitModule()`, `completedModuleIds`
+- `features/modules/definitions.ts` — import `MODULES` to find the next incomplete module
 
-## Wave 4 (merged)
+## Part 1: "Next module →" button in completion banner
 
-| Branch | Feature |
-|---|---|
-| `module-link` | `autoLoadId` on all 11 module steps → auto-loads starter circuit when entering a module |
-| `polarity` | +/− polarity labels on LED, Battery, Capacitor; `P` key toggle |
-| `module-spotlight` | `spotlightTarget` directional hint pill in StepCard; `highlightComponent` pulse ring on ComponentTile; sidebar glow |
-| `wire-autocolor` | Wire voltage colouring (red >2.5V, dark <0.3V); `V` key toggle |
+In the `justCompleted` branch of `StepCard.tsx`, import `MODULES` from `@/features/modules/definitions`:
+```tsx
+import { MODULES } from '@/features/modules/definitions';
+```
 
----
+In the `justCompleted` render block, compute the next module inside the component:
+```tsx
+const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
+const startModule        = useModuleStore((s) => s.startModule);
+const exitModule         = useModuleStore((s) => s.exitModule);
 
-## Wave 5 (merged)
+// Find the next module that isn't completed yet
+const nextModule = MODULES.find(
+  (m) => !completedModuleIds.includes(m.id) && m.id !== activeModuleId
+);
+```
 
-| Branch | Feature |
-|---|---|
-| `diode-pol` | +/− polarity labels on Diode; missing − label added to Capacitor |
-| `part-descriptions` | Short description text under each sidebar tile (`PART_DESCRIPTIONS` constant) |
-| `circuit-name` | Editable circuit name input in sidebar; syncs `document.title`; persisted in JSON |
-| `scope-ux` | 📊 "Add to Scope" button per pin in PropertiesInspector; live voltage in scope channel labels via RAF; "✕ all" clear-all button |
+Replace the existing completion banner JSX with a version that includes a button row:
+```tsx
+if (justCompleted) {
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto max-w-sm w-full px-4">
+      <div className="bg-[#111113]/95 border border-[#7c6fff]/40 rounded-xl p-4 shadow-2xl backdrop-blur-sm text-center">
+        <div className="text-[#7c6fff] text-xl leading-none">✓</div>
+        <p className="text-white/95 text-sm font-semibold mt-2">Module complete!</p>
+        <p className="text-white/75 text-sm mt-1">{modTitle}</p>
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button
+            type="button"
+            onClick={exitModule}
+            className="text-white/35 hover:text-white/60 text-xs transition-colors"
+          >
+            Done
+          </button>
+          {nextModule && (
+            <button
+              type="button"
+              onClick={() => startModule(nextModule.id)}
+              className="text-[#7c6fff] hover:text-[#9b8fff] text-xs font-medium transition-colors"
+            >
+              {nextModule.title} →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
 
----
+## Part 2: Auto-hint timer
 
-## Wave 6 (merged)
+The existing code has `const [hintVisible, setHintVisible] = useState(false)` and resets on step change.
 
-| Branch | Feature |
-|---|---|
-| _(inline)_ | HelpOverlay updated with P/V shortcuts |
-| `breadboard-labels` | Floating 3D Text: a–j row letters left of board + column numbers (1,5,10…60) below board |
-| `learn-polish` | Progress bar (X/11) at top of Learn tab; ✓ completion badges on module cards; violet left-border on active module; "Reset progress" button |
-| `new-circuit` | "＋ New Circuit" dashed button in sidebar with inline Confirm/Cancel; `circuitStore.newCircuit()` clears board + undo history |
-| `canvas-toolbar` | `CanvasOverlay.tsx`: floating zoom +/−/fit buttons (bottom-right); component count badge; `zoomInRequested`/`zoomOutRequested` wired to Scene.tsx |
+Add an auto-hint effect: after 15s on a step without user action, expand the hint automatically. Add a `useEffect` that sets up a timer when `activeModuleId` or `activeStepIndex` changes:
 
----
+```tsx
+useEffect(() => {
+  if (!activeStep?.hint) return;
+  const timer = setTimeout(() => setHintVisible(true), 15_000);
+  return () => clearTimeout(timer);
+}, [activeModuleId, activeStepIndex, activeStep?.hint]);
+```
 
-## Known agent pitfalls
+This replaces the need to click "Need a hint?" after 15 seconds — the hint slides open automatically.
 
-- `resetModules()` → actual method is `resetProgress()` in moduleStore
-- `wires` field in circuitStore is `Record<string, Wire>` not an array
-- Zustand inline object selectors crash React 18 — always use individual selectors or `useShallow`
-- SPEC.md always conflicts during merge — resolve with `git checkout --ours SPEC.md`
-- When two branches both add to uiStore/Toolbar/KeyboardShortcuts — manually merge to keep BOTH
+## Zustand selector rule (CRITICAL)
+Always individual selectors — NEVER inline objects:
+```tsx
+const completedModuleIds = useModuleStore(s => s.completedModuleIds);  // CORRECT
+const startModule = useModuleStore(s => s.startModule);                  // CORRECT
+```
+
+## Important
+- File: `components/StepCard.tsx` only — no store changes needed
+- `MODULES` is imported from `@/features/modules/definitions`
+- The auto-dismiss timer in `moduleStore.advanceStep()` still runs (the "Next module →" button is additive, not a replacement for the auto-dismiss)
+- `nextModule` may be `undefined` if all modules are complete — hide the button with `{nextModule && ...}`
+- Run `pnpm build` — must pass with zero TypeScript errors
