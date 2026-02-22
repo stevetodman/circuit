@@ -104,6 +104,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'a') {
+        e.preventDefault();
+        useUIStore.getState().requestArduinoTab();
+        return;
+      }
+
       // Toggle designator labels
       if (key === 'l') {
         e.preventDefault();

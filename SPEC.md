@@ -1,122 +1,93 @@
-# SPEC: Analog Simulation Pause / Resume
+# SPEC: Help Overlay + Keyboard Shortcut Updates
 
-Add a ⏸/▶ toggle to pause and resume the analog simulation transient loop,
-plus a spacebar shortcut. Pausing freezes the SAB so the oscilloscope and
-LED brightness hold their last values without flickering or resetting.
+Two missing keyboard shortcuts need to be added to the help overlay and wired up:
+1. `Space` — Pause/resume simulation (added in Wave 8, missing from help)
+2. `A` — Toggle Arduino panel (not yet implemented)
 
 ## Read First
-- `simulation/workers/analog.worker.ts` — look for `startLoop()`, `stopLoop()`,
-  and the `self.onmessage` handler block. No PAUSE message exists yet.
-- `store/uiStore.ts` — add `simPaused` + `toggleSimPaused` (pattern: simSpeed/setSimSpeed)
-- `components/SimController.tsx` — where to add the effect that forwards pause state to worker
-- `components/sidebar/StatusBar.tsx` — where to add the ⏸/▶ button
-- `components/KeyboardShortcuts.tsx` — where to bind spacebar
+- `components/HelpOverlay.tsx` — find the SECTIONS array; add new rows
+- `components/KeyboardShortcuts.tsx` — add the `A` key handler
+- `components/sidebar/Sidebar.tsx` — find how tabs/panels are managed; there
+  should be a way to toggle to the Arduino tab programmatically
 
-## Part 1: analog.worker.ts — handle PAUSE / RESUME
+## Part 1: HelpOverlay.tsx — add missing shortcuts
 
-Add a new union to the message type near the top where `SetSpeedMsg` is defined:
-```ts
-type PauseMsg = { type: 'PAUSE' };
-type ResumeMsg = { type: 'RESUME' };
-```
-
-Update `self.onmessage` signature to include the new types:
-```ts
-self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
-```
-
-In the message handler block, after the `SET_SPEED` handler and before the
-`UPDATE_NETLIST` guard, add:
-```ts
-if (msg.type === 'PAUSE') {
-  stopLoop();
-  return;
-}
-if (msg.type === 'RESUME') {
-  if (wasRunning) startLoop();
-  return;
-}
-```
-
-Add a module-level `let wasRunning = false;` just above the `startLoop` function.
-In `startLoop()`, set `wasRunning = true;` as the first line.
-In `stopLoop()`, capture `wasRunning = intervalId !== null;` BEFORE clearing intervalId.
-
-This ensures RESUME only restarts the loop when it was actually running (capacitor
-circuits), not for pure DC circuits where no interval was started.
-
-## Part 2: uiStore.ts — add simPaused
-
-Add to the interface and initial state:
-```ts
-simPaused: boolean;
-toggleSimPaused: () => void;
-```
-Initial: `simPaused: false`.
-Action: `toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused }))`.
-
-## Part 3: SimController.tsx — forward pause/resume to worker
-
-Read the existing file to find `workerRef` and the existing `simSpeed` effect (around line 267–270).
-
-Add a selector and effect right after the simSpeed effect:
+In the SECTIONS array, in the **View** section, add:
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-
-useEffect(() => {
-  if (!workerRef.current) return;
-  workerRef.current.postMessage({ type: simPaused ? 'PAUSE' : 'RESUME' });
-}, [simPaused]);
+['Space', 'Pause / resume simulation'],
 ```
 
-## Part 4: StatusBar.tsx — ⏸/▶ button
-
-Read the existing file. Find the speed chip buttons (the `[1, 2, 5, 10].map(...)` block).
-Add a ⏸/▶ button immediately BEFORE the speed chips:
-
+Also add a new **Simulation** section (or add to View if simpler):
 ```tsx
-const simPaused = useUIStore((s) => s.simPaused);
-const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
-
-<button
-  type="button"
-  onClick={toggleSimPaused}
-  title={simPaused ? 'Resume simulation (Space)' : 'Pause simulation (Space)'}
-  className={`w-6 h-5 flex items-center justify-center rounded text-[11px] transition-colors ${
-    simPaused
-      ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-      : 'text-white/40 hover:text-white/70 hover:bg-white/10'
-  }`}
->
-  {simPaused ? '▶' : '⏸'}
-</button>
+{
+  heading: 'Simulation',
+  rows: [
+    ['Space', 'Pause / resume simulation'],
+    ['1× / 2× / 5× / 10×', 'Simulation speed (in status bar)'],
+  ],
+},
 ```
 
-## Part 5: KeyboardShortcuts.tsx — spacebar
-
-Read the existing file. Find the section that handles single-key shortcuts (after
-the meta-key block, near the `key === 'f'` handler).
-
-Add:
+In the **Navigation** section, add the Arduino shortcut once it's wired up:
 ```tsx
-if (key === ' ') {
+['A', 'Open Arduino panel'],
+```
+
+Read the file to understand the exact SECTIONS format and slot in the new rows
+without breaking existing structure.
+
+## Part 2: Sidebar.tsx — expose Arduino tab selection
+
+Read `components/sidebar/Sidebar.tsx` to understand how tabs/panels are shown.
+There will be a `tab` or `activePanel` state that controls which panel is visible.
+
+If the sidebar uses a `tab` state (e.g., `'parts' | 'arduino' | 'export'`), expose
+a way to switch to the Arduino tab from outside the component. The cleanest approach:
+- Add `arduinoTabRequested: number` counter to `uiStore.ts` (same increment-to-trigger
+  pattern used for `zoomInRequested`, `zoomOutRequested`)
+- Add `requestArduinoTab: () => void` to uiStore
+- In Sidebar.tsx, watch the counter and switch to the Arduino tab when it increments
+
+If the sidebar tab state is already in a store, use that store directly instead.
+
+## Part 3: KeyboardShortcuts.tsx — A key
+
+In the handler, after the existing single-key shortcuts, add:
+```tsx
+if (key === 'a') {
   e.preventDefault();
-  useUIStore.getState().toggleSimPaused();
+  useUIStore.getState().requestArduinoTab();
   return;
 }
 ```
+
+Make sure `A` doesn't conflict with any existing handler (check the file).
+If `requestArduinoTab` requires a different store, import that instead.
+
+## Part 4: Sidebar.tsx — respond to arduinoTabRequested
+
+In Sidebar.tsx, add a useEffect that watches the counter and switches the active tab:
+```tsx
+const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
+useEffect(() => {
+  if (arduinoTabRequested > 0) setActiveTab('arduino'); // use actual tab name
+}, [arduinoTabRequested]);
+```
+
+Read the file to find the actual tab name for the Arduino panel.
 
 ## Zustand selector rule (CRITICAL)
-Always individual selectors — NEVER inline objects:
 ```tsx
-const simPaused = useUIStore(s => s.simPaused);         // CORRECT
-const { simPaused } = useUIStore(s => ({ ... }));       // WRONG — crash
+const arduinoTabRequested = useUIStore(s => s.arduinoTabRequested);  // CORRECT
+const { arduinoTabRequested } = useUIStore(s => ({ ... }));            // WRONG
 ```
 
 ## Important
-- Files: `simulation/workers/analog.worker.ts`, `store/uiStore.ts`,
-  `components/SimController.tsx`, `components/sidebar/StatusBar.tsx`,
-  `components/KeyboardShortcuts.tsx`
-- Pausing a DC-only circuit (no loop running) is harmless — the button still
-  toggles state, the worker ignores RESUME if wasRunning is false
+- Files: `components/HelpOverlay.tsx`, `components/KeyboardShortcuts.tsx`,
+  `store/uiStore.ts`, `components/sidebar/Sidebar.tsx`
+- Read each file carefully before editing — don't guess at tab names or state shape
+- The `arduinoTabRequested` counter pattern: initial value `0`, action increments by 1
+  each call. The `useEffect` in Sidebar runs whenever the number changes.
+- If the Arduino panel is not tab-based but always visible, the `A` key could instead
+  scroll it into view or toggle its expanded state — read the file to decide.
 - Run `pnpm build` — must pass with zero TypeScript errors

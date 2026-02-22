@@ -33,6 +33,7 @@ interface UIState {
   zoomToFit: boolean;
   zoomInRequested: number;
   zoomOutRequested: number;
+  arduinoTabRequested: number;
   cameraPreset: 'default' | 'top' | null;
   serialOutput: string;
   contextMenu: {
@@ -72,6 +73,7 @@ interface UIState {
   clearZoomToFit:      () => void;
   requestZoomIn:       () => void;
   requestZoomOut:      () => void;
+  requestArduinoTab:   () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
@@ -108,6 +110,7 @@ export const useUIStore = create<UIState>()((set) => ({
   zoomToFit:     false,
   zoomInRequested: 0,
   zoomOutRequested: 0,
+  arduinoTabRequested: 0,
   cameraPreset:  null,
   serialOutput:  '',
   contextMenu:    null,
@@ -146,6 +149,7 @@ export const useUIStore = create<UIState>()((set) => ({
   clearZoomToFit:      () => set({ zoomToFit: false }),
   requestZoomIn:       () => set((s) => ({ zoomInRequested: s.zoomInRequested + 1 })),
   requestZoomOut:      () => set((s) => ({ zoomOutRequested: s.zoomOutRequested + 1 })),
+  requestArduinoTab:   () => set((s) => ({ arduinoTabRequested: s.arduinoTabRequested + 1 })),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
   setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
