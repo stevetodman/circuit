@@ -73,6 +73,11 @@ const timer555NodeVcc = topNodeId(CENTER_COL + 2, 1);
 const timer555NodeGnd = topNodeId(CENTER_COL + 4, 1);
 const timer555NodeTrig = topNodeId(CENTER_COL + 6, 1);
 const timer555NodeOut = topNodeId(CENTER_COL + 8, 1);
+const timerMonoNodeVcc = topNodeId(CENTER_COL + 10, 1);
+const timerMonoNodeGnd = topNodeId(CENTER_COL + 12, 1);
+const timerMonoNodeTrig = topNodeId(CENTER_COL + 14, 1);
+const timerMonoNodeThresh = topNodeId(CENTER_COL + 16, 1);
+const timerMonoNodeOut = topNodeId(CENTER_COL + 18, 1);
 
 // Pot Dimmer (row 4 = 'e')
 const potDimBatPos = topNodeId(CENTER_COL - 10, 4); // col 22 — battery+
@@ -472,10 +477,101 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
           { name: 'gnd', nodeId: timer555NodeGnd },
           { name: 'out', nodeId: timer555NodeOut },
           { name: 'trig', nodeId: timer555NodeTrig },
+          { name: 'thresh', nodeId: timer555NodeTrig },
         ],
         props: {
           r1: 1000,
           r2: 10000,
+          capacitance: 10,
+        },
+      },
+    ],
+    wires: [],
+  },
+  {
+    name: '555 One-Shot Timer',
+    description: '555 monostable mode. A momentary trigger pulse gives ~1.1s output pulse.',
+    components: [
+      {
+        id: 'example-555-mono-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 10, 1), topNodePos(CENTER_COL + 12, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: timerMonoNodeVcc },
+          { name: 'neg', nodeId: timerMonoNodeGnd },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-555-mono-pullup',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 10, 1), topNodePos(CENTER_COL + 12, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: timerMonoNodeVcc },
+          { name: 'p2', nodeId: timerMonoNodeTrig },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'example-555-mono-trigger',
+        type: 'tactileSwitch',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 12, 1), topNodePos(CENTER_COL + 14, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: timerMonoNodeTrig },
+          { name: 'p2', nodeId: timerMonoNodeGnd },
+        ],
+        props: { closed: 0 },
+      },
+      {
+        id: 'example-555-mono-r1',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 10, 1), topNodePos(CENTER_COL + 16, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: timerMonoNodeVcc },
+          { name: 'p2', nodeId: timerMonoNodeThresh },
+        ],
+        props: { resistance: 100000 },
+      },
+      {
+        id: 'example-555-mono-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 16, 1), topNodePos(CENTER_COL + 12, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: timerMonoNodeThresh },
+          { name: 'neg', nodeId: timerMonoNodeGnd },
+        ],
+        props: { capacitance: 10 },
+      },
+      {
+        id: 'example-555-mono-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 18, 1), topNodePos(CENTER_COL + 12, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: timerMonoNodeOut },
+          { name: 'cathode', nodeId: timerMonoNodeGnd },
+        ],
+        props: {},
+      },
+      {
+        id: 'example-555-mono-timer',
+        type: 'timer555',
+        anchorPos: midpoint(topNodePos(CENTER_COL + 10, 1), topNodePos(CENTER_COL + 18, 1)),
+        rotationY: 0,
+        pins: [
+          { name: 'vcc', nodeId: timerMonoNodeVcc },
+          { name: 'gnd', nodeId: timerMonoNodeGnd },
+          { name: 'out', nodeId: timerMonoNodeOut },
+          { name: 'trig', nodeId: timerMonoNodeTrig },
+          { name: 'thresh', nodeId: timerMonoNodeThresh },
+        ],
+        props: {
+          r1: 100000,
           capacitance: 10,
         },
       },
