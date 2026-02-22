@@ -19,6 +19,7 @@ type SavedCircuitJSON = {
   nodes: Record<string, CircuitNode>;
   components: Record<string, PlacedComponent>;
   wires: Record<string, Wire>;
+  name?: string;
 };
 
 function seedBreadboardNodes(): Record<string, CircuitNode> {
@@ -66,6 +67,8 @@ interface CircuitState extends TopologyState {
   selectedNodeId: string | null;
   selectedComponentId: string | null;
   selectedComponentIds: string[];
+  circuitName: string;
+  setCircuitName: (name: string) => void;
   setSelectedComponentIds: (ids: string[]) => void;
   wiringMode: boolean;
   wireBranchIndices: Record<string, number>;
@@ -205,9 +208,10 @@ export const useCircuitStore = create<CircuitState>()(
       nodes: seedBreadboardNodes(),
       components: {},
       wires: {},
-      selectedNodeId: null,
+  selectedNodeId: null,
       selectedComponentId: null,
       selectedComponentIds: [],
+      circuitName: '',
       wiringMode: false,
       wireBranchIndices: {},
 
@@ -341,27 +345,6 @@ export const useCircuitStore = create<CircuitState>()(
         });
       },
 
-      saveToJSON() {
-        const state = get();
-        return JSON.stringify({
-          version: 1,
-          nodes: state.nodes,
-          components: state.components,
-          wires: state.wires,
-        } satisfies SavedCircuitJSON);
-      },
-
-      loadFromJSON(data) {
-        const payload = typeof data === 'string'
-          ? parseCircuitJSON(data)
-          : exampleCircuitToPayload(data);
-        if (!payload) { console.warn('[circuitStore] Invalid JSON circuit data'); return; }
-        const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
-        componentClipboard = []; // clear stale clipboard from previous circuit
-        set({ nodes, components: payload.components, wires: payload.wires, selectedComponentId: null, selectedNodeId: null, selectedComponentIds: [] });
-        clearUndoHistory?.();
-      },
-
       loadCircuit(components, wires) {
         set((state) => {
           const nodes = runNetAnalysis(state.nodes, wires, components);
@@ -416,8 +399,44 @@ export const useCircuitStore = create<CircuitState>()(
         // SimController's [nodes, components, wires] useEffect.
         set({ wireBranchIndices: indices });
       },
+      setCircuitName(name) {
+        set({ circuitName: name });
+      },
 
       getDesignator: (componentId) => getDesignatorFromState(get().components, componentId),
+
+      saveToJSON() {
+        const state = get();
+        return JSON.stringify({
+          version: 1,
+          name: state.circuitName,
+          nodes: state.nodes,
+          components: state.components,
+          wires: state.wires,
+        } satisfies SavedCircuitJSON);
+      },
+
+      loadFromJSON(data) {
+        const payload = typeof data === 'string'
+          ? parseCircuitJSON(data)
+          : exampleCircuitToPayload(data);
+        if (!payload) { console.warn('[circuitStore] Invalid JSON circuit data'); return; }
+        const payloadName = typeof data === 'string'
+          ? (payload as { name?: string }).name
+          : (data as { name?: string }).name;
+        const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
+        componentClipboard = []; // clear stale clipboard from previous circuit
+        set({
+          nodes,
+          components: payload.components,
+          wires: payload.wires,
+          circuitName: payloadName ?? '',
+          selectedComponentId: null,
+          selectedNodeId: null,
+          selectedComponentIds: [],
+        });
+        clearUndoHistory?.();
+      },
     }),
     {
       // Only snapshot topology for undo — not UI cursor state

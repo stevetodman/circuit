@@ -11,6 +11,7 @@ import ExampleLoader from '@/features/examples/ExampleLoader';
 import type { ComponentType } from '@/types/circuit';
 import { useDragStore } from '@/store/dragStore';
 import { useSchematicStore } from '@/store/schematicStore';
+import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
 import { useModuleStore } from '@/store/moduleStore';
@@ -228,6 +229,8 @@ export default function Sidebar() {
   const toggleSchematic = useSchematicStore((state) => state.toggle);
   const toggleHelp = useUIStore((state) => state.toggleHelp);
   const addToast = useToastStore((state) => state.addToast);
+  const circuitName = useCircuitStore((s) => s.circuitName);
+  const setCircuitName = useCircuitStore((s) => s.setCircuitName);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'parts' | 'learn'>('parts');
@@ -272,6 +275,20 @@ export default function Sidebar() {
             <SchematicIcon active={schematicOpen} />
           </button>
         </div>
+      </div>
+
+      <div className="px-3 pt-2 pb-1 border-b border-white/[0.06]">
+        <input
+          type="text"
+          value={circuitName}
+          onChange={(e) => setCircuitName(e.target.value)}
+          placeholder="Untitled circuit"
+          className="w-full bg-transparent text-white/70 text-[12px] font-medium
+                     placeholder:text-white/20 border-b border-white/[0.08]
+                     focus:border-white/20 focus:text-white/90 focus:outline-none
+                     py-0.5 transition-colors"
+          maxLength={80}
+        />
       </div>
 
       {/* ── Palette Tabs ── */}

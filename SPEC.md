@@ -1,64 +1,92 @@
-# SPEC: Polarity Labels on Component Pins
+# SPEC: Circuit Naming — Name your circuit
 
-Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
-This is a top beginner pain point — they can't tell which end is which.
+Let users give their circuit a name. Shown in the browser tab and in a text input in the sidebar.
+Persists in localStorage via the existing Zustand persist middleware.
 
 ## Read First
-- `components/canvas/parts/LED.tsx` — see how a part component is structured
-- `components/canvas/parts/Battery.tsx` — another example
-- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
-- The Three.js/R3F layer. All canvas code is SSR-disabled.
-- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
+- `store/circuitStore.ts` — add circuitName here (read the full file first — understand zundo + persist)
+- `components/sidebar/Sidebar.tsx` — add the name input here (read full file first)
+- `app/page.tsx` — update `document.title` dynamically (read full file first)
 
-## Implementation
+## Part 1: Add circuitName to circuitStore
 
-Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
+In `store/circuitStore.ts`, read the file first to understand the store structure.
 
-### Where to add
-
-In `components/canvas/parts/LED.tsx`:
-- Add a "+" label above the anode pin (pos side)
-- Add a "−" label above the cathode pin (neg side)
-- Position: slightly above the pin, y=0.12, at the pin's x/z offset
-
-In `components/canvas/parts/Battery.tsx`:
-- Add "+" above the positive terminal
-- Add "−" above the negative terminal
-
-In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
-- For capacitor (polarized): add "+" on one side if it exists
-
-### Label style
-```tsx
-<Text
-  position={[xOffset, 0.12, zOffset]}
-  fontSize={0.08}
-  color={isPositive ? '#ff6b6b' : '#6b9fff'}
-  anchorX="center"
-  anchorY="middle"
-  renderOrder={10}
->
-  {isPositive ? '+' : '−'}
-</Text>
+Add to the interface:
+```ts
+circuitName: string;
+setCircuitName: (name: string) => void;
 ```
 
-Use red (#ff6b6b) for + and blue (#6b9fff) for −.
+Add to the initial state:
+```ts
+circuitName: '',
+```
 
-### Toggle
+Add the action:
+```ts
+setCircuitName: (name) => set({ circuitName: name }),
+```
 
-Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
-Add a setter `setShowPolarityLabels`.
+In `loadFromJSON`, load the name from the circuit if available:
+```ts
+// Add inside loadFromJSON, after loading components/wires:
+circuitName: (circuit as any).name ?? '',
+```
 
-Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
+The `saveToJSON` / export — check if the store has one. If so, include `name: get().circuitName`.
 
-Add `P` key handler in `components/KeyboardShortcuts.tsx`.
+IMPORTANT: `setCircuitName` should NOT be wrapped in `zundo` temporal tracking (it's metadata, not topology). Read the file to understand how the temporal wrapper is structured and place it outside if possible. If the temporal wrapper wraps everything, putting it inside is fine — it won't cause issues.
 
-Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
+## Part 2: Circuit name input in Sidebar
 
-### Important notes
-- `Text` from `@react-three/drei` is already used in the project — import from there
-- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
-- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
-- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
+In `components/sidebar/Sidebar.tsx`, add a name input near the top of the sidebar content,
+above the tab panel or just above the Export section (read the file to find the best location).
+
+```tsx
+const circuitName    = useCircuitStore((s) => s.circuitName);
+const setCircuitName = useCircuitStore((s) => s.setCircuitName);
+```
+
+Add the input UI:
+```tsx
+<div className="px-3 pt-2 pb-1 border-b border-white/[0.06]">
+  <input
+    type="text"
+    value={circuitName}
+    onChange={(e) => setCircuitName(e.target.value)}
+    placeholder="Untitled circuit"
+    className="w-full bg-transparent text-white/70 text-[12px] font-medium
+               placeholder:text-white/20 border-b border-white/[0.08]
+               focus:border-white/20 focus:text-white/90 focus:outline-none
+               py-0.5 transition-colors"
+    maxLength={80}
+  />
+</div>
+```
+
+IMPORTANT: Use individual selectors for `circuitName` and `setCircuitName` (two separate `useCircuitStore` calls), NOT an inline object selector. Inline objects cause React 18 useSyncExternalStore infinite loops.
+
+## Part 3: Dynamic page title
+
+In `app/page.tsx`, read the file first to understand existing useEffects.
+
+Add:
+```tsx
+const circuitName = useCircuitStore((state) => state.circuitName);
+
+useEffect(() => {
+  document.title = circuitName.trim()
+    ? `${circuitName.trim()} — Circuit Sandbox`
+    : 'Circuit Sandbox';
+}, [circuitName]);
+```
+
+## Important notes
+- Use INDIVIDUAL selectors everywhere (never inline objects)
+- The `circuitName` will auto-persist because circuitStore already uses Zustand `persist` middleware — verify this by checking for `persist` in circuitStore.ts
+- If circuitStore does NOT use persist, that's fine — the name will reset on page reload, which is acceptable
+- Keep the input minimal — no submit button, no label, just the placeholder text "Untitled circuit"
+- Do NOT touch canvas files, uiStore, or Toolbar
 
 Run `pnpm build` — must pass with zero errors.
