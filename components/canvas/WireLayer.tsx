@@ -11,7 +11,7 @@ function WireLayer() {
   return (
     <>
       {Object.values(wires).map((wire) => (
-        <Wire key={wire.id} wire={wire} branchIndex={wire.branchIndex ?? 0} />
+        <Wire key={wire.id} wire={wire} branchIndex={wire.branchIndex} />
       ))}
     </>
   );

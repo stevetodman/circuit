@@ -23,6 +23,15 @@ const SIM_DOT: Record<'idle' | 'running' | 'error', { color: string; label: stri
   error:   { color: '#dd3333', label: 'Error' },
 };
 
+function formatPower(power: number): string {
+  const safePower = Number.isFinite(power) ? Math.abs(power) : 0;
+  const mw = safePower * 1000;
+  if (mw >= 1000) {
+    return `${safePower.toFixed(1)} W`;
+  }
+  return `${mw.toFixed(1)} mW`;
+}
+
 export default function StatusBar() {
   const wiringMode = useCircuitStore((s) => s.wiringMode);
   const dragging   = useDragStore((s) => s.dragging);
@@ -30,10 +39,11 @@ export default function StatusBar() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
 
-  const { simStatus, simError, hoveredNodeId } = useUIStore((s) => ({
+  const { simStatus, simError, hoveredNodeId, power } = useUIStore((s) => ({
     simStatus: s.simStatus,
     simError: s.simError,
     hoveredNodeId: s.hoveredNodeId,
+    power: s.power,
   }));
 
   // Count non-null distinct nets (for net count display)
@@ -68,6 +78,7 @@ export default function StatusBar() {
           {dot.label}
         </span>
       </div>
+      <div className="text-[9px] font-mono text-white/50">⚡ {formatPower(power)}</div>
       {simStatus === 'error' && (
         <span className="text-[10px] text-red-400 truncate max-w-[140px]" title={simError ?? ''}>
           {simError ?? 'Sim error'}

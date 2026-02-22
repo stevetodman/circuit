@@ -16,9 +16,63 @@ import { SAB_TOTAL_BYTES } from '@/types/circuit';
 import { useUIStore } from '@/store/uiStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { pushSample } from '@/features/oscilloscope/scopeBuffer';
-import { voltages } from '@/simulation/SimBridge';
+import { branchCurrents, voltages } from '@/simulation/SimBridge';
 import { buildNetlist } from '@/simulation/mna/NetlistBuilder';
+import type { NetlistElement } from '@/simulation/mna/MNASolver';
 import { useToastStore } from '@/store/toastStore';
+
+interface ResistiveBranch {
+  branchIndex: number;
+  netA: number;
+  netB: number;
+}
+
+const POWER_REFRESH_MS = 500;
+
+function buildResistiveBranchMap(elements: readonly NetlistElement[]): ResistiveBranch[] {
+  const branches: ResistiveBranch[] = [];
+  let branchIndex = 0;
+
+  for (const element of elements) {
+    if (element.kind === 'resistor') {
+      branches.push({
+        branchIndex,
+        netA: element.netA,
+        netB: element.netB,
+      });
+      branchIndex += 1;
+      continue;
+    }
+
+    if (element.kind === 'vsource') {
+      branchIndex += 1;
+    }
+  }
+
+  return branches;
+}
+
+function computeTotalDissipatedPower(
+  voltageReadings: Float32Array,
+  currentReadings: Float32Array,
+  branches: readonly ResistiveBranch[],
+): number {
+  let total = 0;
+
+  for (const branch of branches) {
+    if (branch.branchIndex < 0 || branch.branchIndex >= currentReadings.length) continue;
+    if (branch.netA < 0 || branch.netA >= voltageReadings.length) continue;
+    if (branch.netB < 0 || branch.netB >= voltageReadings.length) continue;
+    const current = currentReadings[branch.branchIndex] ?? 0;
+    const a = voltageReadings[branch.netA] ?? 0;
+    const b = voltageReadings[branch.netB] ?? 0;
+    const drop = a - b;
+    const term = Math.abs(drop * current);
+    if (Number.isFinite(term)) total += term;
+  }
+
+  return total;
+}
 
 export default function SimController() {
   const workerRef = useRef<Worker | null>(null);
@@ -30,7 +84,10 @@ export default function SimController() {
   const wires         = useCircuitStore((s) => s.wires);
   const loadFromJSON  = useCircuitStore((s) => s.loadFromJSON);
   const setSimStatus  = useUIStore((s) => s.setSimStatus);
+  const setPower      = useUIStore((s) => s.setPower);
   const addToast      = useToastStore((s) => s.addToast);
+  const resistorBranchesRef = useRef<ResistiveBranch[]>([]);
+  const lastPowerSampleRef = useRef(0);
 
   // Auto-load circuit from localStorage on mount (P0-1)
   useEffect(() => {
@@ -65,6 +122,7 @@ export default function SimController() {
         } else {
           setSimStatus('running');
         }
+
         const { channels } = useScopeStore.getState();
         for (const ch of channels) {
           const value = voltages[ch.netId];
@@ -72,9 +130,21 @@ export default function SimController() {
             pushSample(ch.netId, value);
           }
         }
+
+        const now = performance.now();
+        if (now - lastPowerSampleRef.current >= POWER_REFRESH_MS) {
+          const nextPower = computeTotalDissipatedPower(
+            voltages,
+            branchCurrents,
+            resistorBranchesRef.current,
+          );
+          setPower(nextPower);
+          lastPowerSampleRef.current = now;
+        }
       } else if (type === 'SIM_ERROR') {
         console.warn('[Sim] Solver error:', message);
         setSimStatus('error', message);
+        setPower(0);
         if (typeof message === 'string') addToast(message, 'error');
       } else if (type === 'SIM_WARN') {
         if (typeof message === 'string') addToast(message, 'warn');
@@ -100,6 +170,9 @@ export default function SimController() {
 
     const netlist = buildNetlist(nodes, components, wires);
     useCircuitStore.getState().setWireBranchIndices(netlist.wireBranchIndex ?? {});
+    resistorBranchesRef.current = buildResistiveBranchMap(netlist.elements);
+    setPower(0);
+    lastPowerSampleRef.current = 0;
 
     workerRef.current.postMessage({
       type:       'UPDATE_NETLIST',

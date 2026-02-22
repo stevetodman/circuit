@@ -35,6 +35,7 @@ export default function KeyboardShortcuts() {
   const toggleSchematic     = useSchematicStore((s) => s.toggle);
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
+  const toggleCurrentLabels = useUIStore((s) => s.toggleCurrentLabels);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -111,6 +112,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'i') {
+        e.preventDefault();
+        toggleCurrentLabels();
+        return;
+      }
+
       // Toggle schematic
       if (key === 's') {
         e.preventDefault();
@@ -131,7 +138,7 @@ export default function KeyboardShortcuts() {
   }, [
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
-    requestZoomToFit, requestCameraPreset,
+    requestZoomToFit, requestCameraPreset, toggleCurrentLabels,
     copySelected, pasteClipboard, selectAll,
   ]);
 
