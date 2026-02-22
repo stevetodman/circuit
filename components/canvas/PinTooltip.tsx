@@ -12,11 +12,9 @@ function formatVoltage(v: number): string {
 }
 
 export default function PinTooltip() {
-  const { hoveredNodeId, mouseX, mouseY } = useUIStore((s) => ({
-    hoveredNodeId: s.hoveredNodeId,
-    mouseX: s.mouseX,
-    mouseY: s.mouseY,
-  }));
+  const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const mouseX = useUIStore((s) => s.mouseX);
+  const mouseY = useUIStore((s) => s.mouseY);
   const nodes = useCircuitStore((s) => s.nodes);
 
   if (!hoveredNodeId) return null;

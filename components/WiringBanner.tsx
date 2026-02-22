@@ -3,10 +3,8 @@
 import { useCircuitStore } from '@/store/circuitStore';
 
 export default function WiringBanner() {
-  const { wiringMode, selectedNodeId } = useCircuitStore((s) => ({
-    wiringMode: s.wiringMode,
-    selectedNodeId: s.selectedNodeId,
-  }));
+  const wiringMode = useCircuitStore((s) => s.wiringMode);
+  const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
 
   if (!wiringMode) return null;
 
