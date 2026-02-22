@@ -8,6 +8,7 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useModuleStore } from '@/store/moduleStore';
 import { useDragStore } from '@/store/dragStore';
+import { useUIStore } from '@/store/uiStore';
 import Sidebar from '@/components/sidebar/Sidebar';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import EmptyStateGallery from '@/components/canvas/EmptyStateGallery';
@@ -104,6 +105,7 @@ export default function Home() {
   );
   const schematicOpen = useSchematicStore((state) => state.open);
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
+  const showSidebar = useUIStore((s) => s.showSidebar);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
   const circuitName = useCircuitStore((state) => state.circuitName);
   const activeModuleId = useModuleStore((state) => state.activeModuleId);
@@ -159,7 +161,19 @@ export default function Home() {
       <KeyboardShortcuts />
       <ModuleIntroOverlay />
       <ModuleValidator />
-      <ErrorBoundary><Sidebar /></ErrorBoundary>
+      {!showSidebar && (
+        <button
+          type="button"
+          onClick={() => useUIStore.getState().toggleSidebar()}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-6 h-12 bg-[#1a1a1f]
+                     border border-white/[0.1] rounded-r flex items-center justify-center
+                     text-white/40 hover:text-white/80 hover:bg-white/[0.08] transition-colors"
+          title="Show sidebar (B)"
+        >
+          ›
+        </button>
+      )}
+      {showSidebar && <ErrorBoundary><Sidebar /></ErrorBoundary>}
       <main className="relative flex-1 min-w-0 h-full">
         <Toolbar />
         <div className="absolute inset-0 top-[36px]">
