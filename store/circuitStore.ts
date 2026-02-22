@@ -81,6 +81,9 @@ interface CircuitState {
   toggleWiringMode(): void;
 }
 
+const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
+let wireColorIdx = 0;
+
 export const useCircuitStore = create<CircuitState>()((set) => ({
   nodes: seedBreadboardNodes(),
   components: {},
@@ -108,7 +111,10 @@ export const useCircuitStore = create<CircuitState>()((set) => ({
     });
   },
 
-  addWire(fromId, toId, color = '#cc2222') {
+  addWire(fromId, toId, color = WIRE_COLORS[wireColorIdx]) {
+    const colorIndex = wireColorIdx;
+    wireColorIdx = (wireColorIdx + 1) % WIRE_COLORS.length;
+
     const id = crypto.randomUUID();
     set((state) => {
       const wires = { ...state.wires, [id]: { id, fromNodeId: fromId, toNodeId: toId, color } };
