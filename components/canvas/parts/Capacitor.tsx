@@ -40,6 +40,7 @@ function Capacitor({
   const opacity = transparent ? 0.75 : 1;
   const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
   const positivePin = pinOffsets[1] ?? DEFAULT_PIN_OFFSETS[1];
+  const negativePin = pinOffsets[0] ?? DEFAULT_PIN_OFFSETS[0];
 
   return (
     <group
@@ -60,16 +61,28 @@ function Capacitor({
       </mesh>
 
       {showPolarityLabels && (
-        <Text
-          position={[positivePin[0], 0.12, positivePin[2]]}
-          fontSize={0.08}
-          color="#ff6b6b"
-          anchorX="center"
-          anchorY="middle"
-          renderOrder={10}
-        >
-          +
-        </Text>
+        <>
+          <Text
+            position={[positivePin[0], 0.12, positivePin[2]]}
+            fontSize={0.08}
+            color="#ff6b6b"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            +
+          </Text>
+          <Text
+            position={[negativePin[0], 0.12, negativePin[2]]}
+            fontSize={0.08}
+            color="#6b9fff"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            −
+          </Text>
+        </>
       )}
 
       {pinOffsets.map((offset, index) => (

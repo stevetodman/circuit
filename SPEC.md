@@ -1,64 +1,104 @@
-# SPEC: Polarity Labels on Component Pins
+# SPEC: Polarity Labels on Diode + Capacitor Fix
 
-Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
-This is a top beginner pain point — they can't tell which end is which.
+Extends wave-4 polarity work. Two small additions:
+1. `Diode.tsx` — missing +/− labels entirely
+2. `Capacitor.tsx` — already has `+` only; add the `−` label too
 
 ## Read First
-- `components/canvas/parts/LED.tsx` — see how a part component is structured
-- `components/canvas/parts/Battery.tsx` — another example
-- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
-- The Three.js/R3F layer. All canvas code is SSR-disabled.
-- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
+- `components/canvas/parts/Diode.tsx` — current diode (no polarity labels)
+- `components/canvas/parts/Capacitor.tsx` — already has `+`, needs `−`
+- `components/canvas/parts/LED.tsx` — reference for polarity label pattern
+- `store/uiStore.ts` — `showPolarityLabels` boolean is already there
 
-## Implementation
+## Part 1: Diode.tsx polarity labels
 
-Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
+The Diode has:
+- Anode pin at `pinOffsets[0]` (default `[-0.254, 0, 0]`) — this is `+`
+- Cathode pin at `pinOffsets[1]` (default `[0.254, 0, 0]`) — this is `−`
 
-### Where to add
-
-In `components/canvas/parts/LED.tsx`:
-- Add a "+" label above the anode pin (pos side)
-- Add a "−" label above the cathode pin (neg side)
-- Position: slightly above the pin, y=0.12, at the pin's x/z offset
-
-In `components/canvas/parts/Battery.tsx`:
-- Add "+" above the positive terminal
-- Add "−" above the negative terminal
-
-In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
-- For capacitor (polarized): add "+" on one side if it exists
-
-### Label style
+Add imports:
 ```tsx
-<Text
-  position={[xOffset, 0.12, zOffset]}
-  fontSize={0.08}
-  color={isPositive ? '#ff6b6b' : '#6b9fff'}
-  anchorX="center"
-  anchorY="middle"
-  renderOrder={10}
->
-  {isPositive ? '+' : '−'}
-</Text>
+import { Text } from '@react-three/drei';
+import { useUIStore } from '@/store/uiStore';
 ```
 
-Use red (#ff6b6b) for + and blue (#6b9fff) for −.
+In the component body:
+```tsx
+const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
+const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
+const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
+```
 
-### Toggle
+Inside the JSX `<group>`, before the pin legs:
+```tsx
+{showPolarityLabels && (
+  <>
+    <Text
+      position={[anodeX, 0.12, pinOffsets[0] ? pinOffsets[0][2] : 0]}
+      fontSize={0.08}
+      color="#ff6b6b"
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={10}
+    >
+      +
+    </Text>
+    <Text
+      position={[cathodeX, 0.12, pinOffsets[1] ? pinOffsets[1][2] : 0]}
+      fontSize={0.08}
+      color="#6b9fff"
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={10}
+    >
+      −
+    </Text>
+  </>
+)}
+```
 
-Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
-Add a setter `setShowPolarityLabels`.
+## Part 2: Capacitor.tsx — add `−` label
 
-Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
+Read `Capacitor.tsx`. It has `showPolarityLabels` and shows `+` on `positivePin` (pinOffsets[1]).
+Add a `negativePin` variable and a `−` label:
 
-Add `P` key handler in `components/KeyboardShortcuts.tsx`.
+```tsx
+const negativePin = pinOffsets[0] ?? DEFAULT_PIN_OFFSETS[0];
+```
 
-Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
+Replace the existing `{showPolarityLabels && <Text...>+</Text>}` block with:
+```tsx
+{showPolarityLabels && (
+  <>
+    <Text
+      position={[positivePin[0], 0.12, positivePin[2]]}
+      fontSize={0.08}
+      color="#ff6b6b"
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={10}
+    >
+      +
+    </Text>
+    <Text
+      position={[negativePin[0], 0.12, negativePin[2]]}
+      fontSize={0.08}
+      color="#6b9fff"
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={10}
+    >
+      −
+    </Text>
+  </>
+)}
+```
 
-### Important notes
-- `Text` from `@react-three/drei` is already used in the project — import from there
-- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
-- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
-- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
+## Important notes
+- `Capacitor.tsx` already imports `Text` and `useUIStore` — don't add duplicates
+- `Diode.tsx` does NOT have these imports — add them
+- Follow LED.tsx exactly for consistency
+- Colors: `#ff6b6b` for `+`, `#6b9fff` for `−`
+- Do NOT touch uiStore.ts, Toolbar.tsx, or KeyboardShortcuts.tsx — showPolarityLabels already exists
 
 Run `pnpm build` — must pass with zero errors.

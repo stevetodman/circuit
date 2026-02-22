@@ -3,6 +3,8 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { Text } from '@react-three/drei';
+import { useUIStore } from '@/store/uiStore';
 
 interface DiodeProps {
   anchorPos: Vec3;
@@ -38,6 +40,9 @@ function CathodeBand({ selected, selectedOffset = 0.06 }: { selected: boolean; s
 
 function Diode({ anchorPos, selected = false, transparent = false, pinOffsets = DEFAULT_PIN_OFFSETS, rotationY = 0, onClick }: DiodeProps) {
   const opacity = transparent ? 0.75 : 1;
+  const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
+  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
+  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
 
   return (
     <group
@@ -74,6 +79,31 @@ function Diode({ anchorPos, selected = false, transparent = false, pinOffsets = 
         <cylinderGeometry args={[0.05, 0.05, 0.41, 16]} />
         <meshStandardMaterial color="#7d7d7d" />
       </mesh>
+
+      {showPolarityLabels && (
+        <>
+          <Text
+            position={[anodeX, 0.12, pinOffsets[0] ? pinOffsets[0][2] : 0]}
+            fontSize={0.08}
+            color="#ff6b6b"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            +
+          </Text>
+          <Text
+            position={[cathodeX, 0.12, pinOffsets[1] ? pinOffsets[1][2] : 0]}
+            fontSize={0.08}
+            color="#6b9fff"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            −
+          </Text>
+        </>
+      )}
 
       {pinOffsets.map((offset, index) => (
         <DiodeLeg key={`${anchorPos.join('-')}-${index}-${offset[0]}`} position={offset} selected={selected} />
