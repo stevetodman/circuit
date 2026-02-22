@@ -90,7 +90,7 @@ export function buildNetlist(
       const Vf = typeof (props as { forwardVoltage?: number }).forwardVoltage === 'number'
         ? (props as { forwardVoltage?: number }).forwardVoltage
         : 0.7;
-      const element = { id: comp.id, kind: 'diode', netA, netB, value: Vf };
+      const element = { id: comp.id, kind: 'diode' as const, netA, netB, value: Vf ?? 0.7 };
       elements.push(element);
       branchElements.push(element);
       break;
@@ -101,12 +101,10 @@ export function buildNetlist(
       const netD = pinNet(comp, 'drain');
       const netS = pinNet(comp, 'source');
       if (netGate == null || netD == null || netS == null || netD === netS) break;
-      const rdsOn = typeof (props as { rdsOn?: number }).rdsOn === 'number'
-        ? (props as { rdsOn?: number }).rdsOn
-        : 0.1;
+      const rdsOn = (props as { rdsOn?: number }).rdsOn ?? 0.1;
       elements.push({
         id: comp.id,
-        kind: 'mosfet',
+        kind: 'mosfet' as const,
         netA: netD,
         netB: netS,
         netC: netGate,
@@ -139,12 +137,10 @@ export function buildNetlist(
       const netA = pinNet(comp, 'a');
       const netB = pinNet(comp, 'b');
       if (netA == null || netB == null || netA === netB) break;
-      const inductance = typeof (props as { inductance?: number }).inductance === 'number'
-        ? (props as { inductance?: number }).inductance
-        : 0.001;
+      const inductance = (props as { inductance?: number }).inductance ?? 0.001;
       elements.push({
         id: comp.id,
-        kind: 'inductor',
+        kind: 'inductor' as const,
         netA,
         netB,
         value: Math.max(1e-9, inductance),
@@ -157,17 +153,13 @@ export function buildNetlist(
       const netW = pinNet(comp, 'wiper');
       const netB = pinNet(comp, 'b');
       if (netA == null || netW == null || netB == null || netA === netB) break;
-      const resistance = typeof (props as { resistance?: number }).resistance === 'number'
-        ? (props as { resistance?: number }).resistance
-        : 10_000;
-      const rawWiper = typeof (props as { wiper?: number }).wiper === 'number'
-        ? (props as { wiper?: number }).wiper
-        : 0.5;
+      const resistance = (props as { resistance?: number }).resistance ?? 10_000;
+      const rawWiper = (props as { wiper?: number }).wiper ?? 0.5;
       const wiper = Math.max(0, Math.min(1, rawWiper));
       const rA = Math.max(1e-9, resistance * wiper);
       const rB = Math.max(1e-9, resistance * (1 - wiper));
-      elements.push({ id: `${comp.id}-a`, kind: 'resistor', netA, netB: netW, value: rA });
-      elements.push({ id: `${comp.id}-b`, kind: 'resistor', netA: netW, netB, value: rB });
+      elements.push({ id: `${comp.id}-a`, kind: 'resistor' as const, netA, netB: netW, value: rA });
+      elements.push({ id: `${comp.id}-b`, kind: 'resistor' as const, netA: netW, netB, value: rB });
       break;
     }
 

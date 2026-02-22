@@ -32,7 +32,8 @@ import {
 
 // ── SAB layout (must match types/circuit.ts) ───────────────────────────────────
 const MAX_NETS           = 256;
-const SAB_DIGITAL_OFFSET = MAX_NETS * 4; // skip voltages (Float32[256])
+const SAB_VOLTAGE_OFFSET = 0;              // Float32[256] — net voltages
+const SAB_DIGITAL_OFFSET = MAX_NETS * 4;  // Uint8[256]   — digital HIGH/LOW
 
 // ── Arduino Uno pin → AVR port/bit mapping ────────────────────────────────────
 // Digital pins 0-13, analog pins A0-A5 mapped as digital 14-19
@@ -49,12 +50,16 @@ const UNO_PIN_MAP: Record<number, { port: 'B' | 'C' | 'D'; bit: number }> = {
   18: { port: 'C', bit: 4 }, 19: { port: 'C', bit: 5 },
 };
 
+// Logic HIGH threshold — 5V Arduino logic: anything above 2.5V is HIGH
+const LOGIC_THRESHOLD = 2.5;
+
 // ── Worker state ───────────────────────────────────────────────────────────────
-let cpu:       CPU     | null = null;
-let portB:     AVRIOPort | null = null;
-let portC:     AVRIOPort | null = null;
-let portD:     AVRIOPort | null = null;
-let digitalStateView: Uint8Array   | null = null;
+let cpu:             CPU        | null = null;
+let portB:           AVRIOPort  | null = null;
+let portC:           AVRIOPort  | null = null;
+let portD:           AVRIOPort  | null = null;
+let voltageView:     Float32Array | null = null; // SAB net voltages (read for inputs)
+let digitalStateView: Uint8Array  | null = null; // SAB digital states (write for outputs)
 let running     = false;
 let paused      = false;
 let rafHandle:  ReturnType<typeof setInterval> | null = null;
@@ -62,7 +67,7 @@ let cycleHandle: ReturnType<typeof setInterval> | null = null;
 // P1-16: batch serial bytes per burst instead of one postMessage per byte
 let serialBuffer = '';
 
-// Map: Arduino pin number → SAB digitalStates index (set by UPDATE_PIN_MAP)
+// Map: Arduino pin number → SAB net index (set by UPDATE_PIN_MAP)
 const pinToNetIdx: Record<number, number> = {};
 
 // ── IHex parser (minimal) ──────────────────────────────────────────────────────
@@ -84,11 +89,11 @@ function parseHex(hexString: string): Uint8Array {
 
 // ── GPIO → SAB bridge ──────────────────────────────────────────────────────────
 function syncGPIO() {
-  if (!digitalStateView) return;
+  if (!digitalStateView || !voltageView) return;
 
-  // Write AVR output pin states to shared memory
+  // Write AVR output pin states to shared memory (digital HIGH/LOW)
   for (const [pinStr, netIdx] of Object.entries(pinToNetIdx)) {
-    if (netIdx < 0 || netIdx >= MAX_NETS) continue; // P0-3: bounds guard
+    if (netIdx < 0 || netIdx >= MAX_NETS) continue;
     const pin  = Number(pinStr);
     const map  = UNO_PIN_MAP[pin];
     if (!map) continue;
@@ -98,15 +103,17 @@ function syncGPIO() {
     digitalStateView[netIdx] = state === PinState.High ? 1 : 0;
   }
 
-  // Read analog net voltages from SAB and feed AVR input pin state
+  // Read net voltages from SAB and feed as AVR digital input pin state.
+  // Uses actual analog voltage (Float32 SAB view) — not the digital state written above.
+  // This correctly handles circuit outputs (e.g. 3.3V → HIGH, 0.5V → LOW).
   for (const [arduinoPin, netIdx] of Object.entries(pinToNetIdx)) {
-    if (netIdx < 0 || netIdx >= MAX_NETS) continue; // P0-3: bounds guard
-    const voltage = digitalStateView[netIdx];
+    if (netIdx < 0 || netIdx >= MAX_NETS) continue;
+    const voltage = voltageView[netIdx]; // actual net voltage in volts
     const mapping = UNO_PIN_MAP[Number(arduinoPin)];
     if (!mapping) continue;
     const port = mapping.port === 'B' ? portB : mapping.port === 'C' ? portC : portD;
     if (!port) continue;
-    port.setPin(mapping.bit, voltage > 0);
+    port.setPin(mapping.bit, voltage > LOGIC_THRESHOLD);
   }
 }
 
@@ -150,7 +157,8 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       cpu = null;
       serialBuffer = ''; // P1-16: clear stale serial data
 
-      // Attach SAB view
+      // Attach SAB views — voltage for reading inputs, digital for writing outputs
+      voltageView      = new Float32Array(msg.sab, SAB_VOLTAGE_OFFSET, MAX_NETS);
       digitalStateView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
 
       // Parse and load program
@@ -182,8 +190,11 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
 
     case 'UPDATE_PIN_MAP': {
       if (!msg.pinMap) break;
+      // Replace pinToNetIdx entirely (don't accumulate stale mappings)
+      for (const key of Object.keys(pinToNetIdx)) delete pinToNetIdx[Number(key)];
       Object.assign(pinToNetIdx, msg.pinMap);
       if (msg.sab && !digitalStateView) {
+        voltageView      = new Float32Array(msg.sab, SAB_VOLTAGE_OFFSET, MAX_NETS);
         digitalStateView = new Uint8Array(msg.sab, SAB_DIGITAL_OFFSET, MAX_NETS);
       }
       break;
@@ -194,7 +205,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
       break;
 
     case 'RESUME':
-      if (cpu) paused = false;
+      paused = false; // always allow resume, even if cpu not yet initialized
       break;
 
     case 'STOP':

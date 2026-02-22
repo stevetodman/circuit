@@ -37,11 +37,13 @@ Main Thread (React + R3F)
 [0 .. MAX_NETS*4-1]                        Float32Array  — net voltages (V)
 [MAX_NETS*4 .. MAX_NETS*5-1]               Uint8Array    — digital HIGH/LOW per net
 [MAX_NETS*5 .. MAX_NETS*5+MAX_BRANCHES*4-1] Float32Array — branch currents (A)
-[end-8]                                    Float64Array  — simulation timestamp
+[end-8]                                    Float64Array  — simulation timestamp (seconds)
 MAX_NETS = 256, MAX_BRANCHES = 256
 ```
 
 `SimBridge.ts` exports module-level typed arrays. On mount, `SimController` calls `init(sab)` to replace them with SAB-backed views. Workers receive the SAB via postMessage and create their own typed views.
+
+The SAB timestamp at `[end-8]` is written in **seconds** (not milliseconds). The worker maintains a cumulative `simTimeMs` counter that is divided by 1000 before writing to avoid wall-clock drift under CPU load.
 
 ### Simulation Engine
 
@@ -52,14 +54,15 @@ Custom MNA (Modified Nodal Analysis) solver in `simulation/mna/MNASolver.ts`:
 - Backward Euler companion model for capacitors (when `dt` is provided)
 - `analog.worker.ts` runs a 1ms `setInterval` transient tick when capacitors are present
 - 555 timer handled behaviorally in the worker (not MNA): frequency = 1.44 / ((R1+2R2)·C)
+- Non-convergence of Newton-Raphson emits `SIM_WARN` to main thread (displayed as toast)
 
 ## Directory Layout
 
 ```
 app/
-  page.tsx              Root: <SimController> <KeyboardShortcuts> <Sidebar> <Scene>
-                        + <Oscilloscope> + <SchematicView> overlays
-  layout.tsx
+  page.tsx              Root: <SimController> <Toast> <HelpOverlay> <KeyboardShortcuts>
+                        <Sidebar> <Scene> + <Oscilloscope> + <SchematicView> overlays
+  layout.tsx            Sets viewport meta (width=device-width, viewportFit=cover)
 components/
   canvas/               All Three.js/R3F — loaded with ssr:false
     Scene.tsx           Canvas, lighting, OrbitControls, zoom-to-fit
@@ -82,9 +85,11 @@ components/
     ExportPanel.tsx     SPICE .cir download
     ScopeButton.tsx     Open oscilloscope shortcut
     StatusBar.tsx       Sim status dot + mode chip + hovered pin display
+  ErrorBoundary.tsx     Wraps Sidebar, Oscilloscope, SchematicView in page.tsx
   HelpOverlay.tsx       ? key modal — full keyboard shortcut reference
   KeyboardShortcuts.tsx Global keyboard handler (mount once in page.tsx)
   SimController.tsx     Worker lifecycle + SAB init + topology → UPDATE_NETLIST
+  Toast.tsx             Transient notification bar (sim errors, warnings)
 constants/
   breadboard.ts         PITCH, COLS, ROWS, BOARD_TOP_Y, SNAP_THRESHOLD (single source of truth)
 features/
@@ -92,14 +97,15 @@ features/
     Oscilloscope.tsx    4-channel overlay panel with Y-axis voltage labels + auto-scale
     scopeBuffer.ts      Float32Array[4096] ring buffer per net
   schematic/
-    SchematicView.tsx   SVG overlay (toggled with S key)
+    SchematicView.tsx   SVG overlay (toggled with S key); shows empty-state message when no components
     SchematicLayout.ts  elkjs ELK layered layout: netlist → {x,y,w,h} per component + cache
     symbols/index.tsx   IEEE SVG symbols: R, LED, C, BJT, 555, Arduino, Motor, Switch
+                        SYMBOL_SIZES and SchematicLayout COMPONENT_SIZES are kept in sync
   examples/
     circuits.ts         Pre-built example circuits (blink, voltage divider, RC)
     ExampleLoader.tsx   Dropdown to load examples
   export/
-    exportNetlist.ts    Circuit topology → SPICE .cir string
+    exportNetlist.ts    Circuit topology → SPICE .cir string (covers all 9 component types)
 simulation/
   SimBridge.ts          Module-level SAB-backed typed arrays + init(sab)
   mna/
@@ -115,6 +121,7 @@ store/
   schematicStore.ts     Schematic open/close
   dragStore.ts          Active drag: type, position, rotationY, snap
   netAnalysis.ts        BFS net assignment: wires + component pins → netId per node
+  toastStore.ts         Transient toast messages (message + severity)
 types/
   circuit.ts            Core types + SAB layout constants (MAX_NETS, SAB_TOTAL_BYTES)
 ```
@@ -141,15 +148,34 @@ types/
 
 **SAB headers** — `Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: credentialless` are set in `next.config.ts`. Required for `SharedArrayBuffer` in all browsers.
 
+**Symbol sizes** — `SYMBOL_SIZES` in `features/schematic/symbols/index.tsx` and `COMPONENT_SIZES` in `features/schematic/SchematicLayout.ts` must stay in sync. Both define the same pixel dimensions for each component type so ELK layout boxes match rendered SVG symbols exactly.
+
+**SPICE export** — `exportNetlist.ts` covers all 9 component types. BJT emits `Q<n> C B E NPN_GENERIC`, motor emits `R_MOTOR<n>` with a comment, tactile switch emits `SW<n>` with a `.model MYSW SW(...)` control model, 555 timer emits a comment line (not SPICE-native). Models are appended at the bottom of the `.cir` file.
+
 ## Stores at a Glance
 
 | Store | What it holds | Undo/redo |
 |---|---|---|
-| `circuitStore` | nodes, components, wires, selectedIds, wiringMode | Yes (zundo) |
+| `circuitStore` | nodes, components, wires, selectedNodeId, selectedComponentId, selectedComponentIds, wiringMode, componentClipboard (module-level) | Yes (zundo, topology only) |
 | `uiStore` | hoveredNodeId, simStatus, sab, showHelp, zoom/camera requests | No |
-| `scopeStore` | oscilloscope open, channels (netId + color) | No |
+| `scopeStore` | oscilloscope open, channels (netId + color); removeChannel clears ring buffer | No |
 | `schematicStore` | schematic overlay open | No |
 | `dragStore` | active drag type, position, rotationY | No |
+| `toastStore` | active toast message + severity (error/warn/info) | No |
+
+## Copy / Paste / Multi-Select
+
+`circuitStore` exposes:
+
+- `selectedComponentIds: string[]` — all components in the current selection (multi-select via `toggleSelectedComponent`)
+- `selectAll()` — sets `selectedComponentIds` to all component IDs (Ctrl+A)
+- `copySelected()` — snapshots `selectedComponentIds` (or falls back to `selectedComponentId`) into the module-level `componentClipboard`
+- `pasteClipboard(offsetCols?)` — pastes clipboard shifted 5 columns right by default; snaps pin nodes to nearest breadboard hole; selects pasted components
+- `loadFromJSON()` — clears `componentClipboard` to prevent stale clipboard surviving a circuit load
+- `deleteSelected()` — deletes all `selectedComponentIds` (or falls back to `selectedComponentId`), then also deletes any wire connected to `selectedNodeId`
+- `rotateComponent(id)` — rotates component and calls `runNetAnalysis` so net IDs update immediately
+
+Keyboard bindings (see `KeyboardShortcuts.tsx`): Ctrl+C copy, Ctrl+V paste, Ctrl+A select all, Ctrl+D duplicate (copy + paste in one step).
 
 ## Known Limitations / Future Work
 

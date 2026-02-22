@@ -38,7 +38,7 @@ function FallbackPart({ pinOffsets = [], selected, onClick }: {
 }) {
   const offsets: Vec3[] = pinOffsets.length
     ? pinOffsets
-    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3);
+    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3]);
 
   return (
     <group onClick={onClick}>
@@ -202,7 +202,6 @@ export default function ComponentRenderer({
           fillOpacity={0.55}
           anchorX="center"
           anchorY="middle"
-          depthTest={false}
         >
           {designator}
         </Text>
