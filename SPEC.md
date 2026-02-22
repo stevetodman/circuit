@@ -1,66 +1,64 @@
-# SPEC: Module-Circuit Linking + Starter Circuits for Modules 5–11
+# SPEC: Polarity Labels on Component Pins
 
-## Goal
-Wire up autoLoadId on all 11 module definitions and add missing starter circuits.
+Show floating + and − labels above battery, LED, capacitor, and diode pins in the 3D view.
+This is a top beginner pain point — they can't tell which end is which.
 
 ## Read First
-- `features/modules/definitions.ts` — 11 module definitions
-- `features/examples/circuits.ts` — existing circuits + format
+- `components/canvas/parts/LED.tsx` — see how a part component is structured
+- `components/canvas/parts/Battery.tsx` — another example
+- `components/canvas/parts/ComponentRenderer.tsx` — see how parts receive anchorPos
+- The Three.js/R3F layer. All canvas code is SSR-disabled.
+- `store/uiStore.ts` — check if showDesignators exists (similar toggle pattern)
 
-## Part 1: Add autoLoadId to all module definitions
+## Implementation
 
-Read `features/modules/definitions.ts`. Currently only module 4 (bodyguard) has `autoLoadId`.
+Add polarity labels using `@react-three/drei`'s `<Text>` component (already used in Wire.tsx for current labels).
 
-Add these autoLoadId values to the matching modules:
+### Where to add
 
+In `components/canvas/parts/LED.tsx`:
+- Add a "+" label above the anode pin (pos side)
+- Add a "−" label above the cathode pin (neg side)
+- Position: slightly above the pin, y=0.12, at the pin's x/z offset
+
+In `components/canvas/parts/Battery.tsx`:
+- Add "+" above the positive terminal
+- Add "−" above the negative terminal
+
+In `components/canvas/parts/Resistor.tsx` or a new `Capacitor.tsx`:
+- For capacitor (polarized): add "+" on one side if it exists
+
+### Label style
+```tsx
+<Text
+  position={[xOffset, 0.12, zOffset]}
+  fontSize={0.08}
+  color={isPositive ? '#ff6b6b' : '#6b9fff'}
+  anchorX="center"
+  anchorY="middle"
+  renderOrder={10}
+>
+  {isPositive ? '+' : '−'}
+</Text>
 ```
-'hello-electricity'  → autoLoadId: 'battery-only'
-'complete-circle'    → autoLoadId: 'battery-resistor'
-'first-led'          → autoLoadId: 'battery-led-resistor'
-'bodyguard'          → autoLoadId: 'led-resistor'  (already set)
-'dimmer'             → autoLoadId: 'pot-dimmer'
-'take-control'       → autoLoadId: 'switch-led'
-'voltage-sharing'    → autoLoadId: 'voltage-divider-demo'
-'memory-cell'        → autoLoadId: 'rc-timing'
-'electronic-switch'  → autoLoadId: 'bjt-switch-demo'
-'blinker'            → autoLoadId: 'blinker-555-demo'
-'arduino-hello'      → autoLoadId: 'arduino-blink'
-```
 
-## Part 2: Add missing starter circuits to features/examples/circuits.ts
+Use red (#ff6b6b) for + and blue (#6b9fff) for −.
 
-The file already has: battery-only, battery-resistor, battery-led-resistor, ohms-law-demo, led-resistor.
+### Toggle
 
-Add these new circuits using the same pattern as existing ones. Read the file carefully to understand the PlacedComponent format, pin arrays, and node ID scheme.
+Add a `showPolarityLabels` boolean to `uiStore.ts` (default: `true`).
+Add a setter `setShowPolarityLabels`.
 
-**Node ID rules:**
-- Main grid: `bb-{row}{col}` where rows = a-j, cols = 1-63
-- Power rails: `bb-tp-{n}` (top positive), `bb-tn-{n}` (top negative)
+Add a "P Polarity" toggle button to `components/Toolbar.tsx`, similar to the existing "L Labels" and "I Current" buttons. Key: `P`.
 
-**'pot-dimmer'** — Battery + potentiometer + LED (no series resistor — pot handles current limiting)
-- Battery at cols 5-6, potentiometer at col 15 (3 pins: a15=pin1, c15=wiper, e15=pin2), LED at col 25
+Add `P` key handler in `components/KeyboardShortcuts.tsx`.
 
-**'switch-led'** — Battery + tactile switch + 220Ω resistor + LED
-- Battery at cols 5-6, switch at cols 15-16, resistor at cols 20-21, LED at col 25
+Wrap the Text labels in `{showPolarityLabels && <Text.../>}` in each part component.
 
-**'voltage-divider-demo'** — Battery + two 10kΩ resistors in series + LED at midpoint
-- Battery at cols 5-6, R1 at cols 15-16, R2 at cols 20-21, probe point at col 18
-
-**'rc-timing'** — Battery + 10kΩ resistor + 100µF capacitor
-- Battery at cols 5-6, resistor at cols 15-16, capacitor at cols 20-21
-- These are the components for the scope to show charging curve
-
-**'bjt-switch-demo'** — Battery + NPN BJT + LED + 10kΩ base resistor + 220Ω LED resistor
-- Battery at cols 5-6, BJT at col 20 (base=row b, collector=row a, emitter=row c), resistors and LED around it
-
-**'blinker-555-demo'** — Battery + 555 timer + LED + timing resistors + capacitor
-- Battery at cols 5-6, timer555 at cols 15-18 (8 pins in 2 rows), LED at col 25
-
-**'arduino-blink'** — Arduino + LED + 220Ω resistor
-- Arduino at cols 10-23 (wide component), LED at col 28, resistor at cols 26-27
-
-For each circuit, keep it minimal — just the parts needed, placed in a horizontal line at rows c-e, centered around col 30. You don't need wires for the starter circuit — place just the components so the user can wire them.
-
-Actually, looking at the existing circuits in the file, they DO include wires. Include wires connecting the components. Look at 'battery-led-resistor' as the template for how to write wires.
+### Important notes
+- `Text` from `@react-three/drei` is already used in the project — import from there
+- The `anchorPos` for parts is always [0,0,0] in local space (ComponentRenderer handles world position)
+- Pin offsets: check the PART_DEFS or pin definitions in each component file to get the right offsets
+- Only LED, Battery (and optionally Capacitor/Diode) need labels — don't add to resistors
 
 Run `pnpm build` — must pass with zero errors.

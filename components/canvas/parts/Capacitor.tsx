@@ -3,6 +3,8 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { Text } from '@react-three/drei';
+import { useUIStore } from '@/store/uiStore';
 
 interface CapacitorProps {
   anchorPos: Vec3;
@@ -36,6 +38,8 @@ function Capacitor({
   onClick,
 }: CapacitorProps) {
   const opacity = transparent ? 0.75 : 1;
+  const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
+  const positivePin = pinOffsets[1] ?? DEFAULT_PIN_OFFSETS[1];
 
   return (
     <group
@@ -54,6 +58,19 @@ function Capacitor({
         <boxGeometry args={[0.008, 0.20, 0.15]} />
         <meshStandardMaterial color="#e9f5ff" roughness={0.2} />
       </mesh>
+
+      {showPolarityLabels && (
+        <Text
+          position={[positivePin[0], 0.12, positivePin[2]]}
+          fontSize={0.08}
+          color="#ff6b6b"
+          anchorX="center"
+          anchorY="middle"
+          renderOrder={10}
+        >
+          +
+        </Text>
+      )}
 
       {pinOffsets.map((offset, index) => (
         <CapacitorLead

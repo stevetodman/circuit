@@ -61,12 +61,14 @@ export default function Toolbar() {
     }))
   );
 
-  const { showDesignators, toggleDesignators, showCurrentLabels, toggleCurrentLabels } = useUIStore(
+  const { showDesignators, toggleDesignators, showCurrentLabels, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels } = useUIStore(
     useShallow((s) => ({
       showDesignators: s.showDesignators,
       toggleDesignators: s.toggleDesignators,
       showCurrentLabels: s.showCurrentLabels,
       toggleCurrentLabels: s.toggleCurrentLabels,
+      showPolarityLabels: s.showPolarityLabels,
+      setShowPolarityLabels: s.setShowPolarityLabels,
     }))
   );
 
@@ -137,6 +139,13 @@ export default function Toolbar() {
         active={showCurrentLabels}
       >
         I Current
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={() => setShowPolarityLabels(!showPolarityLabels)}
+        title="Toggle polarity labels (P)"
+        active={showPolarityLabels}
+      >
+        P Polarity
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleSchematic}

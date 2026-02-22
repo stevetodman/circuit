@@ -3,6 +3,8 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { Text } from '@react-three/drei';
+import { useUIStore } from '@/store/uiStore';
 
 interface BatteryProps {
   anchorPos: Vec3;
@@ -36,6 +38,9 @@ function Battery({
   onClick,
 }: BatteryProps) {
   const opacity = transparent ? 0.75 : 1;
+  const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
+  const negativePos = pinOffsets[0] ?? DEFAULT_PIN_OFFSETS[0];
+  const positivePos = pinOffsets[1] ?? DEFAULT_PIN_OFFSETS[1];
 
   return (
     <group
@@ -78,6 +83,31 @@ function Battery({
         <boxGeometry args={[0.008, 0.04, 0.10]} />
         <meshStandardMaterial color="#fff" roughness={0.2} />
       </mesh>
+
+      {showPolarityLabels && (
+        <>
+          <Text
+            position={[negativePos[0], 0.12, negativePos[2]]}
+            fontSize={0.08}
+            color="#6b9fff"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            −
+          </Text>
+          <Text
+            position={[positivePos[0], 0.12, positivePos[2]]}
+            fontSize={0.08}
+            color="#ff6b6b"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            +
+          </Text>
+        </>
+      )}
 
       {pinOffsets.map((offset, index) => (
         <Terminal key={`${anchorPos.join('-')}-${index}-${offset[0]}`} position={offset} selected={selected} />

@@ -8,6 +8,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
 import { MAX_NETS } from '@/types/circuit';
 import { voltages } from '@/simulation/SimBridge';
+import { useUIStore } from '@/store/uiStore';
 
 interface LEDProps {
   anchorPos:     Vec3;
@@ -56,6 +57,7 @@ function LED({
   const opacity = transparent ? 0.75 : 1;
   const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
   const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
+  const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
   const cathodeSide = cathodeX >= 0 ? 1 : -1;
   const cathodeMarkerPos: Vec3 = [cathodeSide * 0.21, 0.295, 0];
 
@@ -122,24 +124,30 @@ function LED({
         <meshStandardMaterial color="#1e1e1e" roughness={0.95} />
       </mesh>
 
-      <Text
-        position={[anodeX, 0.15, 0]}
-        fontSize={0.05}
-        color="#22ff88"
-        anchorX="center"
-        anchorY="bottom"
-      >
-        +
-      </Text>
-      <Text
-        position={[cathodeX, 0.15, 0]}
-        fontSize={0.05}
-        color="#ff4444"
-        anchorX="center"
-        anchorY="bottom"
-      >
-        −
-      </Text>
+      {showPolarityLabels && (
+        <>
+          <Text
+            position={[anodeX, 0.12, pinOffsets[0] ? pinOffsets[0][2] : 0]}
+            fontSize={0.08}
+            color="#ff6b6b"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            +
+          </Text>
+          <Text
+            position={[cathodeX, 0.12, pinOffsets[1] ? pinOffsets[1][2] : 0]}
+            fontSize={0.08}
+            color="#6b9fff"
+            anchorX="center"
+            anchorY="middle"
+            renderOrder={10}
+          >
+            −
+          </Text>
+        </>
+      )}
 
       {/* Leads */}
       {pinOffsets.map((offset, index) => (

@@ -15,6 +15,7 @@ import { useUIStore } from '@/store/uiStore';
  *  Delete / Backspace        → delete selected component/wire
  *  R                         → rotate selected component
  *  O                         → toggle oscilloscope
+ *  P                         → toggle polarity labels
  *  S                         → toggle schematic view
  *  F                         → zoom to fit
  *  1 / 2                     → camera presets
@@ -39,6 +40,8 @@ export default function KeyboardShortcuts() {
   const closeContextMenu    = useUIStore((s) => s.closeContextMenu);
   const clearBoxSelect      = useUIStore((s) => s.clearBoxSelect);
   const toggleCurrentLabels = useUIStore((s) => s.toggleCurrentLabels);
+  const showPolarityLabels  = useUIStore((s) => s.showPolarityLabels);
+  const setShowPolarityLabels = useUIStore((s) => s.setShowPolarityLabels);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -132,6 +135,13 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      // Toggle polarity labels
+      if (key === 'p') {
+        e.preventDefault();
+        setShowPolarityLabels(!showPolarityLabels);
+        return;
+      }
+
       // Toggle schematic
       if (key === 's') {
         e.preventDefault();
@@ -157,7 +167,7 @@ export default function KeyboardShortcuts() {
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
     requestZoomToFit, requestCameraPreset, toggleDesignators,
-    closeContextMenu, clearBoxSelect, toggleCurrentLabels,
+    closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
   ]);
 
