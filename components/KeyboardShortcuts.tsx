@@ -133,6 +133,16 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (e.key === 'F11') {
+        e.preventDefault();
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen();
+        }
+        return;
+      }
+
       if (key === ' ') {
         e.preventDefault();
         useUIStore.getState().toggleSimPaused();
