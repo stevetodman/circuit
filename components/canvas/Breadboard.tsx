@@ -65,8 +65,8 @@ export default function Breadboard() {
   const mainHoleRef = useRef<THREE.InstancedMesh>(null);
   const railHoleRef = useRef<THREE.InstancedMesh>(null);
 
-  const mainHoles = useMemo(buildMainHoles, []);
-  const railHoles = useMemo(buildRailHoles, []);
+  const mainHoles = useMemo(() => buildMainHoles(), []);
+  const railHoles = useMemo(() => buildRailHoles(), []);
 
   useEffect(() => {
     if (mainHoleRef.current) applyHoleMatrices(mainHoleRef.current, mainHoles);

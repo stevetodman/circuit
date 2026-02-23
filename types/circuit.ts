@@ -186,7 +186,7 @@ export type PlacedComponent =
   | (BasePlacedComponent & TypedComponent<'bjt', { hFE?: number }>)
   | (BasePlacedComponent & TypedComponent<'timer555', { r1?: number; r2?: number; capacitance?: number }>)
   | (BasePlacedComponent & TypedComponent<'arduino', { clockMhz?: number }>)
-  | (BasePlacedComponent & TypedComponent<'battery', {}>)
+  | (BasePlacedComponent & TypedComponent<'battery', Record<string, never>>)
   | (BasePlacedComponent & TypedComponent<'motor', { rpm?: number; resistance?: number }>)
   | (BasePlacedComponent & TypedComponent<'tactileSwitch', { closed?: number }>)
   | (BasePlacedComponent & TypedComponent<'diode', { forwardVoltage?: number }>)
@@ -194,7 +194,7 @@ export type PlacedComponent =
   | (BasePlacedComponent & TypedComponent<'schottky', { forwardVoltage?: number }>)
   | (BasePlacedComponent & TypedComponent<'pnp', { hFE?: number }>)
   | (BasePlacedComponent & TypedComponent<'mosfet', { rdsOn?: number }>)
-  | (BasePlacedComponent & TypedComponent<'opamp', {}>)
+  | (BasePlacedComponent & TypedComponent<'opamp', Record<string, never>>)
   | (BasePlacedComponent & TypedComponent<'inductor', { inductance?: number }>)
   | (BasePlacedComponent & TypedComponent<'potentiometer', { resistance?: number; wiper?: number }>);
 
