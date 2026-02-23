@@ -1,42 +1,61 @@
-# SPEC: Keyboard Zoom Shortcuts (+/−)
+# SPEC: Escape Key Closes Open Overlays
 
 ## Goal
-Add `+`/`=` and `-` keyboard shortcuts for incremental zoom in/out.
+When no drag or wiring is active, pressing Escape should close any open overlay panel
+(oscilloscope, schematic, help) before deselecting components.
 
 ## Current State
-- `uiStore` already has `zoomInRequested` and `zoomOutRequested` counters
-- `uiStore` already has `requestZoomIn()` and `requestZoomOut()` actions
-- `Scene.tsx` already listens to these counters and moves the camera
-- `CanvasOverlay.tsx` already calls `requestZoomIn`/`requestZoomOut` via buttons
-- `KeyboardShortcuts.tsx` has `F` for zoom-to-fit but NO +/- keys
+- Escape handler in `KeyboardShortcuts.tsx` (bottom of handler):
+  ```tsx
+  if (e.key === 'Escape') {
+    closeContextMenu();
+    clearBoxSelect();
+    if (dragging) { cancelDrag(); return; }
+    const wiringActive = useCircuitStore.getState().selectedNodeId;
+    selectNode(null);
+    if (!wiringActive) selectComponent(null);
+  }
+  ```
+- Overlays:
+  - Oscilloscope: `useScopeStore.getState().open` + `useScopeStore.getState().toggle()`
+  - Schematic: `useSchematicStore.getState().open` + `useSchematicStore.getState().toggle()`
+  - Help: `useUIStore.getState().showHelp` + `useUIStore.getState().toggleHelp()`
+  - Wire menu: `useUIStore.getState().wireMenu` + `useUIStore.getState().closeWireMenu()`
 
-## Change Required
+## Changes Required
 
 ### `components/KeyboardShortcuts.tsx`
-Add two new key handlers in the existing `handleKeyDown` function, after the `F` zoom-to-fit block:
-
+Add imports at top:
 ```tsx
-// Zoom in/out
-if (key === '+' || key === '=') {
-  e.preventDefault();
-  requestZoomIn();
-  return;
-}
-if (key === '-') {
-  e.preventDefault();
-  requestZoomOut();
-  return;
+import { useScopeStore } from '@/store/scopeStore';
+import { useSchematicStore } from '@/store/schematicStore';
+```
+(check if already imported — scopeStore is imported for the O key handler, schematicStore for S key)
+
+Modify the Escape block to close overlays in priority order:
+```tsx
+if (e.key === 'Escape') {
+  closeContextMenu();
+  clearBoxSelect();
+  // Close wire menu first
+  if (useUIStore.getState().wireMenu) {
+    useUIStore.getState().closeWireMenu();
+    return;
+  }
+  // Cancel active drag
+  if (dragging) { cancelDrag(); return; }
+  // Close overlays (in priority order: scope > schematic > help)
+  if (useScopeStore.getState().open) { useScopeStore.getState().toggle(); return; }
+  if (useSchematicStore.getState().open) { useSchematicStore.getState().toggle(); return; }
+  if (useUIStore.getState().showHelp) { useUIStore.getState().toggleHelp(); return; }
+  // Cancel wiring / deselect
+  const wiringActive = useCircuitStore.getState().selectedNodeId;
+  selectNode(null);
+  if (!wiringActive) selectComponent(null);
 }
 ```
 
-`requestZoomIn` and `requestZoomOut` are already imported from `useUIStore` (via `useUIStore.getState()`).
-Pattern to follow: look at how `requestZoomToFit` is called in the file and do the same.
-
-### `components/HelpOverlay.tsx`
-Add `['+/−', 'Zoom in / out']` row to the Navigation section rows array.
-
 ## What NOT to do
-- Do NOT touch uiStore — requestZoomIn/requestZoomOut already exist
-- Do NOT touch Scene.tsx — it already handles these counters
-- Do NOT touch CanvasOverlay — it already has zoom buttons
-- Only 2 files need changes: KeyboardShortcuts.tsx and HelpOverlay.tsx
+- Do NOT change the existing logic for dragging/wiring/deselect — only ADD overlay closing before it
+- Do NOT modify any store
+- Only 1 file: components/KeyboardShortcuts.tsx

@@ -200,7 +200,16 @@ export default function KeyboardShortcuts() {
       if (e.key === 'Escape') {
         closeContextMenu();
         clearBoxSelect();
+        // Close wire menu first
+        if (useUIStore.getState().wireMenu) {
+          useUIStore.getState().closeWireMenu();
+          return;
+        }
         if (dragging) { cancelDrag(); return; }
+        // Close overlays (scope -> schematic -> help)
+        if (useScopeStore.getState().open) { useScopeStore.getState().toggle(); return; }
+        if (useSchematicStore.getState().open) { useSchematicStore.getState().toggle(); return; }
+        if (useUIStore.getState().showHelp) { useUIStore.getState().toggleHelp(); return; }
         const wiringActive = useCircuitStore.getState().selectedNodeId;
         selectNode(null);
         if (!wiringActive) selectComponent(null);
