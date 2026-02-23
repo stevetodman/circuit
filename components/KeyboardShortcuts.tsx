@@ -106,6 +106,12 @@ export default function KeyboardShortcuts() {
       // Delete selected — F9.5: if wiring (node selected), cancel wire instead of deleting component
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        const wireMenu = useUIStore.getState().wireMenu;
+        if (wireMenu) {
+          useCircuitStore.getState().removeWire(wireMenu.wireId);
+          useUIStore.getState().closeWireMenu();
+          return;
+        }
         if (useCircuitStore.getState().selectedNodeId) {
           selectNode(null);
         } else {
