@@ -181,7 +181,9 @@ export default function SimController() {
         violations?: Array<{ id: string; kind: string; value: number; limit: number }>;
       };
       if (type === 'VOLTAGES_READY') {
-        setSimStatus('running');
+        if (useUIStore.getState().simStatus !== 'warn') {
+          setSimStatus('running');
+        }
 
         const { channels } = useScopeStore.getState();
         for (const ch of channels) {
@@ -208,6 +210,15 @@ export default function SimController() {
         setPower(0);
         useUIStore.getState().setOverloadIds([]);
         if (typeof message === 'string') addToast(message, 'error');
+      } else if (type === 'SIM_NR_FAIL') {
+        if (typeof message === 'string') {
+          addToast(message, 'warn');
+        }
+        useUIStore.getState().setSimStatus('warn');
+      } else if (type === 'SIM_OK') {
+        if (useUIStore.getState().simStatus === 'warn') {
+          setSimStatus('running');
+        }
       } else if (type === 'SIM_WARN') {
         if (typeof message === 'string') addToast(message, 'warn');
       } else if (type === 'OVERLOAD') {
