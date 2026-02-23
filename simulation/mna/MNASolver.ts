@@ -194,7 +194,7 @@ export function solveDC(
       for (const el of inductors) {
         const rA = toRow(el.netA);
         const rB = toRow(el.netB);
-        const geq = 1 / 0.001;
+        const geq = 1e9;
         stamp2(G, b, n, rA, rB, geq, 0, 0);
       }
     }
