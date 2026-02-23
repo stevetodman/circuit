@@ -10,6 +10,7 @@
  *
  * Message protocol (worker → main):
  *   { type: 'VOLTAGES_READY', singular?: boolean }
+ *   { type: 'SIM_OK' }
  *   { type: 'OVERLOAD', violations: Array<{ id: string; kind: string; value: number; limit: number }> }
  *   { type: 'OVERLOAD_CLEAR' }
  *   { type: 'SIM_ERROR', message: string }
@@ -460,14 +461,16 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | Re
     prevInductorCurrents = result?.inductorCurrents ?? {};
 
     if (result) {
-      updateMotorState(result.voltages, currentNetlist);
-      writeVoltages(result.voltages);
-      writeBranchCurrents(result.branchCurrents);
-      if (!result.converged) { // P1-15: surface NR non-convergence to main thread
-        self.postMessage({ type: 'SIM_WARN', message: 'Simulation may be inaccurate: Newton-Raphson solver did not converge. Check diode/BJT connections.' });
-      }
-      publishOverload(result);
+    updateMotorState(result.voltages, currentNetlist);
+    writeVoltages(result.voltages);
+    writeBranchCurrents(result.branchCurrents);
+    if (!result.converged) { // P1-15: surface NR non-convergence to main thread
+      self.postMessage({ type: 'SIM_NR_FAIL', message: 'Simulation did not converge — results may be inaccurate' });
     } else {
+      self.postMessage({ type: 'SIM_OK' });
+    }
+    publishOverload(result);
+  } else {
       voltageView?.fill(0);
       branchCurrentView?.fill(0);
       publishOverload(null);

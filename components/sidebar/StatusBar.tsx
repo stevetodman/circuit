@@ -22,10 +22,11 @@ function ModeChip({ label, color }: { label: string; color: string }) {
 }
 
 // ── Sim status dot ─────────────────────────────────────────────────────────────
-const SIM_DOT: Record<'idle' | 'running' | 'error', { color: string; label: string }> = {
+const SIM_DOT: Record<'idle' | 'running' | 'error' | 'warn', { color: string; label: string }> = {
   idle:    { color: '#555', label: 'Idle' },
   running: { color: '#22cc66', label: 'Running' },
   error:   { color: '#dd3333', label: 'Error' },
+  warn:    { color: '#ffaa00', label: 'Not converged' },
 };
 
 function formatPower(power: number): string {

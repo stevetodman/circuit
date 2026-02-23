@@ -17,7 +17,7 @@ interface UIState {
   hoveredNodeId: string | null;
   mouseX: number;
   mouseY: number;
-  simStatus: 'idle' | 'running' | 'error';
+  simStatus: 'idle' | 'running' | 'error' | 'warn';
   simError: string | null;
   simErrorDismissed: boolean;
   power: number;
@@ -54,7 +54,7 @@ interface UIState {
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
-  setSimStatus:        (status: 'idle' | 'running' | 'error', error?: string | null) => void;
+  setSimStatus:        (status: 'idle' | 'running' | 'error' | 'warn', error?: string | null) => void;
   setSimError:         (error: string | null) => void;
   dismissSimError:     () => void;
   setPower:            (power: number) => void;
@@ -129,7 +129,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
   setSimStatus:   (status, error = undefined) => set({
     simStatus: status,
-    simError: error ?? null,
+    ...(error !== undefined ? { simError: error ?? null } : {}),
     ...(status === 'error' && error != null ? { simErrorDismissed: false } : {}),
   }),
   setSimError:    (error) => set({
