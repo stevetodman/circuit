@@ -194,6 +194,12 @@ types/
 
 **Delete toast** — `circuitStore.deleteSelected()`, `removeComponent()`, and `removeWire()` each call `useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info')` after the deletion so users always see an undo hint.
 
+**Tactile switch click-to-toggle** — `ComponentRenderer.handleClick` checks `type === 'tactileSwitch'` and calls `setProperty(componentId, 'closed', 0|1)` to toggle state without opening the properties panel. The `closed` prop (0=open, 1=closed) is already passed through to `TactileSwitch` (dome turns green when closed).
+
+**Potentiometer wiper** — `Potentiometer.tsx` accepts `wiper` (0.0–1.0) and `onWiperChange` props. The shaft/knob group rotates `(wiper - 0.5) * 270°` to visually reflect position. `onWheel` on the knob group adjusts wiper by ±0.05 per scroll tick via `setProperty(componentId, 'wiper', value)`. `ComponentRenderer` wires both props for the `'potentiometer'` case.
+
+**PITCH constant** — All 12 part component files import `PITCH` from `@/constants/breadboard`. No file hardcodes `0.254` directly.
+
 **Autosave** — `circuitStore` subscribes to topology changes and debounces a `localStorage.setItem` write (key `circuit-sandbox-save`). `SimController` restores from localStorage on mount (after first visit). `?c=` URL param takes priority over localStorage for shared circuits.
 
 **Circuit name** — `circuitStore.circuitName` + `setCircuitName()`. Persisted in JSON save/load. `app/page.tsx` updates `document.title` reactively.

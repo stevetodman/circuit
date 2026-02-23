@@ -55,6 +55,8 @@ Simulation data flows through a `SharedArrayBuffer` directly into Three.js `useF
 - Fullscreen mode (F11 or overlay button)
 - Wiring validation — self-wire and same-net guards with descriptive toasts
 - Delete undo hint — every deletion shows "Deleted — Ctrl+Z to undo"
+- Tactile switch: click the 3D dome to toggle open/closed instantly
+- Potentiometer: scroll wheel on the knob adjusts wiper position; shaft rotates to reflect value
 
 ---
 
