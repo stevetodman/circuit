@@ -144,9 +144,17 @@ export default function ComponentRenderer({
   });
 
   const toggleSelectedComponent = useCircuitStore((state) => state.toggleSelectedComponent);
+  const setProperty             = useCircuitStore((state) => state.setProperty);
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     if (event.nativeEvent.shiftKey) {
       toggleSelectedComponent(componentId);
+      return;
+    }
+
+    // Tactile switch: toggle closed state on click (0 → 1 → 0)
+    if (type === 'tactileSwitch') {
+      const currentClosed = Number(componentProps?.closed ?? 0);
+      setProperty(componentId, 'closed', currentClosed === 1 ? 0 : 1);
       return;
     }
 
@@ -314,6 +322,8 @@ export default function ComponentRenderer({
           transparent={transparent}
           pinOffsets={pinOffsets}
           onClick={handleClick}
+          wiper={Number(componentProps?.wiper ?? 0.5)}
+          onWiperChange={(value) => setProperty(componentId, 'wiper', value)}
         />
       );
       break;
