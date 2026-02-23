@@ -50,6 +50,7 @@ const SECTIONS = [
       ['Click tactile switch', 'Toggle switch open/closed'],
       ['Escape', 'Deselect / cancel drag'],
       ['A', 'Open Arduino panel'],
+      ['Tab / Shift+Tab', 'Cycle component selection'],
       ['+/−', 'Zoom in / out'],
       ['?', 'Show / hide this panel'],
     ],

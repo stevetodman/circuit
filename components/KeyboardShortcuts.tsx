@@ -25,6 +25,7 @@ export default function KeyboardShortcuts() {
   const deleteSelected      = useCircuitStore((s) => s.deleteSelected);
   const rotateComponent     = useCircuitStore((s) => s.rotateComponent);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
+  const components         = useCircuitStore((s) => s.components);
   const selectNode          = useCircuitStore((s) => s.selectNode);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
   const copySelected        = useCircuitStore((s) => s.copySelected);
@@ -55,6 +56,19 @@ export default function KeyboardShortcuts() {
       // P1-9: check input focus before all shortcuts (including undo/redo)
       // so browser-native text undo (Ctrl+Z in inputs) is not intercepted
       if (isInputFocused()) return;
+
+      if (key === 'tab') {
+        e.preventDefault();
+        const ids = Object.keys(components).sort();
+        if (ids.length === 0) return;
+        const current = useCircuitStore.getState().selectedComponentId;
+        const idx = current ? ids.indexOf(current) : -1;
+        const next = e.shiftKey
+          ? ids[(idx - 1 + ids.length) % ids.length]
+          : ids[(idx + 1) % ids.length];
+        useCircuitStore.getState().selectComponent(next);
+        return;
+      }
 
       // Undo — P1-8: use lowercased `key` to handle Shift+Z consistently
       if (meta && !e.shiftKey && key === 'z') {
@@ -216,6 +230,7 @@ export default function KeyboardShortcuts() {
     toggleDesignators, toggleWireVoltageColors,
     toggleValueLabels, closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
+    components,
   ]);
 
   return null;
