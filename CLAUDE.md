@@ -51,11 +51,14 @@ Custom MNA (Modified Nodal Analysis) solver in `simulation/mna/MNASolver.ts`:
 - Builds G·x = b matrix from `NetlistElement[]`
 - Gaussian elimination with partial pivoting
 - Newton-Raphson loop (60 iter, 1e-9 tol) for diodes (Shockley) and BJTs (Ebers-Moll); voltage-clamped ±2V per step
+- Zener diode stamped as `kind: 'zener'` — bidirectional Shockley model: forward (Vf=0.7 V) + reverse breakdown (Vz from component value)
 - Backward Euler companion model for capacitors (when `dt` is provided)
+- Inductor DC mode: Geq = 1e9 S (near-short) avoids singularity with zero reactance
 - Gmin (1e-9 S) added to every node diagonal to prevent singular matrices from floating nodes
 - `analog.worker.ts` runs a 1ms `setInterval` transient tick when capacitors are present
 - 555 timer handled behaviorally in the worker (not MNA): frequency = 1.44 / ((R1+2R2)·C)
-- Non-convergence of Newton-Raphson emits `SIM_WARN` to main thread (displayed as toast)
+- Motor state (angular velocity, direction) preserved across netlist updates — selective clear removes only motors absent from the new netlist
+- Non-convergence of Newton-Raphson posts `SIM_NR_FAIL` → `simStatus: 'warn'` (amber dot in StatusBar) + toast; `SIM_OK` clears warn back to 'running'
 
 ## Directory Layout
 
@@ -183,7 +186,13 @@ types/
 
 **Module system** — `features/modules/definitions.ts` defines 11 guided modules. Each `ModuleStep` has: `instruction`, optional `hint`, `spotlightTarget` (drives directional hint in StepCard), `highlightComponent` (drives pulse ring on ComponentTile), `autoLoadId` (loads a starter circuit), and a `validate()` function. `moduleStore` persists progress to localStorage via Zustand `persist`.
 
-**Canvas overlay** — `CanvasOverlay.tsx` is a plain React component (not R3F) rendered as an absolute overlay on the canvas. Use `pointer-events-none` on the container, `pointer-events-auto` only on interactive children.
+**Canvas overlay** — `CanvasOverlay.tsx` is a plain React component (not R3F) rendered as an absolute overlay on the canvas. Use `pointer-events-none` on the container, `pointer-events-auto` only on interactive children. Contains zoom +/−/fit buttons, a component counter, a **screenshot button** (grabs `canvas.toDataURL('image/png')` — requires `gl={{ preserveDrawingBuffer: true }}` on `<Canvas>`), and a **fullscreen button** (`document.documentElement.requestFullscreen()`).
+
+**simStatus 'warn'** — `uiStore.simStatus` is `'idle' | 'running' | 'error' | 'warn'`. The 'warn' state is set when the MNA Newton-Raphson loop does not converge (`SIM_NR_FAIL` worker message) and cleared when the next tick succeeds (`SIM_OK`). StatusBar renders an amber dot for 'warn'. SimController also emits a toast for `SIM_NR_FAIL`.
+
+**Wiring validation** — `circuitStore.addWire()` guards against: (1) self-wire (both ends same node → no-op + warn toast), (2) same-net wire (both pins already on the same electrical net → warn toast). Both use `useToastStore.getState().addToast(..., 'warn')`.
+
+**Delete toast** — `circuitStore.deleteSelected()`, `removeComponent()`, and `removeWire()` each call `useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info')` after the deletion so users always see an undo hint.
 
 **Autosave** — `circuitStore` subscribes to topology changes and debounces a `localStorage.setItem` write (key `circuit-sandbox-save`). `SimController` restores from localStorage on mount (after first visit). `?c=` URL param takes priority over localStorage for shared circuits.
 
@@ -212,7 +221,7 @@ types/
 | Store | What it holds | Undo/redo |
 |---|---|---|
 | `circuitStore` | nodes, components, wires, circuitName, selectedNodeId, selectedComponentId, selectedComponentIds, wiringMode, componentClipboard (module-level) | Yes (zundo, topology only) |
-| `uiStore` | hoveredNodeId, simStatus, simErrorDismissed, simPaused, sab, showHelp, showSidebar, showValueLabels, arduinoTabRequested, zoom requests, power, showPolarityLabels, showWireVoltageColors, overloadIds, circuitHealthWarning, contextMenu, wireMenu, boxSelect | No |
+| `uiStore` | hoveredNodeId, simStatus (`'idle'\|'running'\|'error'\|'warn'`), simErrorDismissed, simPaused, sab, showHelp, showSidebar, showValueLabels, arduinoTabRequested, zoom requests, power, showPolarityLabels, showWireVoltageColors, overloadIds, circuitHealthWarning, contextMenu, wireMenu, boxSelect, serialOutput | No |
 | `moduleStore` | activeModuleId, activeStepIndex, completedModuleIds, justCompleted; persisted via Zustand persist | No |
 | `scopeStore` | oscilloscope open, channels (netId + color); clearChannels() clears all | No |
 | `schematicStore` | schematic overlay open | No |
@@ -241,9 +250,11 @@ types/
 | `Ctrl+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Ctrl+C/V/A/D` | Copy / Paste / Select all / Duplicate |
+| `Tab` / `Shift+Tab` | Cycle selection forward / backward through components |
 | `Shift+click` | Add/remove component from multi-selection |
-| `Delete/Backspace` | Delete selected (cancel wire during wiring) |
-| `Escape` | Deselect / cancel drag / cancel wiring |
+| `Delete/Backspace` | Delete wire (when wire context menu is open), else delete selected |
+| `Escape` | Close open overlay (scope/schematic/help) first, then deselect / cancel |
+| `F11` | Toggle fullscreen |
 
 ## Copy / Paste / Multi-Select
 

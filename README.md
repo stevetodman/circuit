@@ -51,6 +51,10 @@ Simulation data flows through a `SharedArrayBuffer` directly into Three.js `useF
 - Auto-save to `localStorage` on every change (500 ms debounce)
 - Collapsible sidebar (B key or › button); parts filter by category (passive/active/power/IC)
 - Serial monitor for Arduino sketch output
+- Canvas screenshot — one-click PNG download of the 3D scene (preserveDrawingBuffer enabled)
+- Fullscreen mode (F11 or overlay button)
+- Wiring validation — self-wire and same-net guards with descriptive toasts
+- Delete undo hint — every deletion shows "Deleted — Ctrl+Z to undo"
 
 ---
 
@@ -101,7 +105,9 @@ pnpm start
 |---|---|
 | `R` | Rotate selected / dragged component |
 | `Delete` / `Backspace` | Delete selected |
-| `Escape` | Deselect / cancel drag / cancel wire |
+| `Tab` / `Shift+Tab` | Cycle selection forward / backward through placed components |
+| `Escape` | Close open overlay (scope/schematic/help), then deselect / cancel |
+| `F11` | Toggle fullscreen |
 | `Ctrl+Z` / `Cmd+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Ctrl+C/V/A/D` | Copy / Paste / Select all / Duplicate |
