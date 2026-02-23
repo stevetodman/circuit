@@ -94,6 +94,7 @@ export default function SimController() {
   const readyRef  = useRef(false);   // true once worker is initialised
   const componentPlacedAtRef = useRef(new Map<string, number>());
   const lastHealthWarningRef = useRef<string | null>(null);
+  const prevOverloadRef = useRef<string[]>([]);
 
   const nodes         = useCircuitStore((s) => s.nodes);
   const components    = useCircuitStore((s) => s.components);
@@ -211,13 +212,30 @@ export default function SimController() {
       } else if (type === 'SIM_WARN') {
         if (typeof message === 'string') addToast(message, 'warn');
       } else if (type === 'OVERLOAD') {
-        useUIStore.getState().setOverloadIds((violations ?? []).map((v) => v.id));
-        if (violations && violations.length > 0) {
-          const worst = violations[0];
-          addToast(`Overload: ${worst.kind} drawing ${worst.value.toFixed(0)}mA (limit ${worst.limit * 1000}mA)`, 'warn');
+        const newOverloadIds = (violations ?? []).map((v) => v.id);
+        const previousOverloadIds = prevOverloadRef.current;
+        const newlyOverloadedIds = newOverloadIds.filter((id) => !previousOverloadIds.includes(id));
+
+        useUIStore.getState().setOverloadIds(newOverloadIds);
+        for (const id of newlyOverloadedIds) {
+          const designator = useCircuitStore.getState().getDesignator(id);
+          const violation = (violations ?? []).find((entry) => entry.id === id);
+          if (violation) {
+            const currentMa = Number.isFinite(violation.value) ? (violation.value * 1000).toFixed(0) : 'unknown';
+            const limitMa = Number.isFinite(violation.limit) ? (violation.limit * 1000).toFixed(0) : 'unknown';
+            const message = Number.isFinite(violation.value) && Number.isFinite(violation.limit)
+              ? `${designator} overloaded: ${currentMa}mA (limit ${limitMa}mA)`
+              : `${designator} overloaded — check current draw`;
+            addToast(message, 'warn');
+          } else {
+            addToast(`${designator} overloaded — check current draw`, 'warn');
+          }
         }
+
+        prevOverloadRef.current = newOverloadIds;
       } else if (type === 'OVERLOAD_CLEAR') {
         useUIStore.getState().setOverloadIds([]);
+        prevOverloadRef.current = [];
       }
     };
 
