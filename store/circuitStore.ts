@@ -3,6 +3,7 @@ import { temporal } from 'zundo';
 import { PIN_TEMPLATES, type CircuitNode, type PlacedComponent, type Wire, type ComponentType, type Vec3, type PinConnection } from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
 import type { ExampleCircuit } from '@/features/examples/circuits';
+import { useToastStore } from './toastStore';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
   rowZTop, rowZBot,
@@ -240,6 +241,16 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       addWire(fromId, toId, color = WIRE_COLORS[wireColorIdx++ % WIRE_COLORS.length]) {
+        if (fromId === toId) {
+          useToastStore.getState().addToast("Can't connect a pin to itself", 'warn');
+          return;
+        }
+        const fromNode = get().nodes[fromId];
+        const toNode = get().nodes[toId];
+        if (fromNode?.netId != null && fromNode.netId === toNode?.netId) {
+          useToastStore.getState().addToast('Those pins are already connected', 'warn');
+          return;
+        }
         const id = crypto.randomUUID();
         set((state) => {
           const wires = { ...state.wires, [id]: { id, fromNodeId: fromId, toNodeId: toId, color } };
