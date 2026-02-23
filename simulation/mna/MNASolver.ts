@@ -4,7 +4,7 @@
  * Supports:
  *   - Resistors   (conductance stamp)
  *   - Voltage sources (KVL extra row/column — used for batteries)
- *   - Diodes / LEDs (Shockley model, Newton-Raphson linearisation)
+ *   - Diodes / LEDs / Zeners (Shockley-style linearisation)
  *   - Capacitors (Backward-Euler companion model)
  *   - Inductors (R_eq = L/dt, I_eq = I_prev)
  *   - BJT NPN (simplified Ebers-Moll linearised)
@@ -23,7 +23,7 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface NetlistElement {
   id:    string;
-  kind:  'resistor' | 'vsource' | 'diode' | 'capacitor' | 'bjt' | 'mosfet' | 'opamp' | 'inductor' | 'motor';
+  kind:  'resistor' | 'vsource' | 'diode' | 'zener' | 'capacitor' | 'bjt' | 'mosfet' | 'opamp' | 'inductor' | 'motor';
   netA:  number;   // positive terminal netId
   netB:  number;   // negative terminal netId (0 = ground)
   value: number;   // R (Ω), V (V), or forward voltage Vf for diode (informational)
@@ -119,6 +119,7 @@ export function solveDC(
   const vsources = elements.filter(e => e.kind === 'vsource');
   const resistors = elements.filter(e => e.kind === 'resistor' || e.kind === 'motor');
   const diodes   = elements.filter(e => e.kind === 'diode');
+  const zeners   = elements.filter(e => e.kind === 'zener');
   const capacitors = elements.filter(e => e.kind === 'capacitor');
   const bjts     = elements.filter(e => e.kind === 'bjt');
   const mosfets  = elements.filter(e => e.kind === 'mosfet');
@@ -142,6 +143,8 @@ export function solveDC(
 
   // Newton-Raphson iteration (handles diodes; one pass for diode-free circuits)
   const Vd = new Float64Array(diodes.length).fill(0.65);
+  const VzFwd = new Float64Array(zeners.length).fill(0.65);
+  const VzRev = new Float64Array(zeners.length).fill(0.65);
   const Vbe = new Float64Array(bjts.length).fill(0.65);
   const opVNext = new Float64Array(opamps.length).fill(0);
   const mosfetOn = new Float32Array(mosfets.length);
@@ -208,6 +211,27 @@ export function solveDC(
       const Id   = IS * (expV - 1);
       const Ieq  = Id - Geq * vd;
       stamp2(G, b, n, toRow(el.netA), toRow(el.netB), Geq, -Ieq, Ieq);
+    }
+
+    // ── Stamp zeners (Shockley forward + breakdown branch) ──────────────────
+    for (let zi = 0; zi < zeners.length; zi++) {
+      const el = zeners[zi];
+
+      // Forward conduction: netA → netB, standard diode behaviour
+      const vdF = Math.max(VD_MIN, Math.min(VD_MAX, VzFwd[zi]));
+      const expF = Math.exp(vdF / VT);
+      const GeqF  = (IS / VT) * expF;
+      const IdF   = IS * (expF - 1);
+      const IeqF  = IdF - GeqF * vdF;
+      stamp2(G, b, n, toRow(el.netA), toRow(el.netB), GeqF, -IeqF, IeqF);
+
+      // Reverse breakdown: diode from netB → netA with threshold Vz
+      const vdR = Math.max(VD_MIN, Math.min(VD_MAX, VzRev[zi]));
+      const expR = Math.exp(vdR / VT);
+      const GeqR  = (IS / VT) * expR;
+      const IdR   = IS * (expR - 1);
+      const IeqR  = IdR - GeqR * vdR;
+      stamp2(G, b, n, toRow(el.netB), toRow(el.netA), GeqR, -IeqR, IeqR);
     }
 
     // ── Stamp BJTs (simplified Ebers-Moll linearised around Vbe[ti]) ─────────
@@ -290,7 +314,7 @@ export function solveDC(
     lastX = x;
 
     // ── Convergence check for diodes + BJTs ──────────────────────────────────
-    if (diodes.length === 0 && bjts.length === 0 && mosfets.length === 0 && opamps.length === 0) break;
+    if (diodes.length === 0 && zeners.length === 0 && bjts.length === 0 && mosfets.length === 0 && opamps.length === 0) break;
 
     const r = new Float32Array(netCount);
     for (let id = 1; id < netCount; id++) r[id] = x[toRow(id)];
@@ -306,6 +330,21 @@ export function solveDC(
       const clampedVd = Vd[di] + delta;
       if (Math.abs(delta) > NR_TOL) iterConverged = false;
       Vd[di] = clampedVd;
+    }
+    for (let zi = 0; zi < zeners.length; zi++) {
+      const el   = zeners[zi];
+      const va   = el.netA > 0 ? r[el.netA] : 0;
+      const vb   = el.netB > 0 ? r[el.netB] : 0;
+      const newVf = va - vb;
+      const newVr = vb - va - el.value;
+      const clampedVfDelta = Math.max(-2.0, Math.min(2.0, newVf - VzFwd[zi]));
+      const clampedVrDelta = Math.max(-2.0, Math.min(2.0, newVr - VzRev[zi]));
+      const clampedVf = VzFwd[zi] + clampedVfDelta;
+      const clampedVr = VzRev[zi] + clampedVrDelta;
+      if (Math.abs(clampedVfDelta) > NR_TOL) iterConverged = false;
+      if (Math.abs(clampedVrDelta) > NR_TOL) iterConverged = false;
+      VzFwd[zi] = clampedVf;
+      VzRev[zi] = clampedVr;
     }
     for (let ti = 0; ti < bjts.length; ti++) {
       const el = bjts[ti];

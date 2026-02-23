@@ -115,9 +115,7 @@ export function buildNetlist(
       const Vz = typeof (props as { breakdownVoltage?: number }).breakdownVoltage === 'number'
         ? ((props as { breakdownVoltage?: number }).breakdownVoltage ?? 5.1)
         : 5.1;
-      // Forward diode (anode→cathode, Vf=0.7V) + reverse breakdown diode (cathode→anode, Vz)
-      elements.push({ id: `${comp.id}-fwd`, kind: 'diode' as const, netA, netB, value: 0.7 });
-      elements.push({ id: `${comp.id}-rev`, kind: 'diode' as const, netA: netB, netB: netA, value: Vz });
+      elements.push({ id: comp.id, kind: 'zener' as const, netA, netB, value: Vz });
       break;
     }
 
