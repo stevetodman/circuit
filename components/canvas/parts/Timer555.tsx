@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 
 interface Timer555Props {
   anchorPos: Vec3;
@@ -14,21 +15,21 @@ interface Timer555Props {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = [
-  [-0.254, 0, -0.254],
-  [0.254, 0, -0.254],
-  [-0.254, 0, 0.254],
-  [0.254, 0, 0.254],
+  [-PITCH, 0, -PITCH],
+  [PITCH, 0, -PITCH],
+  [-PITCH, 0, PITCH],
+  [PITCH, 0, PITCH],
 ];
 
 const DIP_LEGS: Vec3[] = [
-  [-0.25, 0, -0.254],
+  [-0.25, 0, -PITCH],
   [-0.25, 0, -0.084],
   [-0.25, 0, 0.084],
-  [-0.25, 0, 0.254],
-  [0.25, 0, -0.254],
+  [-0.25, 0, PITCH],
+  [0.25, 0, -PITCH],
   [0.25, 0, -0.084],
   [0.25, 0, 0.084],
-  [0.25, 0, 0.254],
+  [0.25, 0, PITCH],
 ];
 
 function isFunctionalPin(position: Vec3, pins: Vec3[]) {

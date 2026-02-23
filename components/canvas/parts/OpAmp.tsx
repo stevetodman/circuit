@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 
 interface OpAmpProps {
   anchorPos: Vec3;
@@ -17,8 +18,8 @@ const DEFAULT_PIN_OFFSETS: Vec3[] = [
   [-0.381, 0, -0.127],
   [-0.381, 0, 0.127],
   [0.381, 0, 0],
-  [0, 0, -0.254],
-  [0, 0, 0.254],
+  [0, 0, -PITCH],
+  [0, 0, PITCH],
 ];
 
 function OpAmpLead({ position, selected }: { position: Vec3; selected: boolean }) {

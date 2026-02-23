@@ -1,3 +1,5 @@
+import { PITCH } from '@/constants/breadboard';
+
 export type Vec3 = [number, number, number];
 
 export type ComponentType =
@@ -57,7 +59,6 @@ export interface ArduinoProps {
   clockMhz: number;
 }
 
-const PIN_PITCH = 0.254; // 2.54mm in Three.js units (1 unit = 10mm)
 const arduinoPins = [
   'd13',
   'd12',
@@ -101,81 +102,81 @@ type BasePlacedComponent = {
 
 export const PIN_TEMPLATES: Record<ComponentType, PinTemplate[]> = {
   led: [
-    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+    { name: 'anode', offset: [-PITCH, 0, 0] },
+    { name: 'cathode', offset: [PITCH, 0, 0] },
   ],
   resistor: [
-    { name: 'p1', offset: [-PIN_PITCH * 2, 0, 0] },
-    { name: 'p2', offset: [PIN_PITCH * 2, 0, 0] },
+    { name: 'p1', offset: [-PITCH * 2, 0, 0] },
+    { name: 'p2', offset: [PITCH * 2, 0, 0] },
   ],
   capacitor: [
-    { name: 'pos', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'neg', offset: [PIN_PITCH, 0, 0] },
+    { name: 'pos', offset: [-PITCH, 0, 0] },
+    { name: 'neg', offset: [PITCH, 0, 0] },
   ],
   bjt: [
-    { name: 'base', offset: [0, 0, -PIN_PITCH] },
-    { name: 'collector', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'emitter', offset: [PIN_PITCH, 0, 0] },
+    { name: 'base', offset: [0, 0, -PITCH] },
+    { name: 'collector', offset: [-PITCH, 0, 0] },
+    { name: 'emitter', offset: [PITCH, 0, 0] },
   ],
   timer555: [
-    { name: 'vcc', offset: [-PIN_PITCH, 0, -PIN_PITCH] },
-    { name: 'gnd', offset: [PIN_PITCH, 0, -PIN_PITCH] },
-    { name: 'out', offset: [-PIN_PITCH, 0, PIN_PITCH] },
-    { name: 'trig', offset: [PIN_PITCH, 0, PIN_PITCH] },
+    { name: 'vcc', offset: [-PITCH, 0, -PITCH] },
+    { name: 'gnd', offset: [PITCH, 0, -PITCH] },
+    { name: 'out', offset: [-PITCH, 0, PITCH] },
+    { name: 'trig', offset: [PITCH, 0, PITCH] },
   ],
   arduino: arduinoPins.map((name, index) => ({
     name,
-    offset: [0, 0, -(arduinoPins.length - 1) * PIN_PITCH / 2 + index * PIN_PITCH],
+    offset: [0, 0, -(arduinoPins.length - 1) * PITCH / 2 + index * PITCH],
   })),
   battery: [
-    { name: 'pos', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'neg', offset: [PIN_PITCH, 0, 0] },
+    { name: 'pos', offset: [-PITCH, 0, 0] },
+    { name: 'neg', offset: [PITCH, 0, 0] },
   ],
   motor: [
-    { name: 'p1', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'p2', offset: [PIN_PITCH, 0, 0] },
+    { name: 'p1', offset: [-PITCH, 0, 0] },
+    { name: 'p2', offset: [PITCH, 0, 0] },
   ],
   tactileSwitch: [
-    { name: 'p1', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'p2', offset: [PIN_PITCH, 0, 0] },
+    { name: 'p1', offset: [-PITCH, 0, 0] },
+    { name: 'p2', offset: [PITCH, 0, 0] },
   ],
   diode: [
-    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+    { name: 'anode', offset: [-PITCH, 0, 0] },
+    { name: 'cathode', offset: [PITCH, 0, 0] },
   ],
   zener: [
-    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+    { name: 'anode', offset: [-PITCH, 0, 0] },
+    { name: 'cathode', offset: [PITCH, 0, 0] },
   ],
   schottky: [
-    { name: 'anode', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'cathode', offset: [PIN_PITCH, 0, 0] },
+    { name: 'anode', offset: [-PITCH, 0, 0] },
+    { name: 'cathode', offset: [PITCH, 0, 0] },
   ],
   pnp: [
-    { name: 'base', offset: [0, 0, -PIN_PITCH] },
-    { name: 'collector', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'emitter', offset: [PIN_PITCH, 0, 0] },
+    { name: 'base', offset: [0, 0, -PITCH] },
+    { name: 'collector', offset: [-PITCH, 0, 0] },
+    { name: 'emitter', offset: [PITCH, 0, 0] },
   ],
   mosfet: [
-    { name: 'gate', offset: [-PIN_PITCH * 1.5, 0, 0] },
+    { name: 'gate', offset: [-PITCH * 1.5, 0, 0] },
     { name: 'drain', offset: [0, 0, 0] },
-    { name: 'source', offset: [PIN_PITCH * 1.5, 0, 0] },
+    { name: 'source', offset: [PITCH * 1.5, 0, 0] },
   ],
   opamp: [
-    { name: 'in+', offset: [-PIN_PITCH * 1.5, 0, -PIN_PITCH / 2] },
-    { name: 'in-', offset: [-PIN_PITCH * 1.5, 0, PIN_PITCH / 2] },
-    { name: 'out', offset: [PIN_PITCH * 1.5, 0, 0] },
-    { name: 'vcc', offset: [0, 0, -PIN_PITCH * 1.6] },
-    { name: 'gnd', offset: [0, 0, PIN_PITCH * 1.6] },
+    { name: 'in+', offset: [-PITCH * 1.5, 0, -PITCH / 2] },
+    { name: 'in-', offset: [-PITCH * 1.5, 0, PITCH / 2] },
+    { name: 'out', offset: [PITCH * 1.5, 0, 0] },
+    { name: 'vcc', offset: [0, 0, -PITCH * 1.6] },
+    { name: 'gnd', offset: [0, 0, PITCH * 1.6] },
   ],
   inductor: [
-    { name: 'a', offset: [-PIN_PITCH, 0, 0] },
-    { name: 'b', offset: [PIN_PITCH, 0, 0] },
+    { name: 'a', offset: [-PITCH, 0, 0] },
+    { name: 'b', offset: [PITCH, 0, 0] },
   ],
   potentiometer: [
-    { name: 'a', offset: [-PIN_PITCH, 0, 0] },
+    { name: 'a', offset: [-PITCH, 0, 0] },
     { name: 'wiper', offset: [0, 0, 0] },
-    { name: 'b', offset: [PIN_PITCH, 0, 0] },
+    { name: 'b', offset: [PITCH, 0, 0] },
   ],
 };
 

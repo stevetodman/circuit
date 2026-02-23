@@ -7,6 +7,7 @@ import { Text } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
 import { MAX_NETS } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 import { voltages } from '@/simulation/SimBridge';
 import { useUIStore } from '@/store/uiStore';
 
@@ -25,8 +26,8 @@ interface LEDProps {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = [
-  [-0.254, 0, 0],
-  [0.254, 0, 0],
+  [-PITCH, 0, 0],
+  [PITCH, 0, 0],
 ];
 
 const LEDPin = ({ position, selected }: { position: Vec3; selected: boolean }) => (
@@ -55,8 +56,8 @@ function LED({
   const domeRef = useRef<THREE.Mesh>(null);
 
   const opacity = transparent ? 0.75 : 1;
-  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
-  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
+  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -PITCH;
+  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : PITCH;
   const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
   const cathodeSide = cathodeX >= 0 ? 1 : -1;
   const cathodeMarkerPos: Vec3 = [cathodeSide * 0.21, 0.295, 0];
