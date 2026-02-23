@@ -4,7 +4,6 @@ import { PIN_TEMPLATES, type CircuitNode, type PlacedComponent, type Wire, type 
 import { runNetAnalysis } from './netAnalysis';
 import { useToastStore } from './toastStore';
 import type { ExampleCircuit } from '@/features/examples/circuits';
-import { useToastStore } from './toastStore';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
   rowZTop, rowZBot,
