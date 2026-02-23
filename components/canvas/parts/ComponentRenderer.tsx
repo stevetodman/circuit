@@ -5,6 +5,7 @@ import { Text } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { ComponentType, PlacedComponent, Vec3 } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
@@ -78,7 +79,7 @@ function FallbackPart({ pinOffsets = [], selected, onClick }: {
 }) {
   const offsets: Vec3[] = pinOffsets.length
     ? pinOffsets
-    : ([[-0.254, 0, 0] as Vec3, [0.254, 0, 0] as Vec3]);
+    : ([[-PITCH, 0, 0] as Vec3, [PITCH, 0, 0] as Vec3]);
 
   return (
     <group onClick={onClick}>

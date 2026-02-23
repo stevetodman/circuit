@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 import { Text } from '@react-three/drei';
 import { useUIStore } from '@/store/uiStore';
 
@@ -16,8 +17,8 @@ interface DiodeProps {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = [
-  [-0.254, 0, 0],
-  [0.254, 0, 0],
+  [-PITCH, 0, 0],
+  [PITCH, 0, 0],
 ];
 
 function DiodeLeg({ position, selected }: { position: Vec3; selected: boolean }) {
@@ -41,8 +42,8 @@ function CathodeBand({ selected, selectedOffset = 0.06 }: { selected: boolean; s
 function Diode({ anchorPos, selected = false, transparent = false, pinOffsets = DEFAULT_PIN_OFFSETS, rotationY = 0, onClick }: DiodeProps) {
   const opacity = transparent ? 0.75 : 1;
   const showPolarityLabels = useUIStore((state) => state.showPolarityLabels);
-  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -0.254;
-  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : 0.254;
+  const anodeX = pinOffsets[0] ? pinOffsets[0][0] : -PITCH;
+  const cathodeX = pinOffsets[1] ? pinOffsets[1][0] : PITCH;
 
   return (
     <group

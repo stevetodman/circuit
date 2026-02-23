@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
+import { PITCH } from '@/constants/breadboard';
 
 interface MotorProps {
   anchorPos: Vec3;
@@ -14,8 +15,8 @@ interface MotorProps {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = [
-  [-0.254, 0, 0],
-  [0.254, 0, 0],
+  [-PITCH, 0, 0],
+  [PITCH, 0, 0],
 ];
 
 function MotorLead({ position, selected }: { position: Vec3; selected: boolean }) {

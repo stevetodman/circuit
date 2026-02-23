@@ -4,6 +4,7 @@ import { memo } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Vec3 } from '@/types/circuit';
 import { Text } from '@react-three/drei';
+import { PITCH } from '@/constants/breadboard';
 import { useUIStore } from '@/store/uiStore';
 
 interface BatteryProps {
@@ -16,8 +17,8 @@ interface BatteryProps {
 }
 
 const DEFAULT_PIN_OFFSETS: Vec3[] = [
-  [-0.254, 0, 0],
-  [0.254, 0, 0],
+  [-PITCH, 0, 0],
+  [PITCH, 0, 0],
 ];
 
 function Terminal({ position, selected }: { position: Vec3; selected: boolean }) {
