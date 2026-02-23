@@ -443,12 +443,21 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | Re
   }
 
   try {
-    motorState.clear();
     astableState          = new Map();
     monoState             = new Map();
     simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
     lastOverloadPostMs    = 0;
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
+
+    // Preserve motor state for motors still in circuit; clear removed ones
+    const newMotorIds = new Set(
+      currentNetlist.elements
+        .filter((el) => el.kind === 'motor')
+        .map((el) => el.id),
+    );
+    for (const id of motorState.keys()) {
+      if (!newMotorIds.has(id)) motorState.delete(id);
+    }
     branchIndexByElementId = buildBranchIndexByElementId(currentNetlist.elements);
     diodeKindByElementId  = buildComponentKindByElementId(msg.components);
     netlistNeedsTransientLoop = currentNetlist.elements.some((el) =>
