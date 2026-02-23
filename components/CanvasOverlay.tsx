@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useCircuitStore } from '@/store/circuitStore';
 
@@ -8,8 +9,23 @@ export default function CanvasOverlay() {
   const requestZoomOut = useUIStore((s) => s.requestZoomOut);
   const requestZoomToFit = useUIStore((s) => s.requestZoomToFit);
   const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const btnClass = 'w-7 h-7 rounded flex items-center justify-center text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors text-sm select-none';
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }
 
   return (
     <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
@@ -29,6 +45,14 @@ export default function CanvasOverlay() {
         <div className="h-px bg-white/10" />
         <button onClick={requestZoomOut} className={btnClass} title="Zoom out">
           −
+        </button>
+        <div className="h-px bg-white/10" />
+        <button
+          onClick={toggleFullscreen}
+          className={btnClass}
+          title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
+        >
+          ⛶
         </button>
       </div>
     </div>

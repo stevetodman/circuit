@@ -29,6 +29,7 @@ const SECTIONS = [
       ['W', 'Toggle component value labels (Ω, µF, V)'],
       ['V', 'Toggle wire voltage colours'],
       ['F', 'Zoom to fit'],
+      ['F11', 'Toggle fullscreen'],
       ['1 / 2', 'Camera (perspective / top)'],
     ],
   },
