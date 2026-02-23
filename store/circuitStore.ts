@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import { PIN_TEMPLATES, type CircuitNode, type PlacedComponent, type Wire, type ComponentType, type Vec3, type PinConnection } from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
+import { useToastStore } from './toastStore';
 import type { ExampleCircuit } from '@/features/examples/circuits';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
@@ -237,6 +238,7 @@ export const useCircuitStore = create<CircuitState>()(
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
         });
+        useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info');
       },
 
       addWire(fromId, toId, color = WIRE_COLORS[wireColorIdx++ % WIRE_COLORS.length]) {
@@ -254,6 +256,7 @@ export const useCircuitStore = create<CircuitState>()(
           const nodes = runNetAnalysis(state.nodes, wires, state.components);
           return { wires, nodes };
         });
+        useToastStore.getState().addToast('Wire deleted — Ctrl+Z to undo', 'info');
       },
 
       updateWireColor(id, color) {
@@ -409,6 +412,7 @@ export const useCircuitStore = create<CircuitState>()(
           const nodes = runNetAnalysis(state.nodes, wires, components);
           return { components, wires, nodes, selectedComponentId: null, selectedComponentIds: [], selectedNodeId: null };
         });
+        useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info');
       },
 
       setWireBranchIndices(indices) {
