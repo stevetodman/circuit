@@ -10,6 +10,15 @@ export default function CanvasOverlay() {
   const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
 
   const btnClass = 'w-7 h-7 rounded flex items-center justify-center text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors text-sm select-none';
+  const handleScreenshot = () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    const url = (canvas as HTMLCanvasElement).toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'circuit.png';
+    a.click();
+  };
 
   return (
     <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
@@ -19,6 +28,18 @@ export default function CanvasOverlay() {
         </div>
       )}
       <div className="flex flex-col bg-black/40 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden pointer-events-auto">
+        <button onClick={handleScreenshot} className={btnClass} title="Take screenshot">
+          <svg
+            aria-hidden="true"
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+          >
+            <path d="M6 1L5 3H2a1 1 0 00-1 1v9a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1h-3L10 1H6zm2 3a3 3 0 110 6 3 3 0 010-6z" />
+          </svg>
+        </button>
+        <div className="h-px bg-white/10" />
         <button onClick={requestZoomIn} className={btnClass} title="Zoom in">
           +
         </button>
