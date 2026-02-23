@@ -1,42 +1,44 @@
-# SPEC: Keyboard Zoom Shortcuts (+/−)
+# SPEC: Tab Key Cycles Component Selection
 
 ## Goal
-Add `+`/`=` and `-` keyboard shortcuts for incremental zoom in/out.
+Tab / Shift+Tab cycles keyboard selection through all placed components.
 
 ## Current State
-- `uiStore` already has `zoomInRequested` and `zoomOutRequested` counters
-- `uiStore` already has `requestZoomIn()` and `requestZoomOut()` actions
-- `Scene.tsx` already listens to these counters and moves the camera
-- `CanvasOverlay.tsx` already calls `requestZoomIn`/`requestZoomOut` via buttons
-- `KeyboardShortcuts.tsx` has `F` for zoom-to-fit but NO +/- keys
+- `circuitStore.components` is `Record<string, PlacedComponent>`
+- `circuitStore.selectedComponentId: string | null`
+- `circuitStore.selectComponent(id)` sets selectedComponentId
+- `KeyboardShortcuts.tsx` has no Tab handler
+- `isInputFocused()` guard is already applied to all key handlers
 
-## Change Required
+## Changes Required
 
 ### `components/KeyboardShortcuts.tsx`
-Add two new key handlers in the existing `handleKeyDown` function, after the `F` zoom-to-fit block:
+1. Add selector: `const components = useCircuitStore((s) => s.components);`
+2. Add to dependency array: `components`
+3. In the keydown handler, BEFORE the meta-key checks, add:
 
 ```tsx
-// Zoom in/out
-if (key === '+' || key === '=') {
+if (key === 'tab') {
   e.preventDefault();
-  requestZoomIn();
-  return;
-}
-if (key === '-') {
-  e.preventDefault();
-  requestZoomOut();
+  const ids = Object.keys(components).sort();
+  if (ids.length === 0) return;
+  const current = useCircuitStore.getState().selectedComponentId;
+  const idx = current ? ids.indexOf(current) : -1;
+  const next = e.shiftKey
+    ? ids[(idx - 1 + ids.length) % ids.length]
+    : ids[(idx + 1) % ids.length];
+  useCircuitStore.getState().selectComponent(next);
   return;
 }
 ```
 
-`requestZoomIn` and `requestZoomOut` are already imported from `useUIStore` (via `useUIStore.getState()`).
-Pattern to follow: look at how `requestZoomToFit` is called in the file and do the same.
-
 ### `components/HelpOverlay.tsx`
-Add `['+/−', 'Zoom in / out']` row to the Navigation section rows array.
+Add to the Navigation section rows array:
+```ts
+['Tab / Shift+Tab', 'Cycle component selection'],
+```
 
 ## What NOT to do
-- Do NOT touch uiStore — requestZoomIn/requestZoomOut already exist
-- Do NOT touch Scene.tsx — it already handles these counters
-- Do NOT touch CanvasOverlay — it already has zoom buttons
-- Only 2 files need changes: KeyboardShortcuts.tsx and HelpOverlay.tsx
+- Do NOT modify circuitStore — selectComponent already exists
+- Do NOT modify uiStore
+- Only 2 files: KeyboardShortcuts.tsx and HelpOverlay.tsx
