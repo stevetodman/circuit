@@ -1,42 +1,54 @@
-# SPEC: Keyboard Zoom Shortcuts (+/−)
+# SPEC: Delete Key Removes Wire When Wire Menu Is Open
 
 ## Goal
-Add `+`/`=` and `-` keyboard shortcuts for incremental zoom in/out.
+When the wire right-click context menu (WireContextMenu) is open, pressing Delete or Backspace
+should delete that wire — same UX pattern as component deletion.
 
 ## Current State
-- `uiStore` already has `zoomInRequested` and `zoomOutRequested` counters
-- `uiStore` already has `requestZoomIn()` and `requestZoomOut()` actions
-- `Scene.tsx` already listens to these counters and moves the camera
-- `CanvasOverlay.tsx` already calls `requestZoomIn`/`requestZoomOut` via buttons
-- `KeyboardShortcuts.tsx` has `F` for zoom-to-fit but NO +/- keys
+- `uiStore.wireMenu` holds `{ wireId, x, y } | null` when wire menu is open
+- `uiStore.closeWireMenu()` closes the menu
+- `circuitStore.removeWire(wireId)` deletes a wire
+- `KeyboardShortcuts.tsx` handles Delete/Backspace for component deletion:
+  ```tsx
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    if (useCircuitStore.getState().selectedNodeId) {
+      selectNode(null); // cancel wire
+    } else {
+      deleteSelected(); // delete component
+    }
+    return;
+  }
+  ```
+- The wireMenu check is NOT in this block
 
-## Change Required
+## Changes Required
 
 ### `components/KeyboardShortcuts.tsx`
-Add two new key handlers in the existing `handleKeyDown` function, after the `F` zoom-to-fit block:
+Extend the existing Delete/Backspace handler to also handle an open wire menu.
+Add the wireMenu check FIRST (highest priority):
 
 ```tsx
-// Zoom in/out
-if (key === '+' || key === '=') {
+if (e.key === 'Delete' || e.key === 'Backspace') {
   e.preventDefault();
-  requestZoomIn();
-  return;
-}
-if (key === '-') {
-  e.preventDefault();
-  requestZoomOut();
+  const wireMenu = useUIStore.getState().wireMenu;
+  if (wireMenu) {
+    useCircuitStore.getState().removeWire(wireMenu.wireId);
+    useUIStore.getState().closeWireMenu();
+    return;
+  }
+  if (useCircuitStore.getState().selectedNodeId) {
+    selectNode(null);
+  } else {
+    deleteSelected();
+  }
   return;
 }
 ```
 
-`requestZoomIn` and `requestZoomOut` are already imported from `useUIStore` (via `useUIStore.getState()`).
-Pattern to follow: look at how `requestZoomToFit` is called in the file and do the same.
-
-### `components/HelpOverlay.tsx`
-Add `['+/−', 'Zoom in / out']` row to the Navigation section rows array.
+No new imports needed — `useUIStore` and `useCircuitStore` are already imported.
 
 ## What NOT to do
-- Do NOT touch uiStore — requestZoomIn/requestZoomOut already exist
-- Do NOT touch Scene.tsx — it already handles these counters
-- Do NOT touch CanvasOverlay — it already has zoom buttons
-- Only 2 files need changes: KeyboardShortcuts.tsx and HelpOverlay.tsx
+- Do NOT touch WireContextMenu component itself
+- Do NOT modify circuitStore or uiStore
+- Only 1 file: components/KeyboardShortcuts.tsx
