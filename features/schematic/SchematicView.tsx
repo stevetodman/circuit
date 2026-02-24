@@ -61,6 +61,7 @@ interface TerminalPoint {
 
 interface WireSegment {
   id: string;
+  netKey: string;
   x1: number;
   y1: number;
   x2: number;
@@ -147,6 +148,45 @@ function colorForKey(key: string) {
     hash = (hash * 31 + key.charCodeAt(i)) % 360;
   }
   return `hsl(${hash}, 42%, 50%)`;
+}
+
+function exportAsSVG(svgEl: SVGSVGElement, name: string) {
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const svgStr = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name || 'schematic'}-schematic.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAsPNG(svgEl: SVGSVGElement, name: string) {
+  const svgStr = new XMLSerializer().serializeToString(svgEl);
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = svgEl.clientWidth * scale;
+    canvas.height = svgEl.clientHeight * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#06080f';
+    ctx.fillRect(0, 0, svgEl.clientWidth, svgEl.clientHeight);
+    ctx.drawImage(img, 0, 0, svgEl.clientWidth, svgEl.clientHeight);
+    const pngUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = pngUrl;
+    a.download = `${name || 'schematic'}-schematic.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
 }
 
 function fallbackPinOffset(
@@ -251,6 +291,7 @@ export default function SchematicView({ visible }: SchematicViewProps) {
   const wires = useCircuitStore((s) => s.wires);
   const nodes = useCircuitStore((s) => s.nodes);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
+  const circuitName = useCircuitStore((s) => s.circuitName);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const getDesignator = useCircuitStore((s) => s.getDesignator);
   const open = useSchematicStore((s) => s.open);
@@ -264,6 +305,7 @@ export default function SchematicView({ visible }: SchematicViewProps) {
   const [panning, setPanning] = useState<{ x: number; y: number; box: ViewBox } | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
+  const [hoveredNetKey, setHoveredNetKey] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const manualPositionsRef = useRef(manualPositions);
 
@@ -421,6 +463,7 @@ export default function SchematicView({ visible }: SchematicViewProps) {
         if (a.componentId === b.componentId && a.pinName === b.pinName) continue;
         segments.push({
           id: `${key}-${a.componentId}-${b.componentId}-${a.pinName}-${b.pinName}`,
+          netKey: key,
           x1: a.x,
           y1: a.y,
           x2: b.x,
@@ -528,6 +571,26 @@ export default function SchematicView({ visible }: SchematicViewProps) {
       <div className="absolute right-3 top-3 z-30 flex items-center gap-2">
         <button
           type="button"
+          onClick={() => {
+            if (svgRef.current) exportAsSVG(svgRef.current, circuitName);
+          }}
+          className="rounded bg-black/65 px-2 py-1 text-[11px] font-mono text-white/85 border border-white/15 hover:text-white"
+          title="Download schematic as SVG"
+        >
+          ↓ SVG
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (svgRef.current) exportAsPNG(svgRef.current, circuitName);
+          }}
+          className="rounded bg-black/65 px-2 py-1 text-[11px] font-mono text-white/85 border border-white/15 hover:text-white"
+          title="Download schematic as PNG"
+        >
+          ↓ PNG
+        </button>
+        <button
+          type="button"
           onClick={closeSchematic}
           className="rounded bg-black/65 px-2 py-1 text-[11px] font-mono text-white/85 border border-white/15 hover:text-white"
           title="Close schematic"
@@ -561,17 +624,24 @@ export default function SchematicView({ visible }: SchematicViewProps) {
         <g>
           <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="#06080f" />
 
-          {wireSegments.map((segment) => (
-            <polyline
-              key={segment.id}
-              points={`${segment.x1},${segment.y1} ${segment.x2},${segment.y2}`}
-              fill="none"
-              stroke={segment.color}
-              strokeWidth="5"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          ))}
+          {wireSegments.map((segment) => {
+            const isHighlighted = hoveredNetKey !== null && segment.netKey === hoveredNetKey;
+            return (
+              <polyline
+                key={segment.id}
+                points={`${segment.x1},${segment.y1} ${segment.x2},${segment.y2}`}
+                fill="none"
+                stroke={isHighlighted ? '#ffffff' : segment.color}
+                strokeWidth={isHighlighted ? 7 : 5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                opacity={hoveredNetKey !== null && !isHighlighted ? 0.25 : 1}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNetKey(segment.netKey)}
+                onMouseLeave={() => setHoveredNetKey(null)}
+              />
+            );
+          })}
 
           {orderedComponents.map((component) => {
             const pos = renderedLayout.get(component.id);
