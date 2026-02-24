@@ -305,6 +305,22 @@ function LiveReadings({ componentId }: { componentId: string }) {
   );
 }
 
+function LivePinVoltage({ netId }: { netId: number | null }) {
+  const [v, setV] = useState<number>(0);
+  useEffect(() => {
+    if (netId == null) return;
+    const id = setInterval(() => {
+      setV(voltageView[netId] ?? 0);
+    }, 100);
+    return () => clearInterval(id);
+  }, [netId]);
+
+  if (netId == null) {
+    return <span className="text-white/15 font-mono text-[10px]">—</span>;
+  }
+  return <span className="text-white/60 font-mono text-[10px]">{fmtV(v)}</span>;
+}
+
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <span className="text-[10px] font-medium text-white/40 leading-none">
@@ -733,8 +749,8 @@ function Inspector({ component }: { component: PlacedComponent }) {
                   const isDisabled = netId == null || channels.length >= 4;
 
                   return (
-                    <span className="text-white/20 inline-flex items-center">
-                      <span>{pin.nodeId}</span>
+                    <span className="text-white/20 inline-flex items-center gap-1.5">
+                      <LivePinVoltage netId={netId} />
                       {netId != null && (
                         <button
                           type="button"
