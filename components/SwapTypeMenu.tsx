@@ -36,6 +36,7 @@ const PRIMARY_VALUE_KEY: Partial<Record<ComponentType, string>> = {
   battery: 'voltage',
   potentiometer: 'resistance',
   zener: 'voltage',
+  voltageRegulator: 'voltage',
 };
 
 const TYPE_LABELS: Record<ComponentType, string> = {
@@ -56,6 +57,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   timer555: '555 Timer',
   arduino: 'Arduino',
   opamp: 'Op-Amp',
+  voltageRegulator: 'Volt Reg',
 };
 
 export default function SwapTypeMenu() {

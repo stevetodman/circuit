@@ -28,6 +28,7 @@ import {
   TactileSwitchSymbol,
   Timer555Symbol,
   ArduinoSymbol,
+  VoltageRegulatorSymbol,
   symbolForTypeName,
 } from './symbols';
 
@@ -135,6 +136,8 @@ function componentValueLabel(component: PlacedComponent): string {
     }
     case 'motor':
       return `Ra=${engVal(typeof p.resistance === 'number' ? p.resistance : 10, 'Ω')}`;
+    case 'voltageRegulator':
+      return `${typeof p.voltage === 'number' ? p.voltage : 5}V`;
     case 'tactileSwitch':
       return p.closed ? 'ON' : 'OFF';
     default:
@@ -239,6 +242,16 @@ function symbolNode(
       return <InductorSymbol x={x} y={y} selected={selected} />;
     case 'potentiometer':
       return <PotentiometerSymbol x={x} y={y} selected={selected} />;
+    case 'voltageRegulator':
+      return (
+        <VoltageRegulatorSymbol
+          x={x - size.width / 2}
+          y={y - size.height / 2}
+          w={size.width}
+          h={size.height}
+          selected={selected}
+        />
+      );
     case 'timer555':
       return (
         <Timer555Symbol

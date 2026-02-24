@@ -35,6 +35,7 @@ export const SYMBOL_SIZES: Record<ComponentType, SchematicSymbolSize> = {
   opamp: { width: 190, height: 110 },
   inductor: { width: 160, height: 70 },
   potentiometer: { width: 150, height: 90 },
+  voltageRegulator: { width: 48, height: 36 },
 };
 
 const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> = {
@@ -112,6 +113,11 @@ const SYMBOL_TERMINALS: Record<ComponentType, Record<string, [number, number]>> 
     wiper: [0, -40],
     b: [72, 0],
   },
+  voltageRegulator: {
+    in: [-24, 0],
+    out: [24, 0],
+    gnd: [0, 18],
+  },
 };
 
 export function getSymbolSize(type: ComponentType): SchematicSymbolSize {
@@ -154,6 +160,8 @@ export function symbolForTypeName(type: ComponentType): string {
       return 'L';
     case 'potentiometer':
       return 'POT';
+    case 'voltageRegulator':
+      return 'VR';
     case 'resistor':
       return 'R';
     case 'capacitor':
@@ -434,6 +442,46 @@ export function PotentiometerSymbol({
       <circle cx="72" cy="0" r="4" fill={glow.stroke} />
       <circle cx="0" cy="-40" r="4" fill={glow.stroke} />
       {selected && <rect x="-80" y="-50" width="160" height="72" rx="10" fill="none" stroke={GLOW} strokeWidth="2.2" />}
+    </g>
+  );
+}
+
+export function VoltageRegulatorSymbol({
+  x,
+  y,
+  w = 48,
+  h = 36,
+  selected,
+}: {
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  selected?: boolean;
+}): ReactElement {
+  const glow = terminalGlow(selected);
+  return (
+    <g transform={`translate(${x}, ${y})`} fill="none" strokeLinecap="round">
+      <rect
+        x={4}
+        y={4}
+        width={w - 8}
+        height={h - 8}
+        fill="none"
+        stroke={glow.stroke}
+        strokeWidth={1.5}
+        rx={2}
+      />
+      <text x={w / 2} y={h / 2 + 4} textAnchor="middle" fontSize={8} fill={glow.stroke} fontFamily="monospace">
+        78xx
+      </text>
+      <line x1={0} y1={h / 2} x2={4} y2={h / 2} stroke={glow.stroke} strokeWidth={1.5} />
+      <line x1={w - 4} y1={h / 2} x2={w} y2={h / 2} stroke={glow.stroke} strokeWidth={1.5} />
+      <line x1={w / 2} y1={h - 4} x2={w / 2} y2={h} stroke={glow.stroke} strokeWidth={1.5} />
+      <circle cx={4} cy={h / 2} r={3} fill={glow.stroke} />
+      <circle cx={w - 4} cy={h / 2} r={3} fill={glow.stroke} />
+      <circle cx={w / 2} cy={h - 4} r={3} fill={glow.stroke} />
+      {selected && <rect x="0" y="0" width={w} height={h} rx="4" fill="none" stroke={GLOW} strokeWidth="1.8" />}
     </g>
   );
 }

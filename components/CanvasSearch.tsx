@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   timer555: '555 Timer',
   arduino: 'Arduino',
   opamp: 'Op-Amp',
+  voltageRegulator: 'Volt Reg',
 };
 
 const PRIMARY_VALUE_KEY: Partial<Record<ComponentType | 'dcVoltage', string>> = {
@@ -34,6 +35,7 @@ const PRIMARY_VALUE_KEY: Partial<Record<ComponentType | 'dcVoltage', string>> = 
   zener: 'breakdownVoltage',
   timer555: 'r1',
   motor: 'resistance',
+  voltageRegulator: 'voltage',
   dcVoltage: 'voltage',
 };
 
@@ -46,6 +48,7 @@ const DEFAULT_PRIMARY_VALUE: Partial<Record<ComponentType | 'dcVoltage', number>
   zener: 5.1,
   timer555: 1000,
   motor: 20,
+  voltageRegulator: 5,
   dcVoltage: 5,
 };
 
@@ -104,6 +107,8 @@ function formatComponentValueSummary(component: PlacedComponent): string {
       return formatCapacitance(resolvedValue);
     case 'battery':
     case 'zener':
+      return `${resolvedValue}V`;
+    case 'voltageRegulator':
       return `${resolvedValue}V`;
     case 'inductor':
       return formatInductance(resolvedValue);

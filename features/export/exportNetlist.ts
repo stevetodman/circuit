@@ -62,6 +62,15 @@ export function exportSPICE(
       continue;
     }
 
+    if (comp.type === 'voltageRegulator') {
+      const netOut = pinNet(nodes, comp, 'out');
+      const netGnd = pinNet(nodes, comp, 'gnd');
+      if (netOut == null || netGnd == null || netOut === netGnd) continue;
+      const value = typeof comp.props.voltage === 'number' ? comp.props.voltage : 5;
+      lines.push(`V${voltageIndex++} ${toSPICENet(netOut)} ${toSPICENet(netGnd)} DC ${value}`);
+      continue;
+    }
+
     if (comp.type === 'led') {
       const netA = pinNet(nodes, comp, 'anode');
       const netB = pinNet(nodes, comp, 'cathode');

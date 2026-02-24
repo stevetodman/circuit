@@ -15,6 +15,7 @@ const PRIMARY_VALUE_KEY: Partial<Record<ComponentType | 'dcVoltage', string>> = 
   zener: 'voltage',
   timer555: 'r1',
   dcVoltage: 'voltage',
+  voltageRegulator: 'voltage',
 };
 
 const DEFAULT_PRIMARY_VALUE: Partial<Record<ComponentType | 'dcVoltage', number>> = {
@@ -26,6 +27,7 @@ const DEFAULT_PRIMARY_VALUE: Partial<Record<ComponentType | 'dcVoltage', number>
   timer555: 1000,
   zener: 5.1,
   dcVoltage: 5,
+  voltageRegulator: 5,
 };
 
 function resolvePrimaryValueKey(component: PlacedComponent): string | null {

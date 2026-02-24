@@ -29,6 +29,7 @@ const COMPONENT_SIZES: Record<string, { w: number; h: number }> = {
   opamp: { w: 190, h: 110 },
   inductor: { w: 160, h: 70 },
   potentiometer: { w: 150, h: 90 },
+  voltageRegulator: { w: 48, h: 36 },
 };
 
 function getComponentSize(type: PlacedComponent['type']) {

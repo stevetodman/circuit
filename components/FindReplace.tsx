@@ -24,6 +24,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   timer555: '555 Timer',
   arduino: 'Arduino',
   opamp: 'Op-Amp',
+  voltageRegulator: 'Volt Reg',
 };
 
 const PRIMARY_VALUE_KEY: Partial<Record<ComponentType, string>> = {
@@ -33,6 +34,7 @@ const PRIMARY_VALUE_KEY: Partial<Record<ComponentType, string>> = {
   battery: 'voltage',
   potentiometer: 'resistance',
   zener: 'breakdownVoltage',
+  voltageRegulator: 'voltage',
 };
 
 const ALL_TYPES = Object.keys(TYPE_LABELS) as ComponentType[];
