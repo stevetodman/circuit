@@ -106,6 +106,9 @@ const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   battery: [
     { kind: 'number', key: 'voltage', label: 'Voltage', default: 9, min: 1, max: 30, step: 0.5, unit: 'V' },
   ],
+  voltageRegulator: [
+    { kind: 'number', key: 'voltage', label: 'Output Voltage', default: 5, min: 1, max: 20, step: 1, unit: 'V' },
+  ],
   capacitor: [
     { kind: 'number', key: 'capacitance', label: 'Capacitance', default: 1, min: 0.001, max: 100_000, step: 0.1, unit: 'µF' },
   ],
@@ -176,6 +179,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   opamp:        'Op-Amp',
   inductor:     'Inductor',
   potentiometer:'Potentiometer',
+  voltageRegulator: 'Volt Reg',
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -248,6 +252,15 @@ function computeReadings(comp: PlacedComponent, nodes: Record<string, { netId: n
       return [
         { label: 'V across', value: fmtV(Vd) },
         { label: 'State', value: Vd > 0.2 ? '✓ Forward biased' : Vd < -0.1 ? 'Reverse biased' : 'Off' },
+      ];
+    }
+    case 'voltageRegulator': {
+      const Vin = pinV('in');
+      const Vout = pinV('out');
+      const Vgnd = pinV('gnd');
+      return [
+        { label: 'Output', value: fmtV(Vout - Vgnd) },
+        { label: 'Input', value: fmtV(Vin - Vgnd) },
       ];
     }
     case 'potentiometer': {
@@ -651,74 +664,91 @@ function Inspector({ component }: { component: PlacedComponent }) {
       {/* Property fields */}
       {fields.length === 0 ? (
         <p className="px-4 pb-3 text-[10px] text-white/20 italic">No configurable properties</p>
-      ) : (
-        <div className="px-4 pb-4 space-y-3">
-          {fields.map((field) => (
-            <div key={field.key} className="space-y-1">
-              <Label>{field.label}</Label>
-              {field.kind === 'number' ? (
-                <>
-                  <NumberInput
+                ) : (
+          <div className="px-4 pb-4 space-y-3">
+            {fields.map((field) => (
+              <div key={field.key} className="space-y-1">
+                <Label>{field.label}</Label>
+                {field.kind === 'number' ? (
+                  <>
+                    {component.type === 'voltageRegulator' && field.key === 'voltage' ? (
+                      <div className="flex items-center gap-2 mb-1">
+                        <label className="text-[10px] text-white/40 w-20 shrink-0">Output</label>
+                        <select
+                          value={String(component.props.voltage ?? 5)}
+                          onChange={(event) => setProperty(component.id, 'voltage', Number(event.target.value))}
+                          className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white outline-none"
+                        >
+                          <option value="5">5 V (7805)</option>
+                          <option value="9">9 V (7809)</option>
+                          <option value="12">12 V (7812)</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        <NumberInput
+                          field={field}
+                          value={getValue(field) as number}
+                          onChange={(v) => setProperty(component.id, field.key, v)}
+                        />
+                        {component.type === 'resistor' && field.key === 'resistance' && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {E12_VALUES.map((value) => (
+                              <button
+                                key={value}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                                onClick={() => setProperty(component.id, 'resistance', value)}
+                              >
+                                {value >= 1000 ? `${value / 1000}k` : `${value}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {component.type === 'capacitor' && field.key === 'capacitance' && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {CAP_PRESETS.map((value) => (
+                              <button
+                                key={value}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                                onClick={() => setProperty(component.id, 'capacitance', value)}
+                              >
+                                {value < 1 ? `${Math.round(value * 1000)}nF` : value >= 1000 ? `${value / 1000}mF` : `${value}µF`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {component.type === 'battery' && field.key === 'voltage' && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {BATTERY_PRESETS.map((value) => (
+                              <button
+                                key={value}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                                onClick={() => setProperty(component.id, 'voltage', value)}
+                              >
+                                {value}V
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {component.type === 'inductor' && field.key === 'inductance' && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {INDUCTOR_PRESETS.map((value) => (
+                              <button
+                                key={value}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
+                                onClick={() => setProperty(component.id, 'inductance', value)}
+                              >
+                                {value < 0.01 ? `${Math.round(value * 1000)}mH` : `${Math.round(value * 1000)}mH`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                ) : field.kind === 'log-number' ? (
+                  <LogNumberInput
                     field={field}
-                    value={getValue(field) as number}
-                    onChange={(v) => setProperty(component.id, field.key, v)}
-                  />
-                  {component.type === 'resistor' && field.key === 'resistance' && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {E12_VALUES.map((value) => (
-                        <button
-                          key={value}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
-                          onClick={() => setProperty(component.id, 'resistance', value)}
-                        >
-                          {value >= 1000 ? `${value / 1000}k` : `${value}`}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {component.type === 'capacitor' && field.key === 'capacitance' && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {CAP_PRESETS.map((value) => (
-                        <button
-                          key={value}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
-                          onClick={() => setProperty(component.id, 'capacitance', value)}
-                        >
-                          {value < 1 ? `${Math.round(value * 1000)}nF` : value >= 1000 ? `${value / 1000}mF` : `${value}µF`}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {component.type === 'battery' && field.key === 'voltage' && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {BATTERY_PRESETS.map((value) => (
-                        <button
-                          key={value}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
-                          onClick={() => setProperty(component.id, 'voltage', value)}
-                        >
-                          {value}V
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {component.type === 'inductor' && field.key === 'inductance' && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {INDUCTOR_PRESETS.map((value) => (
-                        <button
-                          key={value}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/50 font-mono"
-                          onClick={() => setProperty(component.id, 'inductance', value)}
-                        >
-                          {value < 0.01 ? `${Math.round(value * 1000)}mH` : `${Math.round(value * 1000)}mH`}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : field.kind === 'log-number' ? (
-                <LogNumberInput
-                  field={field}
                   value={getValue(field) as number}
                   onChange={(v) => setProperty(component.id, field.key, v)}
                 />

@@ -24,6 +24,8 @@ function formatValue(comp: PlacedComponent): string {
     }
     case 'battery':
       return `${Number(p.voltage ?? 9)}V`;
+    case 'voltageRegulator':
+      return `${Number(p.voltage ?? 5)}V`;
     case 'led':
       return (p.color as string | undefined) ?? '#ff0000';
     case 'zener':
@@ -73,6 +75,7 @@ const TYPE_LABELS: Record<ComponentType, string> = {
   timer555: '555 Timer',
   arduino: 'Arduino Uno',
   opamp: 'Op-Amp',
+  voltageRegulator: 'Volt. Regulator',
 };
 
 export interface BOMRow {

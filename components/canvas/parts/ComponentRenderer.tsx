@@ -23,6 +23,7 @@ import BJT from './BJT';
 import Timer555 from './Timer555';
 import ArduinoUno from './ArduinoUno';
 import Motor from './Motor';
+import VoltageRegulator from './VoltageRegulator';
 
 interface ComponentRendererProps {
   componentId:    string;
@@ -69,6 +70,8 @@ function formatComponentValue(comp: PlacedComponent): string {
       if (l >= 0.001) return `${(l * 1000).toFixed(0)}mH`;
       return `${(l * 1e6).toFixed(0)}µH`;
     }
+    case 'voltageRegulator':
+      return `${Number(p.voltage ?? 5)}V`;
     case 'led': return (p.color as string | undefined)?.replace(/^#/, '') ? '' : '';
     default: return '';
   }
@@ -82,6 +85,7 @@ const PRIMARY_VALUE_KEY: Partial<Record<ComponentType | 'dcVoltage', string>> = 
   potentiometer: 'resistance',
   zener: 'voltage',
   timer555: 'r1',
+  voltageRegulator: 'voltage',
   dcVoltage: 'voltage',
 };
 
@@ -380,6 +384,16 @@ export default function ComponentRenderer({
           transparent={transparent}
           pinOffsets={pinOffsets}
           onClick={handleClick}
+        />
+      );
+      break;
+    case 'voltageRegulator':
+      inner = (
+        <VoltageRegulator
+          anchorPos={ZERO}
+          transparent={transparent}
+          onClick={handleClick}
+          componentProps={{ voltage: Number(componentProps?.voltage ?? 5) }}
         />
       );
       break;

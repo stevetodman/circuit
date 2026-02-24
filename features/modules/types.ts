@@ -1,7 +1,7 @@
 export type ComponentKind =
   | 'battery' | 'resistor' | 'led' | 'capacitor' | 'diode'
   | 'bjt' | 'pnp' | 'mosfet' | 'switch' | 'tactileSwitch' | 'potentiometer' | 'motor'
-  | 'timer555' | 'inductor' | 'arduino' | 'schottky' | 'zener' | 'opamp';
+  | 'timer555' | 'inductor' | 'arduino' | 'schottky' | 'zener' | 'opamp' | 'voltageRegulator';
 
 export interface ModuleStep {
   id: string;

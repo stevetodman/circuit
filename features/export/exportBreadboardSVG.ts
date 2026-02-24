@@ -28,6 +28,7 @@ const COMPONENT_PREFIX: Record<PlacedComponent['type'], string> = {
   opamp: 'U',
   inductor: 'L',
   potentiometer: 'RV',
+  voltageRegulator: 'VR',
 };
 
 function escapeText(value: string): string {

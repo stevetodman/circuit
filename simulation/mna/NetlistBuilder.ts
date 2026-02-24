@@ -167,6 +167,21 @@ export function buildNetlist(
       break;
     }
 
+    case 'voltageRegulator': {
+      const netGnd = pinNet(comp, 'gnd');
+      const netOut = pinNet(comp, 'out');
+      const netIn = pinNet(comp, 'in');
+      if (netOut == null || netGnd == null) break;
+      const V = (props as { voltage?: number }).voltage ?? 5;
+      const element: NetlistElement = { id: comp.id, kind: 'vsource', netA: netOut, netB: netGnd, value: V };
+      elements.push(element);
+      branchElements.push(element);
+      if (netIn != null && netIn !== netGnd) {
+        elements.push({ id: `${comp.id}_in`, kind: 'resistor', netA: netIn, netB: netGnd, value: 10 });
+      }
+      break;
+    }
+
     case 'inductor': {
       const netA = pinNet(comp, 'a');
       const netB = pinNet(comp, 'b');

@@ -18,5 +18,6 @@ export const PART_DESCRIPTIONS: Partial<Record<ComponentType | 'wire', string>> 
   schottky: 'Fast diode — low forward voltage drop',
   zener: 'Voltage-clamp diode',
   opamp: 'Amplifies voltage differences',
+  voltageRegulator: '78xx linear regulator — outputs fixed voltage',
   wire: 'Connects two pins',
 };

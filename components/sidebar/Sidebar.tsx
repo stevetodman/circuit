@@ -222,6 +222,7 @@ const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNod
   { type: 'opamp',         label: 'Op-Amp',         tooltip: 'Operational amplifier. Amplifies voltage difference.', icon: <OpAmp /> },
   { type: 'inductor',      label: 'Inductor',       tooltip: 'Stores energy in magnetic field. Opposes current change.', icon: <Inductor /> },
   { type: 'potentiometer', label: 'Potentiometer',  tooltip: 'Variable resistor. Wiper position sets output voltage.', icon: <Potentiometer /> },
+  { type: 'voltageRegulator', label: 'Volt Reg', tooltip: '78xx linear regulator. Outputs fixed 5V, 9V, or 12V from higher input.', icon: <Rect fill="#1a1a2e" /> },
   { type: 'arduino',       label: 'Arduino Uno',    tooltip: 'ATmega328P microcontroller. Upload sketches to run code.', icon: <Arduino /> },
 ];
 
@@ -244,6 +245,7 @@ const PART_CATEGORIES: Record<string, Category> = {
   timer555: 'ic',
   opamp: 'ic',
   'op-amp': 'ic',
+  voltageRegulator: 'ic',
   arduino: 'ic',
   wire: 'passive',
 };

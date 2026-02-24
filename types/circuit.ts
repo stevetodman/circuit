@@ -18,6 +18,7 @@ export type ComponentType =
   | 'schottky'
   | 'mosfet'
   | 'opamp'
+  | 'voltageRegulator'
   | 'inductor'
   | 'potentiometer';
 
@@ -77,6 +78,10 @@ export interface TactileSwitchProps {
 
 export interface ArduinoProps {
   clockMhz: number;
+}
+
+export interface VoltageRegulatorProps {
+  voltage?: number; // default 5
 }
 
 const arduinoPins = [
@@ -190,6 +195,11 @@ export const PIN_TEMPLATES: Record<ComponentType, PinTemplate[]> = {
     { name: 'vcc', offset: [0, 0, -PITCH * 1.6] },
     { name: 'gnd', offset: [0, 0, PITCH * 1.6] },
   ],
+  voltageRegulator: [
+    { name: 'in', offset: [-PITCH, 0, 0] as Vec3 },
+    { name: 'gnd', offset: [0, 0, PITCH] as Vec3 },
+    { name: 'out', offset: [PITCH, 0, 0] as Vec3 },
+  ],
   inductor: [
     { name: 'a', offset: [-PITCH, 0, 0] },
     { name: 'b', offset: [PITCH, 0, 0] },
@@ -217,6 +227,7 @@ export type PlacedComponent =
   | (BasePlacedComponent & TypedComponent<'pnp', { hFE?: number }>)
   | (BasePlacedComponent & TypedComponent<'mosfet', { rdsOn?: number }>)
   | (BasePlacedComponent & TypedComponent<'opamp', Record<string, never>>)
+  | (BasePlacedComponent & TypedComponent<'voltageRegulator', VoltageRegulatorProps>)
   | (BasePlacedComponent & TypedComponent<'inductor', { inductance?: number }>)
   | (BasePlacedComponent & TypedComponent<'potentiometer', { resistance?: number; wiper?: number }>);
 
