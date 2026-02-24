@@ -12,9 +12,11 @@ import { branchCurrents, voltages } from '@/simulation/SimBridge';
 
 const WIRE_TUBES = {
   segments: 24,
-  radius: 0.026,
+  radius: 0.018,
   radialSegments: 8,
 };
+const CURRENT_THICKNESS_MAX_RADIUS = 0.040;
+const CURRENT_THICKNESS_GAIN = 0.022;
 
 function buildWirePoints(fromPos: Vec3, toPos: Vec3): THREE.Vector3[] {
   const from = new THREE.Vector3(fromPos[0], fromPos[1], fromPos[2]);
@@ -48,6 +50,9 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   const showCurrentLabels = useUIStore((s) => s.showCurrentLabels);
   const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
   const overloadIds = useUIStore((s) => s.overloadIds);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const curveRef = useRef<THREE.CatmullRomCurve3 | null>(null);
+  const currentThicknessRef = useRef(WIRE_TUBES.radius);
   const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
   const netLabels = useCircuitStore((s) => s.netLabels);
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
@@ -73,7 +78,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
     return new THREE.TubeGeometry(
       curve,
       WIRE_TUBES.segments,
-      WIRE_TUBES.radius,
+      currentThicknessRef.current,
       WIRE_TUBES.radialSegments,
       false,
     );
@@ -97,13 +102,21 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   const isOverloaded = overloadIds.includes(wire.id);
 
   useEffect(() => {
+    curveRef.current = curve;
+  }, [curve]);
+
+  useEffect(() => {
     return () => {
       if (geometry) geometry.dispose();
+      const currentGeometry = meshRef.current?.geometry;
+      if (currentGeometry && currentGeometry !== geometry) {
+        currentGeometry.dispose();
+      }
     };
   }, [geometry]);
 
   useFrame(({ clock }) => {
-    if (!matRef.current) return;
+    if (!matRef.current || !meshRef.current) return;
 
     const current = hasBranchIndex ? (branchCurrents[safeBranchIndex] ?? 0) : 0;
     const textValue = formatCurrent(current);
@@ -121,6 +134,36 @@ export default function Wire({ wire, branchIndex }: WireProps) {
     const phase = direction * speed;
     const pulse = 0.5 + 0.5 * Math.sin(phase * clock.getElapsedTime());
     const isNetHovered = hoveredNetId >= 0 && fromNetId === hoveredNetId;
+
+    const showCurrentThickness = useUIStore.getState().showCurrentThickness;
+    if (showCurrentThickness && curveRef.current) {
+      const amp = Math.abs(current);
+      const targetRadius = Math.min(CURRENT_THICKNESS_MAX_RADIUS, WIRE_TUBES.radius + amp * CURRENT_THICKNESS_GAIN);
+      const lastRadius = currentThicknessRef.current;
+      if (Math.abs(targetRadius - lastRadius) / lastRadius > 0.05) {
+        currentThicknessRef.current = targetRadius;
+        meshRef.current.geometry.dispose();
+        meshRef.current.geometry = new THREE.TubeGeometry(
+          curveRef.current,
+          WIRE_TUBES.segments,
+          targetRadius,
+          WIRE_TUBES.radialSegments,
+          false,
+        );
+      }
+    } else if (!showCurrentThickness && currentThicknessRef.current !== WIRE_TUBES.radius) {
+      currentThicknessRef.current = WIRE_TUBES.radius;
+      if (curveRef.current) {
+        meshRef.current.geometry.dispose();
+        meshRef.current.geometry = new THREE.TubeGeometry(
+          curveRef.current,
+          WIRE_TUBES.segments,
+          WIRE_TUBES.radius,
+          WIRE_TUBES.radialSegments,
+          false,
+        );
+      }
+    }
 
     if (isOverloaded) {
       const overloadPulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
@@ -160,7 +203,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
 
   return (
     <group onContextMenu={onContextMenu}>
-      <mesh geometry={geometry}>
+      <mesh ref={meshRef} geometry={geometry}>
         <meshStandardMaterial
           ref={matRef}
           color={wire.color}
