@@ -13,6 +13,7 @@ import {
 } from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
 import { useToastStore } from './toastStore';
+import { useScopeStore } from '@/store/scopeStore';
 import type { ExampleCircuit } from '@/features/examples/circuits';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, BOARD_TOP_Y, RAIL_GAP, RAIL_HOLES,
@@ -34,6 +35,7 @@ type SavedCircuitJSON = {
   notes?: Record<string, CircuitNote>;
   circuitBlocks?: CircuitBlock[];
   name?: string;
+  scopeChannelNodes?: Array<{ nodeId: string; color: string; label?: string }>;
 };
 
 function seedBreadboardNodes(): Record<string, CircuitNode> {
@@ -248,10 +250,11 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
   try {
     const parsed = JSON.parse(json) as unknown;
     if (!isRecord(parsed)) return null;
-    const { version, nodes, components, wires } = parsed as Partial<Record<keyof SavedCircuitJSON, unknown>>;
-    const rawNetLabels = (parsed as Record<string, unknown>).netLabels;
-    const rawNotes = (parsed as Record<string, unknown>).notes;
-    const rawCircuitBlocks = (parsed as Record<string, unknown>).circuitBlocks;
+  const { version, nodes, components, wires } = parsed as Partial<Record<keyof SavedCircuitJSON, unknown>>;
+  const rawNetLabels = (parsed as Record<string, unknown>).netLabels;
+  const rawNotes = (parsed as Record<string, unknown>).notes;
+  const rawCircuitBlocks = (parsed as Record<string, unknown>).circuitBlocks;
+  const rawScopeChannelNodes = (parsed as Record<string, unknown>).scopeChannelNodes;
     const netLabels = isRecord(rawNetLabels) ? rawNetLabels : {};
     const notes = isRecord(rawNotes) ? rawNotes : {};
     const circuitBlocks = Array.isArray(rawCircuitBlocks) ? rawCircuitBlocks : [];
@@ -265,6 +268,7 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       netLabels: netLabels as Record<number, string>,
       notes: notes as Record<string, CircuitNote>,
       circuitBlocks: circuitBlocks as CircuitBlock[],
+      scopeChannelNodes: rawScopeChannelNodes as Array<{ nodeId: string; color: string; label?: string }> | undefined,
     };
   } catch { return null; }
 }
@@ -897,6 +901,22 @@ export const useCircuitStore = create<CircuitState>()(
 
       saveToJSON() {
         const state = get();
+        const scopeChannels = useScopeStore.getState().channels;
+        const nodeEntries = Object.values(state.nodes);
+        const scopeChannelNodes = scopeChannels
+          .map((ch) => {
+            const node = nodeEntries.find((n) => n.netId === ch.netId);
+            if (!node) return null;
+            const entry: { nodeId: string; color: string; label?: string } = {
+              nodeId: node.id,
+              color: ch.color,
+            };
+            if (ch.label != null) {
+              entry.label = ch.label;
+            }
+            return entry;
+          })
+          .filter((entry): entry is { nodeId: string; color: string; label?: string } => entry != null);
         return JSON.stringify({
           version: 1,
           name: state.circuitName,
@@ -906,6 +926,7 @@ export const useCircuitStore = create<CircuitState>()(
           netLabels: state.netLabels,
           notes: state.notes,
           circuitBlocks: state.circuitBlocks,
+          scopeChannelNodes,
         } satisfies SavedCircuitJSON);
       },
 
@@ -933,6 +954,17 @@ export const useCircuitStore = create<CircuitState>()(
           selectedNodeId: null,
           selectedComponentIds: [],
         });
+        const { clearChannels, addChannel, updateChannelColor } = useScopeStore.getState();
+        clearChannels();
+        const resolvedNodes = nodes;
+        const persistedScopeChannels = Array.isArray(payload.scopeChannelNodes) ? payload.scopeChannelNodes : [];
+        for (const ch of persistedScopeChannels) {
+          const node = resolvedNodes[ch.nodeId];
+          if (node?.netId != null) {
+            addChannel(node.netId, ch.label);
+            updateChannelColor(node.netId, ch.color);
+          }
+        }
         clearUndoHistory?.();
       },
 

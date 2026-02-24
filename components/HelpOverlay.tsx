@@ -2,6 +2,7 @@
 
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/store/uiStore';
+import { useEffect, useState } from 'react';
 
 const SECTIONS = [
   {
@@ -79,7 +80,19 @@ const SECTIONS = [
 
 export default function HelpOverlay() {
   const { showHelp, toggleHelp } = useUIStore(useShallow((s) => ({ showHelp: s.showHelp, toggleHelp: s.toggleHelp })));
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (!showHelp) setQuery('');
+  }, [showHelp]);
+
   if (!showHelp) return null;
+  const q = query.toLowerCase();
+  const noMatches = SECTIONS.every(({ rows }) => {
+    return !rows.some(([key, desc]) =>
+      key.toLowerCase().includes(q) || desc.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div
@@ -100,21 +113,40 @@ export default function HelpOverlay() {
             ×
           </button>
         </div>
-        {SECTIONS.map(({ heading, rows }) => (
-          <div key={heading} className="mb-4 last:mb-0">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-1.5">{heading}</p>
-            <table className="w-full text-xs">
-              <tbody>
-                {rows.map(([key, desc]) => (
-                  <tr key={key} className="border-b border-white/[0.05]">
-                    <td className="py-1.5 pr-4 font-mono text-white/60 whitespace-nowrap">{key}</td>
-                    <td className="py-1.5 text-white/40">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
+        <input
+          type="text"
+          placeholder="Search shortcuts…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder-white/25 outline-none focus:border-white/20 mb-4"
+          autoFocus
+        />
+        {SECTIONS.map(({ heading, rows }) => {
+          const filteredRows = q
+            ? rows.filter(([key, desc]) =>
+              key.toLowerCase().includes(q) || desc.toLowerCase().includes(q)
+            )
+            : rows;
+          if (!filteredRows.length) return null;
+          return (
+            <div key={heading} className="mb-4 last:mb-0">
+              <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-1.5">{heading}</p>
+              <table className="w-full text-xs">
+                <tbody>
+                  {filteredRows.map(([key, desc]) => (
+                    <tr key={key} className="border-b border-white/[0.05]">
+                      <td className="py-1.5 pr-4 font-mono text-white/60 whitespace-nowrap">{key}</td>
+                      <td className="py-1.5 text-white/40">{desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+        {noMatches && (
+          <p className="text-white/30 text-xs text-center py-4">No matches for &quot;{query}&quot;</p>
+        )}
       </div>
     </div>
   );
