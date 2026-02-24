@@ -91,7 +91,7 @@ interface CircuitState extends TopologyState {
   setWireBranchIndices: (indices: Record<string, number>) => void;
   getDesignator: (componentId: string) => string;
 
-  addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
+  addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number, props?: Record<string, number | string>): void;
   removeComponent(id: string): void;
   toggleComponentLock(id: string): void;
   swapComponentType(id: string, newType: ComponentType): void;
@@ -149,6 +149,30 @@ let wireColorIdx = 0;
 // ── Copy/paste clipboard (module-level, not persisted) ───────────────────────
 type ClipboardComponent = Omit<PlacedComponent, 'id'>;
 let componentClipboard: ClipboardComponent[] = [];
+
+const PRIMARY_PROP: Partial<Record<ComponentType, string>> = {
+  resistor: 'resistance',
+  capacitor: 'capacitance',
+  inductor: 'inductance',
+  battery: 'voltage',
+  potentiometer: 'resistance',
+  zener: 'breakdownVoltage',
+};
+
+function getSmartDefaultProps(
+  type: ComponentType,
+  components: Record<string, PlacedComponent>,
+): Record<string, number | string> {
+  const propKey = PRIMARY_PROP[type];
+  if (!propKey) return {};
+
+  const existing = Object.values(components).filter((c) => c.type === type).pop();
+  if (!existing) return {};
+
+  const val = existing.props[propKey as keyof PlacedComponent['props']];
+  if (typeof val !== 'number' && typeof val !== 'string') return {};
+  return { [propKey]: val };
+}
 
 function rotateOffset(offset: Vec3, rotationY: number): Vec3 {
   const rad = (rotationY * Math.PI) / 180;
@@ -273,13 +297,21 @@ export const useCircuitStore = create<CircuitState>()(
       wiringMode: false,
       wireBranchIndices: {},
 
-      addComponent(type, pos, pins = [], rotationY = 0) {
+      addComponent(type, pos, pins = [], rotationY = 0, props) {
         const id = crypto.randomUUID();
         const normalizedRotationY = ((rotationY % 360) + 360) % 360;
         set((state) => {
+          const smartProps = props ?? getSmartDefaultProps(type, state.components);
           const components = {
             ...state.components,
-            [id]: { id, type, anchorPos: pos, rotationY: normalizedRotationY, pins, props: {} },
+            [id]: {
+              id,
+              type,
+              anchorPos: pos,
+              rotationY: normalizedRotationY,
+              pins,
+              props: smartProps,
+            } as PlacedComponent,
           };
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
