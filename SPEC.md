@@ -1,152 +1,116 @@
-# SPEC: P5.d — Medium UI/UX Polish
+# SPEC: P5.e — Context Menu kbd Hints + Live Pin Voltages
 
-Three focused improvements. Run `npx tsc --noEmit` and confirm exit 0.
-
----
-
-## 1 — Empty Canvas Hint
-
-**File:** `components/CanvasOverlay.tsx`
-
-When no components are placed, show a centered hint over the canvas. It should fade in via the existing `toastIn` keyframe and disappear the moment the first component is placed.
-
-### Changes
-
-1. Add `dragging` from dragStore to detect active drag:
-   ```ts
-   import { useDragStore } from '@/store/dragStore';
-   // ...
-   const dragging = useDragStore((s) => s.dragging);
-   ```
-
-2. Change the return to a React fragment so the hint and the zoom controls are siblings:
-   ```tsx
-   return (
-     <>
-       {componentCount === 0 && !dragging && (
-         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-           <div
-             className="text-center select-none"
-             style={{ animation: 'toastIn 0.5s ease-out both', animationDelay: '0.3s', opacity: 0 }}
-           >
-             <div className="text-[40px] mb-3 text-white/10">←</div>
-             <p className="text-white/22 text-[13px] font-medium tracking-wide">
-               Drag a component from the panel
-             </p>
-             <p className="text-white/12 text-[11px] mt-1.5">
-               Press <kbd className="px-1 py-0.5 rounded text-[10px] bg-white/[0.06] border border-white/[0.1] font-mono">?</kbd> for keyboard shortcuts
-             </p>
-           </div>
-         </div>
-       )}
-       <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
-         {/* ...existing componentCount badge and zoom/screenshot buttons... */}
-       </div>
-     </>
-   );
-   ```
-
-3. Move the existing content (componentCount badge + zoom button group) inside the `<div className="absolute bottom-4 right-4 ...">` wrapper in the fragment — it's identical to what's currently returned but now nested inside the fragment structure.
+Two focused improvements. Run `npx tsc --noEmit` and confirm exit 0.
 
 ---
 
-## 2 — Sidebar Tab Crossfade
+## 1 — Context Menu Keyboard Shortcut Hints
 
-**Files:** `app/globals.css`, `components/sidebar/Sidebar.tsx`
+**File:** `components/ContextMenu.tsx`
 
-### globals.css
+Show a right-aligned `<kbd>` badge beside each menu item that has a keyboard shortcut. Items without shortcuts (Properties, Add note, Lock) show nothing extra.
 
-Append a new keyframe for the tab transition (opacity-only, no movement — avoids janky shift):
-```css
-@keyframes tabIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+### Update MENU_ITEMS
 
-.tab-enter {
-  animation: tabIn 0.12s ease-out both;
-}
+Replace the existing `MENU_ITEMS` constant:
+```ts
+const MENU_ITEMS = [
+  { key: 'delete',     label: 'Delete',     kbd: 'Del'  },
+  { key: 'rotate',     label: 'Rotate 90°', kbd: 'R'    },
+  { key: 'duplicate',  label: 'Duplicate',  kbd: '⌘D'   },
+  { key: 'properties', label: 'Properties', kbd: null   },
+  { key: 'addNote',    label: 'Add note',   kbd: null   },
+] as const;
 ```
 
-### Sidebar.tsx
+### Update button render in the `.map`
 
-Find the tab content wrapper div (around line 440). It currently looks like:
+Currently:
 ```tsx
-<div
-  className={`flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
+<button
+  key={item.key}
+  type="button"
+  className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
+  onClick={() => itemLabelToAction(item.key)}
 >
-  {tab === 'parts' ? (
-    ...
-  ) : tab === 'learn' ? (
-    ...
-  ) : (
-    ...
+  {item.label}
+</button>
+```
+
+Replace with (adds `flex items-center justify-between` and the kbd badge):
+```tsx
+<button
+  key={item.key}
+  type="button"
+  className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors flex items-center justify-between gap-3"
+  onClick={() => itemLabelToAction(item.key)}
+>
+  <span>{item.label}</span>
+  {item.kbd && (
+    <kbd className="text-[9px] font-mono px-1 py-px rounded bg-white/[0.06] border border-white/[0.1] text-white/25 leading-none flex-shrink-0">
+      {item.kbd}
+    </kbd>
   )}
-</div>
+</button>
 ```
 
-Add `key={tab}` and `tab-enter` to trigger a re-mount + fade on each tab switch:
-```tsx
-<div
-  key={tab}
-  className={`tab-enter flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
->
-```
-
-**Only change:** add `key={tab}` prop and prepend `tab-enter ` to the className. No other changes to the content.
+The Lock/Unlock button has no shortcut so leave it unchanged (no kbd badge).
 
 ---
 
-## 3 — Single-Selection Ring Pulse
+## 2 — Live Per-Pin Voltages in Properties Inspector
 
-**File:** `components/canvas/parts/ComponentRenderer.tsx`
+**File:** `components/sidebar/PropertiesInspector.tsx`
 
-Add a persistent violet ring below the selected component that pulses in `useFrame`. This is analogous to the existing `multiSelected` purple box, but for single selection (`selected && !multiSelected`).
+The Pins section in `Inspector` currently shows `pin.nodeId` (e.g. `bb-e12`) plus a 📊 scope button. Replace the node ID text with a live voltage readout that polls SimBridge at 100ms.
 
-### Add ref
+### Add LivePinVoltage component
 
-After the existing `multiSelectRingRef` declaration:
-```ts
-const selectedRingRef = useRef<THREE.MeshStandardMaterial>(null);
-```
+Add this small component **after** the `LiveReadings` function (around line 306), before the `Label` function:
 
-### Extend useFrame
+```tsx
+function LivePinVoltage({ netId }: { netId: number | null }) {
+  const [v, setV] = useState<number>(0);
+  useEffect(() => {
+    if (netId == null) return;
+    const id = setInterval(() => {
+      setV(voltageView[netId] ?? 0);
+    }, 100);
+    return () => clearInterval(id);
+  }, [netId]);
 
-Inside the existing `useFrame` callback, after the `multiSelectRingRef` block:
-```ts
-if (selectedRingRef.current) {
-  if (selected && !multiSelected) {
-    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 4);
-    selectedRingRef.current.emissiveIntensity = 0.2 + pulse * 0.3;
-    selectedRingRef.current.opacity = 0.18 + pulse * 0.18;
-  } else {
-    selectedRingRef.current.emissiveIntensity = 0;
-    selectedRingRef.current.opacity = 0;
+  if (netId == null) {
+    return <span className="text-white/15 font-mono text-[10px]">—</span>;
   }
+  return <span className="text-white/60 font-mono text-[10px]">{fmtV(v)}</span>;
 }
 ```
 
-### Add ring mesh to JSX
+### Update the Pins section in Inspector
 
-Inside the returned `<group>`, after the `{multiSelected && ...}` block (near the end, before `</group>`):
+Find the pins table in the `Inspector` function (around line 726–762). The inner span currently is:
 ```tsx
-{/* Single-selection ring — always mounted, animated by useFrame */}
-<mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-  <ringGeometry args={[0.13, 0.18, 28]} />
-  <meshStandardMaterial
-    ref={selectedRingRef}
-    color="#7c6fff"
-    emissive="#7c6fff"
-    emissiveIntensity={0}
-    transparent
-    opacity={0}
-    depthWrite={false}
-    toneMapped={false}
-  />
-</mesh>
+<span className="text-white/20 inline-flex items-center">
+  <span>{pin.nodeId}</span>
+  {netId != null && (
+    <button ...>📊</button>
+  )}
+</span>
 ```
 
-The ring is flat on the ground plane (rotated -90° on X), radius ~1.3–1.8 cm, violet to match the accent colour. Always mounted so refs are stable; invisible when not selected.
+Replace with (shows live voltage instead of raw node ID):
+```tsx
+<span className="text-white/20 inline-flex items-center gap-1.5">
+  <LivePinVoltage netId={netId} />
+  {netId != null && (
+    <button ...>📊</button>
+  )}
+</span>
+```
+
+The `netId` variable is already computed just above: `const netId = nodes[pin.nodeId]?.netId ?? null;`
+
+No other changes to the file.
 
 ---
 
@@ -159,7 +123,5 @@ Exit 0 required. No console.log, no TODOs.
 
 ## Files modified
 
-- `components/CanvasOverlay.tsx`
-- `app/globals.css`
-- `components/sidebar/Sidebar.tsx`
-- `components/canvas/parts/ComponentRenderer.tsx`
+- `components/ContextMenu.tsx`
+- `components/sidebar/PropertiesInspector.tsx`

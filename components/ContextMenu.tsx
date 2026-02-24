@@ -6,11 +6,11 @@ import { useUIStore } from '@/store/uiStore';
 import type { CircuitNote, Vec3 } from '@/types/circuit';
 
 const MENU_ITEMS = [
-  { key: 'delete', label: 'Delete' },
-  { key: 'rotate', label: 'Rotate 90°' },
-  { key: 'duplicate', label: 'Duplicate' },
-  { key: 'properties', label: 'Properties' },
-  { key: 'addNote', label: 'Add note' },
+  { key: 'delete',     label: 'Delete',     kbd: 'Del'  },
+  { key: 'rotate',     label: 'Rotate 90°', kbd: 'R'    },
+  { key: 'duplicate',  label: 'Duplicate',  kbd: '⌘D'   },
+  { key: 'properties', label: 'Properties', kbd: null   },
+  { key: 'addNote',    label: 'Add note',   kbd: null   },
 ] as const;
 
 export default function ContextMenu() {
@@ -127,10 +127,15 @@ export default function ContextMenu() {
         <button
           key={item.key}
           type="button"
-          className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
+          className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors flex items-center justify-between gap-3"
           onClick={() => itemLabelToAction(item.key)}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {item.kbd && (
+            <kbd className="text-[9px] font-mono px-1 py-px rounded bg-white/[0.06] border border-white/[0.1] text-white/25 leading-none flex-shrink-0">
+              {item.kbd}
+            </kbd>
+          )}
         </button>
       ))}
     </div>
