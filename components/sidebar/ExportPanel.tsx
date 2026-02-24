@@ -7,6 +7,7 @@ import { exportBreadboardSVG } from '@/features/export/exportBreadboardSVG';
 import { buildBOM, exportBOMAsCSV } from '@/features/export/exportBOM';
 import { useToastStore } from '@/store/toastStore';
 import { CIRCUIT_NAME_PARAM, CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
+import SavedCircuitsPanel from '@/components/sidebar/SavedCircuitsPanel';
 
 type ExportPanelProps = {
   showNetlist: boolean;
@@ -223,6 +224,8 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
           className="w-full rounded bg-black/30 border border-white/[0.08] px-2 py-1.5 text-[10px] leading-5 text-[#9fe7a3] font-mono resize-none overflow-y-auto h-[8.25rem]"
         />
       )}
+
+      <SavedCircuitsPanel />
     </div>
   );
 }
