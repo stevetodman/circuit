@@ -547,10 +547,22 @@ export default function Sidebar() {
                       highlightQuery={searchQuery}
                       onAdd={
                         p.type === 'wire'
-                          ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
+                          ? () => {
+                              useUIStore.getState().setClickToPlace(null);
+                              addToast('Click any pin to start a wire, then click another pin to connect', 'info');
+                            }
                           : () => {
+                              useUIStore.getState().setClickToPlace(null);
                               addRecentlyUsedType(p.type as string);
                               startDrag(p.type as ComponentType);
+                            }
+                      }
+                      onClickToPlace={
+                        p.type === 'wire'
+                          ? undefined
+                          : () => {
+                              useUIStore.getState().setClickToPlace(p.type as import('@/types/circuit').ComponentType);
+                              useDragStore.getState().cancel();
                             }
                       }
                     />

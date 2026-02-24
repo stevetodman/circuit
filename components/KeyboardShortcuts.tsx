@@ -7,6 +7,7 @@ import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
 import { useBodeStore } from '@/store/bodeStore';
+import { useToastStore } from '@/store/toastStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -85,6 +86,13 @@ export default function KeyboardShortcuts() {
       if (meta && (e.shiftKey && key === 'z' || key === 'y')) {
         e.preventDefault();
         useCircuitHistory().getState().redo();
+        return;
+      }
+
+      if (meta && key === 'n') {
+        e.preventDefault();
+        useCircuitStore.getState().newCircuit();
+        useToastStore.getState().addToast('New circuit — Ctrl+Z to restore', 'info');
         return;
       }
 
@@ -186,6 +194,11 @@ export default function KeyboardShortcuts() {
           rotateDrag();
           return;
         }
+        if (useUIStore.getState().clickToPlaceType) {
+          e.preventDefault();
+          useUIStore.getState().rotateClickToPlace();
+          return;
+        }
         if (selectedComponentId) {
           e.preventDefault();
           rotateComponent(selectedComponentId);
@@ -270,6 +283,10 @@ export default function KeyboardShortcuts() {
         // Close wire menu first
         if (useUIStore.getState().wireMenu) {
           useUIStore.getState().closeWireMenu();
+          return;
+        }
+        if (useUIStore.getState().clickToPlaceType) {
+          useUIStore.getState().setClickToPlace(null);
           return;
         }
         if (dragging) { cancelDrag(); return; }

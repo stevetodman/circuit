@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, type PointerEvent } from 'react';
 import type { ComponentType } from '@/types/circuit';
 import { useModuleStore } from '@/store/moduleStore';
 
@@ -10,7 +11,9 @@ interface Props {
   tooltip?: string;
   description?: string;
   highlightQuery?: string;
+  onClick?: () => void;
   onAdd?: () => void;
+  onClickToPlace?: () => void;
 }
 
 function HighlightLabel({ label, query }: { label: string; query: string }) {
@@ -36,16 +39,67 @@ export default function ComponentTile({
   tooltip,
   description,
   highlightQuery,
+  onClick,
   onAdd,
+  onClickToPlace,
 }: Props) {
   const highlightComponent = useModuleStore((s) => s.activeStep?.highlightComponent ?? null);
   const isHighlighted = highlightComponent !== null && highlightComponent === (type as string);
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
+  const dragStarted = useRef(false);
+
+  const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    pointerDownPos.current = { x: event.clientX, y: event.clientY };
+    moved.current = false;
+    dragStarted.current = false;
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!pointerDownPos.current) return;
+    const dx = event.clientX - pointerDownPos.current.x;
+    const dy = event.clientY - pointerDownPos.current.y;
+    if (Math.sqrt((dx * dx) + (dy * dy)) > 5) {
+      moved.current = true;
+      if (!dragStarted.current && onAdd) {
+        dragStarted.current = true;
+        onAdd();
+      }
+    }
+  };
+
+  const onPointerUp = () => {
+    if (!pointerDownPos.current) return;
+
+    if (!moved.current) {
+      if (onClickToPlace) {
+        onClickToPlace();
+      } else if (onClick) {
+        onClick();
+      } else if (onAdd) {
+        onAdd();
+      }
+    }
+
+    pointerDownPos.current = null;
+    moved.current = false;
+    dragStarted.current = false;
+  };
+
+  const onPointerCancel = () => {
+    pointerDownPos.current = null;
+    moved.current = false;
+    dragStarted.current = false;
+  };
 
   return (
     <button
       title={tooltip ?? label}
-      onClick={onAdd}
       draggable={false}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       className={`group flex items-center w-full px-3 py-2 rounded-md text-left
                  transition-colors duration-100
                  cursor-grab active:cursor-grabbing

@@ -46,6 +46,7 @@ export const useDragStore = create<DragState>()((set, get) => ({
   rotationY: 0,
 
   startDrag(type) {
+    useUIStore.getState().setClickToPlace(null);
     set({
       dragging: true,
       type,
