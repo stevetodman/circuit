@@ -17,6 +17,8 @@ const SECTIONS = [
       ['Ctrl/Cmd+N', 'New circuit'],
       ['Ctrl/Cmd+A', 'Select all'],
       ['Ctrl/Cmd+D', 'Duplicate'],
+      ['Ctrl/Cmd+F', 'Search placed components'],
+      ['Double-click component', 'Edit primary value inline'],
     ],
   },
   {
@@ -53,6 +55,8 @@ const SECTIONS = [
       ['Right-click component', 'Context menu (delete, rotate…)'],
       ['Right-click wire', 'Wire colour + net label'],
       ['Drag from palette', 'Place a component'],
+      ['Click part tile', 'Click-to-place mode (click board to place)'],
+      ['Right-click component → Swap type', 'Replace with pin-compatible type'],
       ['Drag on empty canvas', 'Box-select multiple components'],
       ['Ctrl/Cmd or Shift + click', 'Add to / remove from selection'],
       ['Click tactile switch', 'Toggle switch open/closed'],
