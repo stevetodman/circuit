@@ -57,6 +57,9 @@ export default function KeyboardShortcuts() {
   const setShowPolarityLabels = useUIStore((s) => s.setShowPolarityLabels);
   const findReplaceOpen = useUIStore((s) => s.findReplaceOpen);
   const closeFindReplace = useUIStore((s) => s.closeFindReplace);
+  const openCircuitAudit = useUIStore((s) => s.openCircuitAudit);
+  const closeCircuitAudit = useUIStore((s) => s.closeCircuitAudit);
+  const circuitAuditOpen = useUIStore((s) => s.circuitAuditOpen);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -126,6 +129,13 @@ export default function KeyboardShortcuts() {
         e.preventDefault();
         useCircuitStore.getState().newCircuit();
         useToastStore.getState().addToast('New circuit — Ctrl+Z to restore', 'info');
+        return;
+      }
+
+      if (meta && e.shiftKey && key === 'a') {
+        e.preventDefault();
+        if (isInputFocused()) return;
+        openCircuitAudit();
         return;
       }
 
@@ -314,6 +324,11 @@ export default function KeyboardShortcuts() {
       // Escape — cancel drag / deselect
       // F3.5: if wiring, only cancel the wire — keep component selected
       if (e.key === 'Escape') {
+        if (circuitAuditOpen) {
+          e.preventDefault();
+          closeCircuitAudit();
+          return;
+        }
         if (findReplaceOpen) {
           e.preventDefault();
           closeFindReplace();
@@ -361,6 +376,9 @@ export default function KeyboardShortcuts() {
     toggleWireRouting,
     closeFindReplace,
     findReplaceOpen,
+    openCircuitAudit,
+    closeCircuitAudit,
+    circuitAuditOpen,
   ]);
 
   return null;

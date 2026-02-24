@@ -91,6 +91,7 @@ interface UIState {
   inlineEditScreenPos: { x: number; y: number } | null;
   saveBlockPromptOpen: boolean;
   clickToPlaceBlockId: string | null;
+  circuitAuditOpen: boolean;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -154,6 +155,8 @@ interface UIState {
   openSaveBlockPrompt: () => void;
   closeSaveBlockPrompt: () => void;
   setClickToPlaceBlock: (id: string | null) => void;
+  openCircuitAudit: () => void;
+  closeCircuitAudit: () => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -215,6 +218,7 @@ export const useUIStore = create<UIState>()(
   inlineEditScreenPos: null,
   saveBlockPromptOpen: false,
   clickToPlaceBlockId: null,
+  circuitAuditOpen: false,
   setWireValidationStatus: (status, message = null) => set({
     wireValidationStatus: status,
     wireValidationMessage: message,
@@ -323,6 +327,8 @@ export const useUIStore = create<UIState>()(
   openSaveBlockPrompt: () => set({ saveBlockPromptOpen: true }),
   closeSaveBlockPrompt: () => set({ saveBlockPromptOpen: false }),
   setClickToPlaceBlock: (id) => set({ clickToPlaceBlockId: id }),
+  openCircuitAudit: () => set({ circuitAuditOpen: true }),
+  closeCircuitAudit: () => set({ circuitAuditOpen: false }),
   }),
   {
     name: 'circuit-ui-prefs',

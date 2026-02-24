@@ -23,6 +23,12 @@ const SECTIONS = [
     ],
   },
   {
+    heading: 'Tools',
+    rows: [
+      ['Ctrl/Cmd+Shift+A', 'Circuit audit — find connection issues'],
+    ],
+  },
+  {
     heading: 'View',
     rows: [
       ['O', 'Toggle oscilloscope'],
