@@ -4,6 +4,7 @@ import {
   PIN_TEMPLATES,
   type CircuitNode,
   type PlacedComponent,
+  type CircuitBlock,
   type CircuitNote,
   type Wire,
   type ComponentType,
@@ -31,6 +32,7 @@ type SavedCircuitJSON = {
   wires: Record<string, Wire>;
   netLabels: Record<number, string>;
   notes?: Record<string, CircuitNote>;
+  circuitBlocks?: CircuitBlock[];
   name?: string;
 };
 
@@ -79,6 +81,7 @@ type TopologyStateForHistory = Omit<TopologyState, 'notes'>;
 
 // ── Full store interface ──────────────────────────────────────────────────────
 interface CircuitState extends TopologyState {
+  circuitBlocks: CircuitBlock[];
   selectedNodeId: string | null;
   selectedComponentId: string | null;
   selectedComponentIds: string[];
@@ -117,6 +120,9 @@ interface CircuitState extends TopologyState {
   saveToJSON(): string;
   loadFromJSON(data: string | ExampleCircuit): void;
   newCircuit(): void;
+  saveAsBlock(name: string): void;
+  deleteBlock(id: string): void;
+  placeBlock(blockId: string, anchorPos: Vec3): void;
   setNetLabel: (netId: number, label: string) => void;
   removeNetLabel: (netId: number) => void;
   addNote: (attachedTo: string | null, position: Vec3) => string;
@@ -181,6 +187,10 @@ function rotateOffset(offset: Vec3, rotationY: number): Vec3 {
   return [cos * offset[0] + sin * offset[2], offset[1], -sin * offset[0] + cos * offset[2]];
 }
 
+function subVec3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]] as Vec3;
+}
+
 function nearestNodeId(nodes: Record<string, CircuitNode>, point: Vec3): string {
   let nearest = '';
   let bestDist = Infinity;
@@ -238,8 +248,10 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
     const { version, nodes, components, wires } = parsed as Partial<Record<keyof SavedCircuitJSON, unknown>>;
     const rawNetLabels = (parsed as Record<string, unknown>).netLabels;
     const rawNotes = (parsed as Record<string, unknown>).notes;
+    const rawCircuitBlocks = (parsed as Record<string, unknown>).circuitBlocks;
     const netLabels = isRecord(rawNetLabels) ? rawNetLabels : {};
     const notes = isRecord(rawNotes) ? rawNotes : {};
+    const circuitBlocks = Array.isArray(rawCircuitBlocks) ? rawCircuitBlocks : [];
     if (version !== 1) return null;
     if (!isRecord(nodes) || !isRecord(components) || !isRecord(wires)) return null;
     return {
@@ -249,6 +261,7 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       wires: wires as Record<string, Wire>,
       netLabels: netLabels as Record<number, string>,
       notes: notes as Record<string, CircuitNote>,
+      circuitBlocks: circuitBlocks as CircuitBlock[],
     };
   } catch { return null; }
 }
@@ -263,6 +276,7 @@ function exampleCircuitToPayload(example: ExampleCircuit): SavedCircuitJSON {
     wires,
     netLabels: {},
     notes: {},
+    circuitBlocks: [],
   };
 }
 
@@ -284,10 +298,11 @@ function getDesignatorFromState(components: Record<string, PlacedComponent>, com
 export const useCircuitStore = create<CircuitState>()(
   temporal(
     (set, get) => ({
-      nodes: seedBreadboardNodes(),
-      components: {},
-      wires: {},
-      netLabels: {},
+    nodes: seedBreadboardNodes(),
+    components: {},
+    circuitBlocks: [],
+    wires: {},
+    netLabels: {},
       notes: {},
       selectedNodeId: null,
       selectedComponentId: null,
@@ -608,6 +623,73 @@ export const useCircuitStore = create<CircuitState>()(
         });
       },
 
+      saveAsBlock(name) {
+        const state = get();
+        const selectedIds = state.selectedComponentIds;
+        if (selectedIds.length < 2) return;
+
+        const selectedComponents = selectedIds
+          .map((id) => state.components[id])
+          .filter((component): component is PlacedComponent => component != null);
+        if (selectedComponents.length < 2) return;
+
+        const anchor = selectedComponents[0].anchorPos;
+        const componentsForBlock = selectedComponents.map((component) => ({
+          type: component.type,
+          relativePos: subVec3(component.anchorPos, anchor),
+          rotationY: component.rotationY,
+          props: { ...component.props },
+        }));
+
+        set({
+          circuitBlocks: [
+            ...state.circuitBlocks,
+            {
+              id: crypto.randomUUID(),
+              name,
+              components: componentsForBlock,
+            },
+          ],
+        });
+      },
+
+      deleteBlock(id) {
+        set((state) => ({
+          circuitBlocks: state.circuitBlocks.filter((block) => block.id !== id),
+        }));
+      },
+
+      placeBlock(blockId, anchorPos) {
+        const state = get();
+        const block = state.circuitBlocks.find((candidate) => candidate.id === blockId);
+        if (!block) return;
+
+        const newComponentIds: string[] = [];
+        for (const component of block.components) {
+          const before = new Set(Object.keys(get().components));
+          const worldPos: Vec3 = [
+            anchorPos[0] + component.relativePos[0],
+            anchorPos[1] + component.relativePos[1],
+            anchorPos[2] + component.relativePos[2],
+          ] as Vec3;
+
+          useCircuitStore.getState().addComponent(component.type, worldPos, [], component.rotationY);
+          const after = new Set(Object.keys(get().components));
+          const added = [...after].find((id) => !before.has(id));
+
+          if (!added) continue;
+          newComponentIds.push(added);
+
+          for (const [key, value] of Object.entries(component.props)) {
+            useCircuitStore.getState().setProperty(added, key, value);
+          }
+        }
+
+        if (newComponentIds.length > 0) {
+          set({ selectedComponentId: newComponentIds[0], selectedComponentIds: newComponentIds });
+        }
+      },
+
       addNote(attachedTo, position) {
         const id = `note-${Date.now()}`;
         set((state) => ({
@@ -727,6 +809,7 @@ export const useCircuitStore = create<CircuitState>()(
           wires: state.wires,
           netLabels: state.netLabels,
           notes: state.notes,
+          circuitBlocks: state.circuitBlocks,
         } satisfies SavedCircuitJSON);
       },
 
@@ -747,6 +830,7 @@ export const useCircuitStore = create<CircuitState>()(
           wires: payload.wires,
           netLabels: payload.netLabels ?? {},
           notes: payload.notes ?? {},
+          circuitBlocks: payload.circuitBlocks ?? [],
           circuitName: payloadName ?? '',
           selectedComponentId: null,
           selectedNodeId: null,
@@ -760,6 +844,7 @@ export const useCircuitStore = create<CircuitState>()(
           nodes: {},
           components: {},
           wires: {},
+          circuitBlocks: [],
           netLabels: {},
           notes: {},
           circuitName: '',
@@ -812,7 +897,8 @@ if (typeof window !== 'undefined') {
       state.components === prev.components &&
       state.wires === prev.wires &&
       state.netLabels === prev.netLabels &&
-      state.notes === prev.notes
+      state.notes === prev.notes &&
+      state.circuitBlocks === prev.circuitBlocks
     ) return;
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => {

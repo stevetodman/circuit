@@ -83,6 +83,8 @@ interface UIState {
   editingNoteId: string | null;
   inlineEditComponentId: string | null;
   inlineEditScreenPos: { x: number; y: number } | null;
+  saveBlockPromptOpen: boolean;
+  clickToPlaceBlockId: string | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -139,6 +141,9 @@ interface UIState {
   setEditingNoteId: (id: string | null) => void;
   openInlineEdit: (id: string, x: number, y: number) => void;
   closeInlineEdit: () => void;
+  openSaveBlockPrompt: () => void;
+  closeSaveBlockPrompt: () => void;
+  setClickToPlaceBlock: (id: string | null) => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -196,6 +201,8 @@ export const useUIStore = create<UIState>()(
   editingNoteId: null,
   inlineEditComponentId: null,
   inlineEditScreenPos: null,
+  saveBlockPromptOpen: false,
+  clickToPlaceBlockId: null,
   setWireValidationStatus: (status, message = null) => set({
     wireValidationStatus: status,
     wireValidationMessage: message,
@@ -290,6 +297,9 @@ export const useUIStore = create<UIState>()(
   setEditingNoteId: (id) => set({ editingNoteId: id }),
   openInlineEdit: (id, x, y) => set({ inlineEditComponentId: id, inlineEditScreenPos: { x, y } }),
   closeInlineEdit: () => set({ inlineEditComponentId: null, inlineEditScreenPos: null }),
+  openSaveBlockPrompt: () => set({ saveBlockPromptOpen: true }),
+  closeSaveBlockPrompt: () => set({ saveBlockPromptOpen: false }),
+  setClickToPlaceBlock: (id) => set({ clickToPlaceBlockId: id }),
   }),
   {
     name: 'circuit-ui-prefs',

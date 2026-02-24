@@ -221,6 +221,9 @@ export default function KeyboardShortcuts() {
           useUIStore.getState().rotateClickToPlace();
           return;
         }
+        if (useUIStore.getState().clickToPlaceBlockId) {
+          return;
+        }
         if (selectedComponentId) {
           e.preventDefault();
           rotateComponent(selectedComponentId);
@@ -306,6 +309,10 @@ export default function KeyboardShortcuts() {
         // Close wire menu first
         if (useUIStore.getState().wireMenu) {
           useUIStore.getState().closeWireMenu();
+          return;
+        }
+        if (useUIStore.getState().clickToPlaceBlockId) {
+          useUIStore.getState().setClickToPlaceBlock(null);
           return;
         }
         if (useUIStore.getState().clickToPlaceType) {

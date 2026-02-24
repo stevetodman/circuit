@@ -202,7 +202,7 @@ function SchematicIcon({ active }: { active: boolean }) {
 }
 
 // ── Component catalogue (beginner-first order) ────────────────────────────────
-type Category = 'all' | 'recent' | 'passive' | 'active' | 'power' | 'ic';
+type Category = 'all' | 'recent' | 'passive' | 'active' | 'power' | 'ic' | 'custom';
 
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode; tooltip: string }[] = [
   { type: 'battery',       label: 'Battery',        tooltip: 'DC voltage source (1.5–30V). Powers your circuit.', icon: <Battery /> },
@@ -261,13 +261,18 @@ export default function Sidebar() {
   const circuitName = useCircuitStore((s) => s.circuitName);
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
   const newCircuit = useCircuitStore((s) => s.newCircuit);
+  const circuitBlocks = useCircuitStore((s) => s.circuitBlocks);
+  const deleteBlock = useCircuitStore((s) => s.deleteBlock);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
+  const setClickToPlaceBlock = useUIStore((s) => s.setClickToPlaceBlock);
+  const clickToPlaceBlockId = useUIStore((s) => s.clickToPlaceBlockId);
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<Category>('all');
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [blockContextMenu, setBlockContextMenu] = useState<{ blockId: string; x: number; y: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 768,
@@ -296,10 +301,17 @@ export default function Sidebar() {
   }, [arduinoTabRequested]);
 
   useEffect(() => {
-    if (searchQuery.trim() && category !== 'all') {
+    if (searchQuery.trim() && category !== 'all' && category !== 'custom') {
       setCategory('all');
     }
   }, [searchQuery, category]);
+
+  useEffect(() => {
+    if (!blockContextMenu) return;
+    const closeMenu = () => setBlockContextMenu(null);
+    window.addEventListener('pointerdown', closeMenu);
+    return () => window.removeEventListener('pointerdown', closeMenu);
+  }, [blockContextMenu]);
 
   const selectPartsTab = () => {
     setTab('parts');
@@ -318,6 +330,10 @@ export default function Sidebar() {
     }
     const matchesCategory = category === 'all' || PART_CATEGORIES[p.type] === category;
     return matchesQuery && matchesCategory;
+  });
+  const filteredBlocks = circuitBlocks.filter((block) => {
+    const trimmedQuery = searchQuery.trim();
+    return !trimmedQuery || block.name.toLowerCase().includes(trimmedQuery.toLowerCase());
   });
   if (category === 'recent') {
     filteredParts.sort((a, b) =>
@@ -492,8 +508,8 @@ export default function Sidebar() {
                 </div>
                 {searchQuery.trim() && (
                   <p className="text-[10px] text-white/35 px-1 mt-0.5">
-                    {filteredParts.length === 0
-                      ? 'No results'
+                    {category === 'custom'
+                      ? `${filteredBlocks.length} block${filteredBlocks.length === 1 ? '' : 's'}`
                       : `${filteredParts.length} result${filteredParts.length === 1 ? '' : 's'}`}
                   </p>
                 )}
@@ -513,7 +529,7 @@ export default function Sidebar() {
                     Recent
                   </button>
                 )}
-                {(['all', 'passive', 'active', 'power', 'ic'] as Category[]).map((cat) => (
+                {(['all', 'passive', 'active', 'power', 'ic', 'custom'] as Category[]).map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setCategory(cat)}
@@ -523,13 +539,77 @@ export default function Sidebar() {
                         : 'border-white/[0.1] text-white/35 hover:text-white/60 hover:border-white/20'
                     }`}
                   >
-                    {cat === 'all' ? 'All' : cat === 'passive' ? 'Passive' : cat === 'active' ? 'Active' : cat === 'power' ? 'Power' : 'ICs'}
+                    {cat === 'all'
+                      ? 'All'
+                      : cat === 'passive' ? 'Passive'
+                      : cat === 'active' ? 'Active'
+                      : cat === 'power' ? 'Power'
+                      : cat === 'custom' ? 'Custom'
+                      : 'ICs'}
                   </button>
                 ))}
               </div>
 
               <div className="space-y-0.5 px-2">
-                {searchQuery.trim() && filteredParts.length === 0 ? (
+                {category === 'custom' ? (
+                  filteredBlocks.length === 0 ? (
+                    <div className="text-[11px] text-white/30 text-center py-6">
+                      No blocks match
+                      <br />
+                      <span className="text-white/50">{searchQuery ? `"${searchQuery}"` : 'Save a selection to add blocks'}</span>
+                    </div>
+                  ) : (
+                    filteredBlocks.map((block) => (
+                      <div key={block.id} className="relative">
+                        {blockContextMenu && blockContextMenu.blockId === block.id && (
+                          <div
+                            className="fixed z-50 rounded-lg border border-white/20 bg-[#18181c] shadow-[0_8px_32px_rgba(0,0,0,0.7)] px-2 py-1"
+                            style={{ left: `${blockContextMenu.x}px`, top: `${blockContextMenu.y}px` }}
+                            onPointerDown={(event) => event.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteBlock(blockContextMenu.blockId);
+                                setBlockContextMenu(null);
+                              }}
+                              className="text-[11px] text-red-300 hover:text-red-200 hover:bg-white/5 px-2 py-1 rounded"
+                            >
+                              Delete block
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className={`group flex items-center w-full px-3 py-2 rounded-md text-left transition-colors duration-100
+                                     cursor-pointer hover:bg-white/[0.08] active:bg-white/[0.12]
+                                     focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none
+                                     ${clickToPlaceBlockId === block.id ? 'bg-white/[0.1]' : ''}`}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            setBlockContextMenu({ blockId: block.id, x: event.clientX, y: event.clientY });
+                          }}
+                          onClick={() => {
+                            setClickToPlaceBlock(block.id);
+                            useUIStore.getState().setClickToPlace(null);
+                            useDragStore.getState().cancel();
+                          }}
+                        >
+                          <div className="flex items-center gap-2.5 w-full min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <div className="leading-none text-[13px] text-[#c8c8d0] group-hover:text-white">
+                                {block.name}
+                              </div>
+                              <div className="text-[10px] text-white/28 leading-tight truncate mt-0.5">
+                                {block.components.length} component{block.components.length === 1 ? '' : 's'}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    ))
+                  )
+                ) : searchQuery.trim() && filteredParts.length === 0 ? (
                   <div className="text-[11px] text-white/30 text-center py-6">
                     No components match
                     <br />
@@ -545,26 +625,29 @@ export default function Sidebar() {
                       tooltip={p.tooltip}
                       description={PART_DESCRIPTIONS[p.type]}
                       highlightQuery={searchQuery}
-                      onAdd={
-                        p.type === 'wire'
-                          ? () => {
-                              useUIStore.getState().setClickToPlace(null);
-                              addToast('Click any pin to start a wire, then click another pin to connect', 'info');
-                            }
-                          : () => {
-                              useUIStore.getState().setClickToPlace(null);
-                              addRecentlyUsedType(p.type as string);
-                              startDrag(p.type as ComponentType);
-                            }
+                          onAdd={
+                            p.type === 'wire'
+                              ? () => {
+                                  useUIStore.getState().setClickToPlace(null);
+                                  setClickToPlaceBlock(null);
+                                  addToast('Click any pin to start a wire, then click another pin to connect', 'info');
+                                }
+                              : () => {
+                                  useUIStore.getState().setClickToPlace(null);
+                                  setClickToPlaceBlock(null);
+                                  addRecentlyUsedType(p.type as string);
+                                  startDrag(p.type as ComponentType);
+                                }
                       }
-                      onClickToPlace={
-                        p.type === 'wire'
-                          ? undefined
-                          : () => {
-                              useUIStore.getState().setClickToPlace(p.type as import('@/types/circuit').ComponentType);
-                              useDragStore.getState().cancel();
-                            }
-                      }
+                          onClickToPlace={
+                            p.type === 'wire'
+                              ? undefined
+                              : () => {
+                                  useUIStore.getState().setClickToPlace(p.type as import('@/types/circuit').ComponentType);
+                                  setClickToPlaceBlock(null);
+                                  useDragStore.getState().cancel();
+                                }
+                          }
                     />
                   ))
                 )}

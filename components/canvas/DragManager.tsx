@@ -34,11 +34,12 @@ export default function DragManager() {
   const position = useDragStore((state) => state.position);
   const rotationY = useDragStore((state) => state.rotationY);
   const clickToPlaceType = useUIStore((state) => state.clickToPlaceType);
+  const clickToPlaceBlockId = useUIStore((state) => state.clickToPlaceBlockId);
 
   // Cursor: 'grabbing' while dragging a component, restore after
   useEffect(() => {
-    gl.domElement.style.cursor = dragging ? 'grabbing' : clickToPlaceType ? 'crosshair' : 'default';
-  }, [dragging, clickToPlaceType, gl]);
+    gl.domElement.style.cursor = dragging ? 'grabbing' : (clickToPlaceType || clickToPlaceBlockId) ? 'crosshair' : 'default';
+  }, [dragging, clickToPlaceType, clickToPlaceBlockId, gl]);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
@@ -113,15 +114,24 @@ export default function DragManager() {
     // Click-to-place: if click-to-place mode is active and user clicks canvas (not a component)
     // This runs before the drag handler because click-to-place should be ignored while dragging.
     const handleClickToPlace = (event: PointerEvent) => {
-      const { clickToPlaceType, clickToPlaceRotation } = useUIStore.getState();
-      if (!clickToPlaceType) return;
+      const { clickToPlaceType, clickToPlaceRotation, clickToPlaceBlockId } = useUIStore.getState();
+      if (!clickToPlaceType && !clickToPlaceBlockId) return;
       if (useDragStore.getState().dragging) return;
 
       const pos = clientToBoardPos(event.clientX, event.clientY);
       if (!pos) {
         useUIStore.getState().setClickToPlace(null);
+        useUIStore.getState().setClickToPlaceBlock(null);
         return;
       }
+
+      if (clickToPlaceBlockId) {
+        useCircuitStore.getState().placeBlock(clickToPlaceBlockId, pos);
+        useUIStore.getState().setClickToPlaceBlock(null);
+        return;
+      }
+
+      if (!clickToPlaceType) return;
 
       const nodes = useCircuitStore.getState().nodes;
       const pinTemplates = PIN_TEMPLATES[clickToPlaceType] ?? [];
