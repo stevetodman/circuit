@@ -19,6 +19,8 @@ interface UIState {
   hoveredNodeId: string | null;
   mouseX: number;
   mouseY: number;
+  wireValidationStatus: 'clean' | 'short' | null;
+  wireValidationMessage: string | null;
   simStatus: 'idle' | 'running' | 'error' | 'warn';
   simError: string | null;
   simErrorDismissed: boolean;
@@ -101,6 +103,7 @@ interface UIState {
   startBoxSelect:      (startX: number, startY: number) => void;
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
+  setWireValidationStatus: (status: 'clean' | 'short' | null, message?: string | null) => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -115,6 +118,8 @@ export const useUIStore = create<UIState>()(
   hoveredNodeId: null,
   mouseX:       0,
   mouseY:       0,
+  wireValidationStatus: null,
+  wireValidationMessage: null,
   simStatus:     'idle',
   simError:      null,
   simErrorDismissed: false,
@@ -144,6 +149,10 @@ export const useUIStore = create<UIState>()(
   circuitHealthWarning: null,
   snapTargetNodeIds: [],
   zoomToComponentId: null,
+  setWireValidationStatus: (status, message = null) => set({
+    wireValidationStatus: status,
+    wireValidationMessage: message,
+  }),
 
   recentlyUsedTypes: [],
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
