@@ -20,21 +20,32 @@ export default function PinTooltip() {
   if (!hoveredNodeId) return null;
 
   const node = nodes[hoveredNodeId];
-  if (!node || node.netId == null) return null;
+  if (!node) return null;
 
-  const voltage = voltageView[node.netId] ?? 0;
-  const label = formatVoltage(voltage);
+  const connected = node.netId != null;
+  const voltage = connected ? (voltageView[node.netId!] ?? 0) : null;
 
   return (
     <div
-      style={{ left: mouseX + 12, top: mouseY - 28 }}
-      className="fixed z-50 pointer-events-none
-                 bg-[#1a1a2e] border border-white/20 rounded px-2 py-1
-                 text-xs text-white/90 font-mono shadow-lg"
+      style={{ left: mouseX + 14, top: mouseY - 32 }}
+      className="fixed z-50 pointer-events-none animate-in fade-in duration-100
+                 bg-[#1a1a2e]/95 border border-white/15 rounded-md px-2.5 py-1.5
+                 text-xs shadow-xl backdrop-blur-sm"
     >
-      {label}
-      <span className="text-white/40 ml-1.5">{hoveredNodeId}</span>
+      <span className="font-mono text-white/50">{hoveredNodeId}</span>
+      {connected ? (
+        <>
+          <span className="text-white/25 mx-1.5">·</span>
+          <span className="text-white/40">Net {node.netId}</span>
+          <span className="text-white/25 mx-1.5">·</span>
+          <span className="text-[#7dffb3] font-semibold">{formatVoltage(voltage!)}</span>
+        </>
+      ) : (
+        <>
+          <span className="text-white/25 mx-1.5">·</span>
+          <span className="text-white/30 italic">unconnected</span>
+        </>
+      )}
     </div>
   );
 }
-

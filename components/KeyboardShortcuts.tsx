@@ -120,10 +120,19 @@ export default function KeyboardShortcuts() {
         return;
       }
 
-      // Zoom to fit
+      // Zoom to fit (F) / Zoom to selected (Shift+F)
       if (key === 'f') {
         e.preventDefault();
-        requestZoomToFit();
+        if (e.shiftKey) {
+          const selId = useCircuitStore.getState().selectedComponentId;
+          if (selId) {
+            useUIStore.getState().requestZoomToComponent(selId);
+          } else {
+            requestZoomToFit();
+          }
+        } else {
+          requestZoomToFit();
+        }
         return;
       }
 

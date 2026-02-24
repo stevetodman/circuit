@@ -8,6 +8,7 @@ interface ModuleStore {
   activeStepIndex: number;
   completedModuleIds: string[];
   justCompleted: boolean;
+  validationFailed: boolean;
 
   activeModule: Module | null;
   activeStep: Module['steps'][number] | null;
@@ -17,6 +18,7 @@ interface ModuleStore {
   advanceStep: () => void;
   exitModule: () => void;
   resetProgress: () => void;
+  setValidationFailed: (failed: boolean) => void;
 }
 
 export const useModuleStore = create<ModuleStore>()(
@@ -36,6 +38,7 @@ export const useModuleStore = create<ModuleStore>()(
       activeStepIndex: 0,
       completedModuleIds: [],
       justCompleted: false,
+      validationFailed: false,
 
       get activeModule() {
         return MODULES.find((m) => m.id === get().activeModuleId) ?? null;
@@ -71,16 +74,19 @@ export const useModuleStore = create<ModuleStore>()(
             set({ justCompleted: false });
           }, 2500);
         } else {
-          set({ activeStepIndex: nextIdx });
+          set({ activeStepIndex: nextIdx, validationFailed: false });
         }
       },
       exitModule() {
         clearCompletionTimer();
-        set({ activeModuleId: null, activeStepIndex: 0, justCompleted: false });
+        set({ activeModuleId: null, activeStepIndex: 0, justCompleted: false, validationFailed: false });
       },
       resetProgress() {
         clearCompletionTimer();
-        set({ activeModuleId: null, activeStepIndex: 0, completedModuleIds: [], justCompleted: false });
+        set({ activeModuleId: null, activeStepIndex: 0, completedModuleIds: [], justCompleted: false, validationFailed: false });
+      },
+      setValidationFailed(failed: boolean) {
+        set({ validationFailed: failed });
       },
       };
     },

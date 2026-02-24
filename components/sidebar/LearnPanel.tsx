@@ -9,6 +9,7 @@ export default function LearnPanel() {
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
   const startModule = useModuleStore((s) => s.startModule);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const totalModules = MODULES.length;
   const progressPercent = ((completedModuleIds.length / totalModules) * 100).toFixed(1);
 
@@ -96,15 +97,36 @@ export default function LearnPanel() {
           </div>
         );
       })}
-      <button
-        type="button"
-        onClick={() => {
-          useModuleStore.getState().resetProgress();
-        }}
-        className="text-[10px] text-white/20 hover:text-white/50 self-start px-1 mt-1"
-      >
-        Reset progress
-      </button>
+      {confirmingReset ? (
+        <div className="flex items-center gap-2 px-1 py-1 mt-1">
+          <span className="text-[10px] text-white/50 flex-1">Reset all progress?</span>
+          <button
+            type="button"
+            onClick={() => {
+              useModuleStore.getState().resetProgress();
+              setConfirmingReset(false);
+            }}
+            className="text-[10px] px-2 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/50"
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmingReset(false)}
+            className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-white/50 hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirmingReset(true)}
+          className="text-[10px] text-white/20 hover:text-white/50 self-start px-1 mt-1"
+        >
+          Reset progress
+        </button>
+      )}
     </div>
   );
 }

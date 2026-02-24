@@ -7,11 +7,12 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 
-const COLOR_IDLE       = new THREE.Color('#5a6a7a');
-const COLOR_HOVER      = new THREE.Color('#ffd700');   // hovered pin
-const COLOR_SELECTED   = new THREE.Color('#ff6b2b');   // wiring start pin
-const COLOR_NET_PEER   = new THREE.Color('#22ccee');   // same-net peers on hover
-const COLOR_NET_ACTIVE = new THREE.Color('#ffaa00');   // same-net as selected pin
+const COLOR_IDLE        = new THREE.Color('#5a6a7a');
+const COLOR_HOVER       = new THREE.Color('#ffd700');   // hovered pin
+const COLOR_SELECTED    = new THREE.Color('#ff6b2b');   // wiring start pin
+const COLOR_NET_PEER    = new THREE.Color('#22ccee');   // same-net peers on hover
+const COLOR_NET_ACTIVE  = new THREE.Color('#ffaa00');   // same-net as selected pin
+const COLOR_SNAP_TARGET = new THREE.Color('#00ff88');   // drag snap preview
 
 export default function PinGrid() {
   const nodes      = useCircuitStore((s) => s.nodes);
@@ -21,6 +22,7 @@ export default function PinGrid() {
   const { gl }        = useThree();
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const setHovered    = useUIStore((s) => s.setHoveredNode);
+  const snapTargetNodeIds = useUIStore((s) => s.snapTargetNodeIds);
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
   const hitMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -61,7 +63,7 @@ export default function PinGrid() {
     mesh.instanceMatrix.needsUpdate = true;
   }, [nodeList]);
 
-  // ── Per-instance colour — net highlighting + selection ────────────────────
+  // ── Per-instance colour — net highlighting + selection + snap preview ─────
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
@@ -69,7 +71,9 @@ export default function PinGrid() {
     nodeList.forEach((node, i) => {
       let col: THREE.Color;
 
-      if (node.id === hoveredNodeId) {
+      if (snapTargetNodeIds.includes(node.id)) {
+        col = COLOR_SNAP_TARGET;
+      } else if (node.id === hoveredNodeId) {
         col = COLOR_HOVER;
       } else if (node.id === selectedId) {
         col = COLOR_SELECTED;
@@ -87,7 +91,7 @@ export default function PinGrid() {
     });
 
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [hoveredNodeId, hoveredNetId, selectedId, selectedNetId, nodeList]);
+  }, [hoveredNodeId, hoveredNetId, selectedId, selectedNetId, nodeList, snapTargetNodeIds]);
 
   // ── Pointer events ────────────────────────────────────────────────────────
   const onMove = useCallback(

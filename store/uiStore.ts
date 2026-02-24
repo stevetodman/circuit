@@ -3,8 +3,10 @@
 /**
  * Lightweight UI state that doesn't need undo/redo tracking.
  * Shared between canvas components and sidebar indicators.
+ * Visualization preferences are persisted to localStorage.
  */
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface BoxSelectState {
   startX: number;
@@ -51,6 +53,8 @@ interface UIState {
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
   circuitHealthWarning: string | null;
+  snapTargetNodeIds: string[];
+  zoomToComponentId: string | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -81,6 +85,9 @@ interface UIState {
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
+  setSnapTargetNodeIds: (ids: string[]) => void;
+  requestZoomToComponent: (id: string) => void;
+  clearZoomToComponent: () => void;
   appendSerialOutput:  (text: string) => void;
   clearSerialOutput:   () => void;
   startBoxSelect:      (startX: number, startY: number) => void;
@@ -94,7 +101,9 @@ const makeBoxSelectRect = (state: BoxSelectState) => {
   return new DOMRect(left, top, Math.abs(state.endX - state.startX), Math.abs(state.endY - state.startY));
 };
 
-export const useUIStore = create<UIState>()((set) => ({
+export const useUIStore = create<UIState>()(
+  persist(
+  (set) => ({
   hoveredNodeId: null,
   mouseX:       0,
   mouseY:       0,
@@ -124,6 +133,8 @@ export const useUIStore = create<UIState>()((set) => ({
   boxSelect:      null,
   boxSelectRect:  null,
   circuitHealthWarning: null,
+  snapTargetNodeIds: [],
+  zoomToComponentId: null,
 
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
@@ -161,6 +172,9 @@ export const useUIStore = create<UIState>()((set) => ({
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
   setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
+  setSnapTargetNodeIds: (ids) => set({ snapTargetNodeIds: ids }),
+  requestZoomToComponent: (id) => set({ zoomToComponentId: id }),
+  clearZoomToComponent: () => set({ zoomToComponentId: null }),
   appendSerialOutput: (text) => set((state) => {
     const next = `${state.serialOutput}${text}`;
     return { serialOutput: next.length > 10_000 ? next.slice(-10_000) : next };
@@ -177,4 +191,15 @@ export const useUIStore = create<UIState>()((set) => ({
       return { boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) };
     }),
   clearBoxSelect: () => set({ boxSelect: null, boxSelectRect: null }),
-}));
+  }),
+  {
+    name: 'circuit-ui-prefs',
+    partialize: (state) => ({
+      showDesignators: state.showDesignators,
+      showPolarityLabels: state.showPolarityLabels,
+      showWireVoltageColors: state.showWireVoltageColors,
+      showValueLabels: state.showValueLabels,
+      showCurrentLabels: state.showCurrentLabels,
+    }),
+  },
+));

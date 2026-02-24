@@ -69,6 +69,7 @@ interface CircuitState extends TopologyState {
   selectedComponentId: string | null;
   selectedComponentIds: string[];
   circuitName: string;
+  clipboardLength: number;
   setCircuitName: (name: string) => void;
   setSelectedComponentIds: (ids: string[]) => void;
   wiringMode: boolean;
@@ -216,6 +217,7 @@ export const useCircuitStore = create<CircuitState>()(
       selectedComponentId: null,
       selectedComponentIds: [],
       circuitName: '',
+      clipboardLength: 0,
       wiringMode: false,
       wireBranchIndices: {},
 
@@ -349,6 +351,7 @@ export const useCircuitStore = create<CircuitState>()(
             return { type: c.type, anchorPos: [...c.anchorPos] as Vec3, rotationY: c.rotationY, pins: c.pins.map((p) => ({ ...p })), props: { ...c.props } };
           })
           .filter((c): c is ClipboardComponent => c != null);
+        set({ clipboardLength: componentClipboard.length });
       },
 
       pasteClipboard(offsetCols = 5) {
@@ -458,6 +461,7 @@ export const useCircuitStore = create<CircuitState>()(
         const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
         componentClipboard = []; // clear stale clipboard from previous circuit
         set({
+          clipboardLength: 0,
           nodes,
           components: payload.components,
           wires: payload.wires,

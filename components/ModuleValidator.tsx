@@ -11,6 +11,7 @@ export default function ModuleValidator() {
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
   const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
   const advanceStep = useModuleStore((s) => s.advanceStep);
+  const setValidationFailed = useModuleStore((s) => s.setValidationFailed);
   const stepRef = useRef({ moduleId: activeModuleId, stepIndex: activeStepIndex });
   stepRef.current = { moduleId: activeModuleId, stepIndex: activeStepIndex };
 
@@ -46,12 +47,15 @@ export default function ModuleValidator() {
       };
 
       if (step.validate(state)) {
+        setValidationFailed(false);
         advanceStep();
+      } else {
+        setValidationFailed(true);
       }
     }, 500);
 
     return () => clearInterval(interval);
-  }, [activeModuleId, advanceStep]);
+  }, [activeModuleId, advanceStep, setValidationFailed]);
 
   return null; // no visual output
 }

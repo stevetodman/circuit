@@ -7,6 +7,7 @@ export interface ModuleStep {
   id: string;
   instruction: string;
   hint?: string;
+  failHint?: string;
   spotlightTarget?: 'sidebar-parts' | 'breadboard' | 'oscilloscope' | 'properties';
   highlightComponent?: ComponentKind;
   validate: (state: ValidatorState) => boolean;

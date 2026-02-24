@@ -51,6 +51,7 @@ export default function Toolbar() {
     pasteClipboard,
     selectedComponentId,
     selectedComponentIds,
+    clipboardLength,
   } = useCircuitStore(
     useShallow((s) => ({
       deleteSelected: s.deleteSelected,
@@ -58,6 +59,7 @@ export default function Toolbar() {
       pasteClipboard: s.pasteClipboard,
       selectedComponentId: s.selectedComponentId,
       selectedComponentIds: s.selectedComponentIds,
+      clipboardLength: s.clipboardLength,
     }))
   );
 
@@ -134,6 +136,7 @@ export default function Toolbar() {
       <ToolbarBtn
         onClick={pasteClipboard}
         title="Paste (Ctrl/Cmd+V)"
+        disabled={clipboardLength === 0}
       >
         ⎙ Paste
       </ToolbarBtn>
