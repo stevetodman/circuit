@@ -33,6 +33,7 @@ interface UIState {
   showWireVoltageColors: boolean;
   showValueLabels: boolean;
   showCurrentThickness: boolean;
+  showVoltageHeatmap: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showSidebar: boolean;
@@ -76,6 +77,7 @@ interface UIState {
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
   toggleCurrentThickness: () => void;
+  toggleVoltageHeatmap: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
   toggleWireVoltageColors: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
@@ -136,6 +138,7 @@ export const useUIStore = create<UIState>()(
   showWireVoltageColors: true,
   showValueLabels: true,
   showCurrentThickness: false,
+  showVoltageHeatmap: false,
   sab:           null,
   showHelp:      false,
   showSidebar:   true,
@@ -186,6 +189,7 @@ export const useUIStore = create<UIState>()(
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
   toggleCurrentThickness: () => set((state) => ({ showCurrentThickness: !state.showCurrentThickness })),
+  toggleVoltageHeatmap: () => set((state) => ({ showVoltageHeatmap: !state.showVoltageHeatmap })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   openCanvasMenu: (x, y) => set({ canvasMenu: { x, y } }),
@@ -234,6 +238,7 @@ export const useUIStore = create<UIState>()(
       showWireVoltageColors: state.showWireVoltageColors,
       showValueLabels: state.showValueLabels,
       showCurrentLabels: state.showCurrentLabels,
+      showVoltageHeatmap: state.showVoltageHeatmap,
       recentlyUsedTypes: state.recentlyUsedTypes,
       showCurrentThickness: state.showCurrentThickness,
     }),

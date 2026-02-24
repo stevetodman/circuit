@@ -222,6 +222,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (key === 'h') {
+        e.preventDefault();
+        useUIStore.getState().toggleVoltageHeatmap();
+        return;
+      }
+
       if (!meta && key === 'b') {
         e.preventDefault();
         useUIStore.getState().toggleSidebar();

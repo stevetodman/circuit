@@ -88,6 +88,8 @@ export default function Toolbar() {
       toggleCurrentThickness: s.toggleCurrentThickness,
     }))
   );
+  const showVoltageHeatmap = useUIStore((s) => s.showVoltageHeatmap);
+  const toggleVoltageHeatmap = useUIStore((s) => s.toggleVoltageHeatmap);
   const showValueLabels = useUIStore((s) => s.showValueLabels);
   const toggleValueLabels = useUIStore((s) => s.toggleValueLabels);
 
@@ -180,6 +182,13 @@ export default function Toolbar() {
         active={showCurrentThickness}
       >
         ~ Width
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleVoltageHeatmap}
+        title="Toggle voltage heatmap (H)"
+        active={showVoltageHeatmap}
+      >
+        H
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleValueLabels}

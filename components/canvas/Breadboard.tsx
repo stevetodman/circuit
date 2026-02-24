@@ -2,10 +2,14 @@
 
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import {
   PITCH, CENTER_GAP, COLS, ROWS, RAIL_HOLES, RAIL_GAP, BOARD_TOP_Y,
   rowZTop, rowZBot,
 } from '@/constants/breadboard';
+import { useUIStore } from '@/store/uiStore';
+import { useCircuitStore } from '@/store/circuitStore';
+import { voltages } from '@/simulation/SimBridge';
 
 interface HolePos { x: number; z: number }
 
@@ -40,6 +44,8 @@ const BOARD_W = (COLS - 1) * PITCH + PITCH * 3;
 const topAZ   = rowZTop(0);
 const botJZ   = rowZBot(4);
 const BOARD_D = 2 * (Math.abs(topAZ) + RAIL_GAP + PITCH + PITCH * 1.2);
+const TOP_ROWS = ['a', 'b', 'c', 'd', 'e'];
+const BOT_ROWS = ['f', 'g', 'h', 'i', 'j'];
 
 // Power rail strip z-centres
 const TOP_POS_Z  = topAZ - RAIL_GAP;
@@ -64,6 +70,9 @@ function applyHoleMatrices(mesh: THREE.InstancedMesh, holes: HolePos[]) {
 export default function Breadboard() {
   const mainHoleRef = useRef<THREE.InstancedMesh>(null);
   const railHoleRef = useRef<THREE.InstancedMesh>(null);
+  const wasHeatmapOnRef = useRef(false);
+  const heatColor = useMemo(() => new THREE.Color(), []);
+  const defaultHoleColor = useMemo(() => new THREE.Color('#222233'), []);
 
   const mainHoles = useMemo(() => buildMainHoles(), []);
   const railHoles = useMemo(() => buildRailHoles(), []);
@@ -75,6 +84,45 @@ export default function Breadboard() {
   useEffect(() => {
     if (railHoleRef.current) applyHoleMatrices(railHoleRef.current, railHoles);
   }, [railHoles]);
+
+  useFrame(() => {
+    const mesh = mainHoleRef.current;
+    if (!mesh) return;
+    const showHeatmap = useUIStore.getState().showVoltageHeatmap;
+
+    if (!showHeatmap) {
+      if (wasHeatmapOnRef.current) {
+        for (let i = 0; i < COLS * ROWS * 2; i++) {
+          mesh.setColorAt(i, defaultHoleColor);
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        wasHeatmapOnRef.current = false;
+      }
+      return;
+    }
+
+    wasHeatmapOnRef.current = true;
+    const nodes = useCircuitStore.getState().nodes;
+    for (let col = 0; col < COLS; col++) {
+      for (let row = 0; row < ROWS; row++) {
+        for (let side = 0; side < 2; side++) {
+          const idx = col * (ROWS * 2) + row * 2 + side;
+          const rowLetter = side === 0 ? TOP_ROWS[row] : BOT_ROWS[row];
+          const nodeId = `bb-${rowLetter}${col + 1}`;
+          const netId = nodes[nodeId]?.netId ?? null;
+          if (netId === null) {
+            mesh.setColorAt(idx, defaultHoleColor);
+          } else {
+            const v = Math.max(0, Math.min(5, voltages[netId] ?? 0));
+            const t = v / 5;
+            heatColor.setRGB(t, 0, 1 - t);
+            mesh.setColorAt(idx, heatColor);
+          }
+        }
+      }
+    }
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  });
 
   return (
     <group>
