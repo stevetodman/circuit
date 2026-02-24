@@ -437,7 +437,8 @@ export default function Sidebar() {
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {/* ── Insert Part / Learn panel ── */}
         <div
-          className={`flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
+          key={tab}
+          className={`tab-enter flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
         >
           {tab === 'parts' ? (
             <>
