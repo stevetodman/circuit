@@ -116,6 +116,7 @@ interface CircuitState extends TopologyState {
   loadExample(circuit: ExampleCircuit): void;
   copySelected(): void;
   pasteClipboard(offsetCols?: number): void;
+  pasteClipboardAt(worldPos: Vec3): void;
   selectAll(): void;
   saveToJSON(): string;
   loadFromJSON(data: string | ExampleCircuit): void;
@@ -690,6 +691,31 @@ export const useCircuitStore = create<CircuitState>()(
         }
       },
 
+      pasteClipboardAt(worldPos) {
+        if (!componentClipboard.length) return;
+        const anchorOrigin = componentClipboard[0].anchorPos;
+        set((state) => {
+          const components = { ...state.components };
+          const pasted: string[] = [];
+          for (const tmpl of componentClipboard) {
+            const dx = tmpl.anchorPos[0] - anchorOrigin[0];
+            const dz = tmpl.anchorPos[2] - anchorOrigin[2];
+            const anchorPos: Vec3 = [worldPos[0] + dx, worldPos[1], worldPos[2] + dz];
+            const id = crypto.randomUUID();
+            components[id] = {
+              id,
+              type: tmpl.type,
+              anchorPos,
+              rotationY: tmpl.rotationY,
+              pins: clonePinsForPaste(tmpl, anchorPos, state.nodes),
+              props: { ...tmpl.props },
+            };
+            pasted.push(id);
+          }
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes, selectedComponentId: pasted[0] ?? null, selectedComponentIds: pasted };
+        });
+      },
       addNote(attachedTo, position) {
         const id = `note-${Date.now()}`;
         set((state) => ({
