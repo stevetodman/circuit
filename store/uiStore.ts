@@ -35,6 +35,7 @@ interface UIState {
   simSpeed: number;
   simPaused: boolean;
   overloadIds: string[];
+  reversedComponentIds: string[];
   showCurrentLabels: boolean;
   showPolarityLabels: boolean;
   showWireVoltageColors: boolean;
@@ -109,6 +110,7 @@ interface UIState {
   setSimSpeed:         (speed: number) => void;
   toggleSimPaused: () => void;
   setOverloadIds:      (ids: string[]) => void;
+  setReversedComponentIds: (ids: string[]) => void;
   toggleCurrentLabels: () => void;
   toggleCurrentThickness: () => void;
   toggleVoltageHeatmap: () => void;
@@ -192,6 +194,7 @@ export const useUIStore = create<UIState>()(
   simSpeed:      1,
   simPaused:     false,
   overloadIds:   [],
+  reversedComponentIds: [],
   showCurrentLabels: false,
   showPolarityLabels: true,
   showWireVoltageColors: true,
@@ -259,6 +262,7 @@ export const useUIStore = create<UIState>()(
   setSimSpeed:  (speed) => set({ simSpeed: speed }),
   toggleSimPaused: () => set((s) => ({ simPaused: !s.simPaused })),
   setOverloadIds: (ids) => set({ overloadIds: ids }),
+  setReversedComponentIds: (ids) => set({ reversedComponentIds: ids }),
   toggleCurrentLabels: () => set((state) => ({ showCurrentLabels: !state.showCurrentLabels })),
   setShowPolarityLabels: (showPolarityLabels) => set({ showPolarityLabels }),
   toggleWireVoltageColors: () => set((state) => ({ showWireVoltageColors: !state.showWireVoltageColors })),

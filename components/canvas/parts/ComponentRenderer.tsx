@@ -146,6 +146,7 @@ export default function ComponentRenderer({
   const showDesignators = useUIStore((state) => state.showDesignators);
   const showValueLabels = useUIStore((state) => state.showValueLabels);
   const overloadIds = useUIStore((state) => state.overloadIds);
+  const reversedComponentIds = useUIStore((state) => state.reversedComponentIds);
   const setHoveredComponent = useUIStore((state) => state.setHoveredComponent);
   const wiringMode = useCircuitStore((state) => state.wiringMode);
   const componentValueLabel = formatComponentValue({
@@ -153,8 +154,10 @@ export default function ComponentRenderer({
     props: componentProps ?? {},
   } as PlacedComponent);
   const isOverloaded = overloadIds.includes(componentId);
+  const isReversed = reversedComponentIds.includes(componentId);
   const locked = useCircuitStore((state) => state.components[componentId]?.locked ?? false);
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const reversedMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const multiSelectRingRef = useRef<THREE.MeshStandardMaterial>(null);
   const selectedRingRef = useRef<THREE.MeshStandardMaterial>(null);
   const { camera, gl } = useThree();
@@ -166,6 +169,15 @@ export default function ComponentRenderer({
       } else {
         const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
         overloadMaterialRef.current.emissiveIntensity = 0.2 + pulse * 0.6;
+      }
+    }
+
+    if (reversedMaterialRef.current) {
+      if (!isReversed) {
+        reversedMaterialRef.current.emissiveIntensity = 0;
+      } else {
+        const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 5);
+        reversedMaterialRef.current.emissiveIntensity = 0.3 + pulse * 0.5;
       }
     }
 
@@ -503,6 +515,21 @@ export default function ComponentRenderer({
             emissiveIntensity={0}
             transparent
             opacity={0.35}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+      {isReversed && (
+        <mesh position={[0, 0.28, 0.08]}>
+          <sphereGeometry args={[0.14, 16, 12]} />
+          <meshStandardMaterial
+            ref={reversedMaterialRef}
+            color="#ff8c00"
+            emissive="#ff8c00"
+            emissiveIntensity={0}
+            transparent
+            opacity={0.45}
             depthWrite={false}
             toneMapped={false}
           />
