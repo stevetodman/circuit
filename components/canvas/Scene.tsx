@@ -214,7 +214,8 @@ function SceneInteractions() {
     const handleContextMenu = (clientX: number, clientY: number) => {
       const componentId = findComponentAtPointer(clientX, clientY);
       if (!componentId) {
-        openCanvasMenu(clientX, clientY);
+        const worldPos = clientToBoardPos(clientX, clientY);
+        openCanvasMenu(clientX, clientY, worldPos ? { x: worldPos[0], z: worldPos[2] } : undefined);
       }
     };
 

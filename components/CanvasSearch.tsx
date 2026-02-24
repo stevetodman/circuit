@@ -163,35 +163,42 @@ export default function CanvasSearch() {
         style={{ animation: 'toastIn 0.15s ease-out both' }}
       >
         <div className="px-3 py-2 border-b border-white/10">
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => { setQuery(event.target.value); setCursor(0); }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                closeCanvasSearch();
-              }
-              if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                event.stopPropagation();
-                setCursor((prev) => Math.min(prev + 1, maxCursor));
-              }
-              if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                event.stopPropagation();
-                setCursor((prev) => Math.max(prev - 1, 0));
-              }
-              if (event.key === 'Enter' && results[clampedCursor]) {
-                event.preventDefault();
-                event.stopPropagation();
-                select(results[clampedCursor].id);
-              }
-            }}
-            className="w-full bg-transparent text-white text-[13px] outline-none placeholder-white/30"
-            placeholder="Search components... (e.g. resistor, LED)"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(event) => { setQuery(event.target.value); setCursor(0); }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeCanvasSearch();
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setCursor((prev) => Math.min(prev + 1, maxCursor));
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setCursor((prev) => Math.max(prev - 1, 0));
+                }
+                if (event.key === 'Enter' && results[clampedCursor]) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  select(results[clampedCursor].id);
+                }
+              }}
+              className="w-full bg-transparent text-white text-[13px] outline-none placeholder-white/30"
+              placeholder="Search components... (e.g. resistor, LED)"
+            />
+            {normalizedQuery && results.length > 0 && (
+              <span className="text-[10px] text-white/30 ml-2">
+                {results.length} of {allComponents.length}
+              </span>
+            )}
+          </div>
         </div>
         <div className="max-h-56 overflow-y-auto py-1">
           {results.length === 0 && (

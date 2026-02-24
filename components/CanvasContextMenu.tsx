@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useDragStore } from '@/store/dragStore';
+import { useCircuitStore } from '@/store/circuitStore';
 import type { ComponentType } from '@/types/circuit';
+import type { Vec3 } from '@/types/circuit';
 
 // All available component types with labels (copied from Sidebar PARTS list)
 const ALL_PARTS: { type: ComponentType; label: string }[] = [
@@ -32,6 +34,8 @@ export default function CanvasContextMenu() {
   const recentlyUsedTypes = useUIStore((s) => s.recentlyUsedTypes);
   const addRecentlyUsedType = useUIStore((s) => s.addRecentlyUsedType);
   const startDrag = useDragStore((s) => s.startDrag);
+  const pasteClipboardAt = useCircuitStore((s) => s.pasteClipboardAt);
+  const clipboardLength = useCircuitStore((s) => s.clipboardLength);
   const [query, setQuery] = useState('');
 
   if (!canvasMenu) return null;
@@ -68,6 +72,21 @@ export default function CanvasContextMenu() {
                    backdrop-blur-sm w-48 py-1 overflow-hidden"
         style={{ left, top }}
       >
+        {clipboardLength > 0 && canvasMenu?.worldPos && (
+          <div className="px-2 pb-1">
+            <button
+              type="button"
+              onPointerDown={() => {
+                pasteClipboardAt([canvasMenu.worldPos?.x ?? 0, 0, canvasMenu.worldPos?.z ?? 0] as Vec3);
+                closeCanvasMenu();
+              }}
+              className="w-full text-left text-[12px] text-white/80 hover:bg-white/[0.08] px-2 py-1.5 rounded"
+            >
+              Paste here
+              <kbd className="ml-1.5 text-[9px] text-white/30">⌘V</kbd>
+            </button>
+          </div>
+        )}
         <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 px-3 pt-1 pb-1">
           Add Component
         </p>

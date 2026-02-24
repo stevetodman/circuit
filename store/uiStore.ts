@@ -60,6 +60,10 @@ interface UIState {
   canvasMenu: {
     x: number;
     y: number;
+    worldPos?: {
+      x: number;
+      z: number;
+    };
   } | null;
   recentlyUsedTypes: string[];
   wireMenu: {
@@ -110,7 +114,7 @@ interface UIState {
   closeContextMenu:    () => void;
   openSwapTypeMenu:   (id: string, x: number, y: number) => void;
   closeSwapTypeMenu:  () => void;
-  openCanvasMenu:     (x: number, y: number) => void;
+  openCanvasMenu: (x: number, y: number, worldPos?: { x: number; z: number }) => void;
   closeCanvasMenu:    () => void;
   addRecentlyUsedType: (type: string) => void;
   openWireMenu:       (wireId: string, x: number, y: number) => void;
@@ -240,7 +244,7 @@ export const useUIStore = create<UIState>()(
   closeContextMenu: () => set({ contextMenu: null }),
   openSwapTypeMenu: (id, x, y) => set({ swapTypeMenuId: id, swapTypeMenuPos: { x, y } }),
   closeSwapTypeMenu: () => set({ swapTypeMenuId: null, swapTypeMenuPos: null }),
-  openCanvasMenu: (x, y) => set({ canvasMenu: { x, y } }),
+  openCanvasMenu: (x, y, worldPos) => set({ canvasMenu: { x, y, worldPos } }),
   closeCanvasMenu: () => set({ canvasMenu: null }),
   addRecentlyUsedType: (type) =>
     set((state) => {
