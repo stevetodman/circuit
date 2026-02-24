@@ -6,6 +6,7 @@ import { useDragStore } from '@/store/dragStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
+import { useBodeStore } from '@/store/bodeStore';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -17,6 +18,7 @@ import { useUIStore } from '@/store/uiStore';
  *  O                         → toggle oscilloscope
  *  P                         → toggle polarity labels
  *  T                         → toggle wire thickness by current
+ *  D                         → toggle bode plot
  *  S                         → toggle schematic view
  *  F                         → zoom to fit
  *  1 / 2                     → camera presets
@@ -194,6 +196,12 @@ export default function KeyboardShortcuts() {
       if (key === 'o') {
         e.preventDefault();
         useScopeStore.getState().toggle();
+        return;
+      }
+
+      if (!meta && key === 'd') {
+        e.preventDefault();
+        useBodeStore.getState().toggle();
         return;
       }
 
