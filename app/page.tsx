@@ -31,6 +31,7 @@ import ModuleIntroOverlay from '@/components/ModuleIntroOverlay';
 import CanvasOverlay from '@/components/CanvasOverlay';
 import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
+import { WireValidationTooltip } from '@/components/canvas/WirePreview';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -183,6 +184,7 @@ export default function Home() {
           <CanvasOverlay />
           <EmptyStateGallery />
           <WiringHint />
+          <WireValidationTooltip />
           <CameraHint />
           <ErrorBoundary>
             <Oscilloscope

@@ -17,12 +17,35 @@ const BOARD_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP_Y);
  */
 export default function WirePreview() {
   const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
-  const nodes          = useCircuitStore((s) => s.nodes);
+  const nodes = useCircuitStore((s) => s.nodes);
+  const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const wireValidationStatus = useUIStore((s) => s.wireValidationStatus);
+  const setWireValidationStatus = useUIStore((s) => s.setWireValidationStatus);
   const { raycaster, pointer, camera } = useThree();
 
-  const meshRef    = useRef<THREE.Mesh>(null);
-  const geomRef    = useRef<THREE.TubeGeometry | null>(null);
-  const cursorVec  = useRef(new THREE.Vector3());
+  const meshRef = useRef<THREE.Mesh>(null);
+  const geomRef = useRef<THREE.TubeGeometry | null>(null);
+  const cursorVec = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    if (!hoveredNodeId || !selectedNodeId || hoveredNodeId === selectedNodeId) {
+      setWireValidationStatus(null);
+      return;
+    }
+
+    const fromNet = nodes[selectedNodeId]?.netId ?? null;
+    const toNet = nodes[hoveredNodeId]?.netId ?? null;
+
+    if (fromNet != null && toNet != null && fromNet !== toNet) {
+      setWireValidationStatus('short', `Short! Net ${fromNet} ↔ Net ${toNet}`);
+    } else if (toNet != null) {
+      setWireValidationStatus('clean', `Connect to Net ${toNet}`);
+    } else {
+      setWireValidationStatus('clean', null);
+    }
+
+    return () => setWireValidationStatus(null);
+  }, [hoveredNodeId, selectedNodeId, nodes, setWireValidationStatus]);
 
   useFrame(() => {
     const mesh = meshRef.current;
@@ -35,10 +58,12 @@ export default function WirePreview() {
     }
 
     const startNode = nodes[selectedNodeId];
-    if (!startNode) { mesh.visible = false; return; }
+    if (!startNode) {
+      mesh.visible = false;
+      return;
+    }
 
     // F2.5: snap endpoint to hovered pin when available, otherwise follow cursor
-    const hoveredNodeId = useUIStore.getState().hoveredNodeId;
     const snapNode = hoveredNodeId && hoveredNodeId !== selectedNodeId
       ? useCircuitStore.getState().nodes[hoveredNodeId]
       : null;
@@ -50,7 +75,10 @@ export default function WirePreview() {
       // Project cursor onto board plane
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.ray.intersectPlane(BOARD_PLANE, cursorVec.current);
-      if (!hit) { mesh.visible = false; return; }
+      if (!hit) {
+        mesh.visible = false;
+        return;
+      }
       to = cursorVec.current.clone();
       to.y = BOARD_TOP_Y; // keep on board surface
     }
@@ -58,7 +86,7 @@ export default function WirePreview() {
     // Build arc geometry (same formula as Wire.tsx)
     const from = new THREE.Vector3(...startNode.worldPos);
 
-    const flatDist  = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
+    const flatDist = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
     const arcHeight = 0.15 + 0.04 * flatDist;
     const mid = new THREE.Vector3(
       (from.x + to.x) / 2,
@@ -66,15 +94,15 @@ export default function WirePreview() {
       (from.z + to.z) / 2,
     );
 
-    const curve   = new THREE.CatmullRomCurve3([from, mid, to]);
+    const curve = new THREE.CatmullRomCurve3([from, mid, to]);
     const newGeom = new THREE.TubeGeometry(curve, 20, 0.018, 6, false);
 
     // P1-17: assign before dispose so the mesh never holds a disposed geometry reference
-    const oldGeom   = geomRef.current;
+    const oldGeom = geomRef.current;
     geomRef.current = newGeom;
-    mesh.geometry   = newGeom;
+    mesh.geometry = newGeom;
     if (oldGeom) oldGeom.dispose();
-    mesh.visible    = true;
+    mesh.visible = true;
   });
 
   useEffect(() => {
@@ -83,18 +111,51 @@ export default function WirePreview() {
     };
   }, []);
 
+  const previewColor =
+    wireValidationStatus === 'short'
+      ? '#ff2222'
+      : wireValidationStatus === 'clean'
+        ? '#22cc88'
+        : '#ffd700';
+
   // Always mount the mesh so ref is stable; visibility is driven by useFrame
   return (
     <mesh ref={meshRef} visible={false}>
       {/* placeholder geometry — replaced every frame by useFrame */}
       <bufferGeometry />
       <meshStandardMaterial
-        color="#ffd700"
+        color={previewColor}
         transparent
         opacity={0.55}
         roughness={0.35}
         depthWrite={false}
       />
     </mesh>
+  );
+}
+
+export function WireValidationTooltip() {
+  const wireValidationStatus = useUIStore((s) => s.wireValidationStatus);
+  const wireValidationMessage = useUIStore((s) => s.wireValidationMessage);
+  const mouseX = useUIStore((s) => s.mouseX);
+  const mouseY = useUIStore((s) => s.mouseY);
+  const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
+
+  if (!wireValidationMessage || !selectedNodeId) return null;
+
+  const isShort = wireValidationStatus === 'short';
+  const tooltipText = `${isShort ? '⚠ ' : '✓ '}${wireValidationMessage}`;
+
+  return (
+    <div
+      style={{ left: mouseX + 14, top: mouseY - 36 }}
+      className={`fixed z-50 pointer-events-none px-2.5 py-1 rounded-md text-xs font-medium shadow-lg
+        ${isShort
+          ? 'bg-red-900/80 border border-red-500/40 text-red-200'
+          : 'bg-emerald-900/80 border border-emerald-500/40 text-emerald-200'
+        }`}
+    >
+      {tooltipText}
+    </div>
   );
 }
