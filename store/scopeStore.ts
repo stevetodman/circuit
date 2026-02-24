@@ -17,6 +17,7 @@ interface ScopeState {
   addChannel: (netId: number, label?: string) => void;
   removeChannel: (netId: number) => void;
   clearChannels: () => void;
+  updateChannelColor: (netId: number, color: string) => void;
 }
 
 const CHANNEL_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0'];
@@ -66,5 +67,10 @@ export const useScopeStore = create<ScopeState>()((set, get) => ({
       clearChannel(channel.netId);
     }
     set({ channels: [] });
+  },
+  updateChannelColor(netId, color) {
+    set((s) => ({
+      channels: s.channels.map((ch) => (ch.netId === netId ? { ...ch, color } : ch)),
+    }));
   },
 }));
