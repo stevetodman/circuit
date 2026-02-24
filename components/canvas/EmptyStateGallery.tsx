@@ -54,9 +54,9 @@ export default function EmptyStateGallery() {
         <div className="mx-auto rounded-xl border border-white/10 bg-[#111113]/90 px-5 py-4 text-white/80">
           <p className="text-sm font-semibold mb-3">Try an example:</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {examples.map((example) => (
+            {examples.map((example, i) => (
               <button
-                key={example.name}
+                key={`${example.name}-${i}`}
                 type="button"
                 onClick={() => loadFromJSON(example)}
                 className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 p-3 text-left transition-colors"
