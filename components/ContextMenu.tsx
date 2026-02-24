@@ -105,13 +105,17 @@ export default function ContextMenu() {
   return (
     <div
       ref={menuRef}
-      className="fixed z-40 min-w-[160px] rounded border border-white/15 bg-[#161616] shadow-2xl overflow-hidden"
-      style={{ left: `${cx}px`, top: `${cy}px` }}
+      className="fixed z-40 min-w-[160px] rounded-lg border border-white/[0.12] bg-[#18181c] shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden"
+      style={{
+        left: `${cx}px`,
+        top: `${cy}px`,
+        animation: 'toastIn 0.12s ease-out both',
+      }}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <button
         type="button"
-        className="w-full px-3 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+        className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
         onClick={() => {
           toggleComponentLock(componentId);
           closeContextMenu();
@@ -123,7 +127,7 @@ export default function ContextMenu() {
         <button
           key={item.key}
           type="button"
-          className="w-full px-3 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+          className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
           onClick={() => itemLabelToAction(item.key)}
         >
           {item.label}
@@ -160,8 +164,12 @@ export function WireContextMenu() {
 
   return (
     <div
-      className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-2xl py-1.5 min-w-[160px]"
-      style={{ left: wireMenu.x, top: wireMenu.y }}
+      className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] py-1.5 min-w-[160px]"
+      style={{
+        left: wireMenu.x,
+        top: wireMenu.y,
+        animation: 'toastIn 0.12s ease-out both',
+      }}
       onMouseLeave={closeWireMenu}
     >
       <div className="px-3 py-1 flex flex-wrap gap-1.5">

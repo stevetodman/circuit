@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { type CSSProperties } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { useCircuitHistory, useCircuitStore } from '@/store/circuitStore';
@@ -110,7 +111,10 @@ export default function Toolbar() {
   const noSelection = !selectedComponentId && selectedComponentIds.length === 0;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px]">
+    <div
+      className="absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px] overflow-x-auto"
+      style={{ scrollbarWidth: 'none' } as CSSProperties}
+    >
       <ToolbarBtn
         onClick={() => {
           useCircuitHistory().getState().undo();
