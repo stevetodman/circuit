@@ -94,6 +94,44 @@ function CameraHint() {
   );
 }
 
+function NoteEditOverlay() {
+  const editingNoteId = useUIStore((s) => s.editingNoteId);
+  const setEditingNoteId = useUIStore((s) => s.setEditingNoteId);
+  const notes = useCircuitStore((s) => s.notes);
+  const updateNote = useCircuitStore((s) => s.updateNote);
+
+  if (!editingNoteId) return null;
+  const note = notes[editingNoteId];
+  if (!note) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+      <div className="bg-white rounded-lg shadow-xl p-4 flex flex-col gap-3 w-72">
+        <p className="text-xs text-gray-500 font-medium">Edit note</p>
+        <textarea
+          autoFocus
+          defaultValue={note.text}
+          className="border border-gray-200 rounded p-2 text-sm text-gray-800 resize-none"
+          rows={3}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setEditingNoteId(null);
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              updateNote(editingNoteId, (e.target as HTMLTextAreaElement).value);
+              setEditingNoteId(null);
+            }
+          }}
+          onBlur={(e) => {
+            updateNote(editingNoteId, e.target.value);
+            setEditingNoteId(null);
+          }}
+        />
+        <p className="text-[10px] text-gray-400">Enter to save · Esc to cancel</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const { open: scopeOpen, channels, toggle: scopeToggle, addChannel, removeChannel } = useScopeStore(
@@ -161,6 +199,7 @@ export default function Home() {
       <HelpOverlay />
       <ContextMenu />
       <WireContextMenu />
+      <NoteEditOverlay />
       <KeyboardShortcuts />
       <ModuleIntroOverlay />
       <ModuleValidator />

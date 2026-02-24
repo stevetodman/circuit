@@ -1,8 +1,8 @@
 'use client';
 
-import { Component, type ReactNode, useEffect, useRef } from 'react';
+import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import Breadboard from './Breadboard';
@@ -15,7 +15,7 @@ import ComponentRenderer from './parts/ComponentRenderer';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useDragStore } from '@/store/dragStore';
-import { PIN_TEMPLATES, type Vec3 } from '@/types/circuit';
+import { PIN_TEMPLATES, type CircuitNote, type Vec3 } from '@/types/circuit';
 
 const CANVAS_BG = 'linear-gradient(155deg, #f9f7ff 0%, #ede8f8 55%, #e8ecf8 100%)';
 const DEFAULT_CAMERA_POSITION: Vec3 = [8, 8, 8];
@@ -376,6 +376,64 @@ function CameraController() {
   );
 }
 
+function NotesLayer() {
+  const notes = useCircuitStore((s) => s.notes);
+  const removeNote = useCircuitStore((s) => s.removeNote);
+  const noteArray = Object.values(notes);
+
+  return (
+    <>
+      {noteArray.map((note) => (
+        <NoteObject key={note.id} note={note} onRemove={() => removeNote(note.id)} />
+      ))}
+    </>
+  );
+}
+
+function NoteObject({ note, onRemove }: { note: CircuitNote; onRemove: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const setEditingNoteId = useUIStore((s) => s.setEditingNoteId);
+
+  return (
+    <group position={note.position}>
+      <mesh position={[0, 0, -0.01]}>
+        <planeGeometry args={[1.0, 0.35]} />
+        <meshStandardMaterial
+          color="#fefce8"
+          transparent
+          opacity={hovered ? 0.95 : 0.85}
+          depthWrite={false}
+        />
+      </mesh>
+      <Text
+        position={[0, 0, 0]}
+        fontSize={0.085}
+        color="#1a1a1a"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={0.9}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
+        onDoubleClick={() => setEditingNoteId(note.id)}
+      >
+        {note.text}
+      </Text>
+      {hovered && (
+        <Text
+          position={[0.42, 0.14, 0.01]}
+          fontSize={0.07}
+          color="#cc2222"
+          anchorX="center"
+          anchorY="middle"
+          onClick={onRemove}
+        >
+          ✕
+        </Text>
+      )}
+    </group>
+  );
+}
+
 export default function Scene() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
@@ -417,6 +475,7 @@ export default function Scene() {
           <Breadboard />
           <BreadboardLabels />
           <WireLayer />
+          <NotesLayer />
           <WirePreview />
           <PinGrid />
           <DragManager />

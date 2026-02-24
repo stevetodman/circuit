@@ -27,6 +27,13 @@ export interface CircuitNode {
   netId: number | null;
 }
 
+export interface CircuitNote {
+  id: string;
+  text: string;
+  attachedTo: string | null;
+  position: Vec3;
+}
+
 export interface PinConnection {
   name: string;
   nodeId: string;

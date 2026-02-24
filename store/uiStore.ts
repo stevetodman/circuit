@@ -63,6 +63,7 @@ interface UIState {
   circuitHealthWarning: string | null;
   snapTargetNodeIds: string[];
   zoomToComponentId: string | null;
+  editingNoteId: string | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -106,6 +107,7 @@ interface UIState {
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
   setWireValidationStatus: (status: 'clean' | 'short' | null, message?: string | null) => void;
+  setEditingNoteId: (id: string | null) => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -152,6 +154,7 @@ export const useUIStore = create<UIState>()(
   circuitHealthWarning: null,
   snapTargetNodeIds: [],
   zoomToComponentId: null,
+  editingNoteId: null,
   setWireValidationStatus: (status, message = null) => set({
     wireValidationStatus: status,
     wireValidationMessage: message,
@@ -221,6 +224,7 @@ export const useUIStore = create<UIState>()(
       return { boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) };
     }),
   clearBoxSelect: () => set({ boxSelect: null, boxSelectRect: null }),
+  setEditingNoteId: (id) => set({ editingNoteId: id }),
   }),
   {
     name: 'circuit-ui-prefs',
