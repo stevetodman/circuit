@@ -6,6 +6,7 @@ import { MODULES } from '@/features/modules/definitions';
 interface ModuleStore {
   activeModuleId: string | null;
   activeStepIndex: number;
+  skippedStepIndices: number[];
   completedModuleIds: string[];
   justCompleted: boolean;
   validationFailed: boolean;
@@ -16,6 +17,7 @@ interface ModuleStore {
 
   startModule: (id: string) => void;
   advanceStep: () => void;
+  skipStep: () => void;
   exitModule: () => void;
   resetProgress: () => void;
   setValidationFailed: (failed: boolean) => void;
@@ -36,6 +38,7 @@ export const useModuleStore = create<ModuleStore>()(
       return {
       activeModuleId: null,
       activeStepIndex: 0,
+      skippedStepIndices: [],
       completedModuleIds: [],
       justCompleted: false,
       validationFailed: false,
@@ -55,6 +58,33 @@ export const useModuleStore = create<ModuleStore>()(
         if (get().activeModuleId === id) return;
         clearCompletionTimer();
         set({ activeModuleId: id, activeStepIndex: 0 });
+      },
+      skipStep() {
+        const mod = get().activeModule;
+        if (!mod) return;
+        const currentStep = get().activeStepIndex;
+        const nextIdx = currentStep + 1;
+        set((s) => ({
+          skippedStepIndices: s.skippedStepIndices.includes(currentStep)
+            ? s.skippedStepIndices
+            : [...s.skippedStepIndices, currentStep],
+        }));
+        if (nextIdx >= mod.steps.length) {
+          clearCompletionTimer();
+          set((s) => ({
+            justCompleted: true,
+            activeStepIndex: currentStep,
+            completedModuleIds: s.completedModuleIds.includes(mod.id)
+              ? s.completedModuleIds
+              : [...s.completedModuleIds, mod.id],
+          }));
+          completionTimer = setTimeout(() => {
+            get().exitModule();
+            set({ justCompleted: false });
+          }, 2500);
+        } else {
+          set({ activeStepIndex: nextIdx, validationFailed: false });
+        }
       },
       advanceStep() {
         const mod = get().activeModule;
@@ -79,17 +109,33 @@ export const useModuleStore = create<ModuleStore>()(
       },
       exitModule() {
         clearCompletionTimer();
-        set({ activeModuleId: null, activeStepIndex: 0, justCompleted: false, validationFailed: false });
+        set({
+          activeModuleId: null,
+          activeStepIndex: 0,
+          justCompleted: false,
+          validationFailed: false,
+          skippedStepIndices: [],
+        });
       },
       resetProgress() {
         clearCompletionTimer();
-        set({ activeModuleId: null, activeStepIndex: 0, completedModuleIds: [], justCompleted: false, validationFailed: false });
+        set({
+          activeModuleId: null,
+          activeStepIndex: 0,
+          completedModuleIds: [],
+          justCompleted: false,
+          validationFailed: false,
+          skippedStepIndices: [],
+        });
       },
       setValidationFailed(failed: boolean) {
         set({ validationFailed: failed });
       },
       };
     },
-    { name: 'circuit-modules' },
+    {
+      name: 'circuit-modules',
+      partialize: ({ skippedStepIndices, ...state }) => state,
+    },
   ),
 );
