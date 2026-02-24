@@ -268,11 +268,21 @@ export default function Sidebar() {
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768,
+  );
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 260;
     const saved = window.localStorage.getItem('circuit-sidebar-width');
     return saved ? Math.max(200, Math.min(400, Number(saved))) : 260;
   });
+  const showSidebar = useUIStore((state) => state.showSidebar);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem('circuit-sidebar-width', String(sidebarWidth));
@@ -299,15 +309,40 @@ export default function Sidebar() {
   }
 
   return (
-    <aside
-      className="flex flex-col h-full select-none relative"
-      style={{
-        width: sidebarWidth,
-        background: 'var(--sidebar-bg, #111113)',
-        borderRight: '1px solid var(--sidebar-border, #252528)',
-        flexShrink: 0,
-      }}
-    >
+    <>
+      {isMobile && showSidebar && (
+        <div
+          onClick={() => useUIStore.getState().toggleSidebar()}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 49,
+          }}
+        />
+      )}
+      <aside
+        className={`flex flex-col h-full select-none relative ${isMobile ? 'z-50' : ''}`}
+        style={{
+          width: isMobile
+            ? (typeof window === 'undefined'
+              ? sidebarWidth
+              : Math.max(0, Math.min(sidebarWidth, window.innerWidth - 40)))
+            : sidebarWidth,
+          display: !isMobile && !showSidebar ? 'none' : 'flex',
+          background: 'var(--sidebar-bg, #111113)',
+          borderRight: '1px solid var(--sidebar-border, #252528)',
+          flexShrink: 0,
+          ...(isMobile && {
+            position: 'fixed' as const,
+            top: 0,
+            left: 0,
+            bottom: 0,
+            transform: showSidebar ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 0.22s ease',
+          }),
+        }}
+      >
       {/* ── Header ── */}
       <div className="px-4 py-3.5 border-b border-white/[0.08] flex items-center gap-2.5">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -576,6 +611,7 @@ export default function Sidebar() {
           window.addEventListener('mouseup', onUp);
         }}
       />
-    </aside>
+      </aside>
+    </>
   );
 }

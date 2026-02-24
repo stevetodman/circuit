@@ -217,7 +217,7 @@ export default function Home() {
           ›
         </button>
       )}
-      {showSidebar && <ErrorBoundary><Sidebar /></ErrorBoundary>}
+      <ErrorBoundary><Sidebar /></ErrorBoundary>
       <main className="relative flex-1 min-w-0 h-full">
         <Toolbar />
         <div className="absolute inset-0 top-[36px]">

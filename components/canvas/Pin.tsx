@@ -23,6 +23,8 @@ export default function PinGrid() {
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const setHovered    = useUIStore((s) => s.setHoveredNode);
   const snapTargetNodeIds = useUIStore((s) => s.snapTargetNodeIds);
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
+  const PIN_HIT_RADIUS = isTouchDevice ? 0.08 : 0.05;
 
   const meshRef    = useRef<THREE.InstancedMesh>(null);
   const hitMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -145,7 +147,7 @@ export default function PinGrid() {
         onClick={onClick}
         renderOrder={1}
       >
-        <cylinderGeometry args={[0.10, 0.10, 0.04, 10]} />
+        <cylinderGeometry args={[PIN_HIT_RADIUS, PIN_HIT_RADIUS, 0.04, 10]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </instancedMesh>
     </>

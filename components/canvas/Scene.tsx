@@ -169,6 +169,8 @@ function SceneInteractions() {
   const requestZoomToComponent = useUIStore((state) => state.requestZoomToComponent);
   const openCanvasMenu = useUIStore((state) => state.openCanvasMenu);
   const setSelectedComponentIds = useCircuitStore((state) => state.setSelectedComponentIds);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartPos = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
@@ -194,6 +196,21 @@ function SceneInteractions() {
       return null;
     };
 
+    const handleContextMenu = (clientX: number, clientY: number) => {
+      const componentId = findComponentAtPointer(clientX, clientY);
+      if (!componentId) {
+        openCanvasMenu(clientX, clientY);
+      }
+    };
+
+    const clearLongPress = () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      longPressStartPos.current = null;
+    };
+
     const screenContains = (worldPosition: Vec3, bounds: DOMRect, selectionRect: DOMRect): boolean => {
       point.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(camera);
       if (point.z < -1 || point.z > 1) return false;
@@ -213,18 +230,36 @@ function SceneInteractions() {
       if (findComponentAtPointer(event.clientX, event.clientY)) return;
 
       startBoxSelect(event.clientX, event.clientY);
+
+      if (event.pointerType === 'touch') {
+        longPressStartPos.current = { x: event.clientX, y: event.clientY };
+        longPressTimerRef.current = setTimeout(() => {
+          handleContextMenu(event.clientX, event.clientY);
+        }, 350);
+      }
+
       event.preventDefault();
       event.stopImmediatePropagation();
     };
 
     const onPointerMove = (event: PointerEvent) => {
       setMousePos(event.clientX, event.clientY);
+
+      if (longPressStartPos.current) {
+        const dx = event.clientX - longPressStartPos.current.x;
+        const dy = event.clientY - longPressStartPos.current.y;
+        if (Math.sqrt((dx * dx) + (dy * dy)) > 10) {
+          clearLongPress();
+        }
+      }
+
       if (!useUIStore.getState().boxSelect) return;
       updateBoxSelect(event.clientX, event.clientY);
       event.preventDefault();
     };
 
     const onPointerUp = (event: PointerEvent) => {
+      clearLongPress();
       const active = useUIStore.getState().boxSelect;
       if (!active) return;
 
@@ -256,10 +291,7 @@ function SceneInteractions() {
 
     const onContextMenu = (event: MouseEvent) => {
       event.preventDefault();
-      const componentId = findComponentAtPointer(event.clientX, event.clientY);
-      if (!componentId) {
-        openCanvasMenu(event.clientX, event.clientY);
-      }
+      handleContextMenu(event.clientX, event.clientY);
     };
 
     gl.domElement.addEventListener('pointerdown', onPointerDown, true);
@@ -284,6 +316,14 @@ function SceneInteractions() {
       gl.domElement.removeEventListener('contextmenu', onContextMenu);
     };
   }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent, openCanvasMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   return null;
 }
