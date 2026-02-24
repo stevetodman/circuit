@@ -49,6 +49,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   const showWireVoltageColors = useUIStore((s) => s.showWireVoltageColors);
   const overloadIds = useUIStore((s) => s.overloadIds);
   const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
+  const netLabels = useCircuitStore((s) => s.netLabels);
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const hoveredNetId = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? -1) : -1,
@@ -65,9 +66,10 @@ export default function Wire({ wire, branchIndex }: WireProps) {
     return buildWirePoints(fromPos, toPos);
   }, [fromPos, toPos]);
 
+  const curve = useMemo(() => (points ? new THREE.CatmullRomCurve3(points) : null), [points]);
+
   const geometry = useMemo(() => {
-    if (!points) return null;
-    const curve = new THREE.CatmullRomCurve3(points);
+    if (!curve) return null;
     return new THREE.TubeGeometry(
       curve,
       WIRE_TUBES.segments,
@@ -75,7 +77,12 @@ export default function Wire({ wire, branchIndex }: WireProps) {
       WIRE_TUBES.radialSegments,
       false,
     );
-  }, [points]);
+  }, [curve]);
+
+  const midpoint = useMemo(() => {
+    if (!curve) return null;
+    return curve.getPoint(0.5);
+  }, [curve]);
 
   const labelPosition = useMemo(() => {
     if (!fromPos || !toPos) return null;
@@ -152,28 +159,44 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   if (!geometry) return null;
 
   return (
-    <mesh geometry={geometry} onContextMenu={onContextMenu}>
-      <meshStandardMaterial
-        ref={matRef}
-        color={wire.color}
-        emissive={wire.color}
-        roughness={0.6}
-        metalness={0.1}
-        emissiveIntensity={0.08}
-      />
-      {labelPosition && (
-      <Text
-          ref={textRef as any}
-          position={labelPosition}
-          fontSize={0.06}
+    <group onContextMenu={onContextMenu}>
+      <mesh geometry={geometry}>
+        <meshStandardMaterial
+          ref={matRef}
           color={wire.color}
+          emissive={wire.color}
+          roughness={0.6}
+          metalness={0.1}
+          emissiveIntensity={0.08}
+        />
+        {labelPosition && midpoint && (
+          <Text
+            ref={textRef as any}
+            position={midpoint}
+            fontSize={0.06}
+            color={wire.color}
+            anchorX="center"
+            anchorY="middle"
+            visible={showCurrentLabels && hasBranchIndex}
+          >
+            {textValueRef.current}
+          </Text>
+        )}
+      </mesh>
+      {fromNetId >= 0 && netLabels[fromNetId] && midpoint && (
+        <Text
+          position={midpoint}
+          fontSize={0.09}
+          color="#ffffff"
           anchorX="center"
           anchorY="middle"
-          visible={showCurrentLabels && hasBranchIndex}
+          fillOpacity={0.7}
+          depthOffset={-2}
+          renderOrder={3}
         >
-          {textValueRef.current}
+          {netLabels[fromNetId]}
         </Text>
       )}
-    </mesh>
+    </group>
   );
 }

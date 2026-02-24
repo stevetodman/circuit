@@ -20,6 +20,7 @@ type SavedCircuitJSON = {
   nodes: Record<string, CircuitNode>;
   components: Record<string, PlacedComponent>;
   wires: Record<string, Wire>;
+  netLabels: Record<number, string>;
   name?: string;
 };
 
@@ -61,6 +62,7 @@ interface TopologyState {
   nodes: Record<string, CircuitNode>;
   components: Record<string, PlacedComponent>;
   wires: Record<string, Wire>;
+  netLabels: Record<number, string>;
 }
 
 // ── Full store interface ──────────────────────────────────────────────────────
@@ -99,6 +101,8 @@ interface CircuitState extends TopologyState {
   saveToJSON(): string;
   loadFromJSON(data: string | ExampleCircuit): void;
   newCircuit(): void;
+  setNetLabel: (netId: number, label: string) => void;
+  removeNetLabel: (netId: number) => void;
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
@@ -171,6 +175,8 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
     const parsed = JSON.parse(json) as unknown;
     if (!isRecord(parsed)) return null;
     const { version, nodes, components, wires } = parsed as Partial<Record<keyof SavedCircuitJSON, unknown>>;
+    const rawNetLabels = (parsed as Record<string, unknown>).netLabels;
+    const netLabels = isRecord(rawNetLabels) ? rawNetLabels : {};
     if (version !== 1) return null;
     if (!isRecord(nodes) || !isRecord(components) || !isRecord(wires)) return null;
     return {
@@ -178,6 +184,7 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       nodes: nodes as Record<string, CircuitNode>,
       components: components as Record<string, PlacedComponent>,
       wires: wires as Record<string, Wire>,
+      netLabels: netLabels as Record<number, string>,
     };
   } catch { return null; }
 }
@@ -190,6 +197,7 @@ function exampleCircuitToPayload(example: ExampleCircuit): SavedCircuitJSON {
     nodes: seedBreadboardNodes(),
     components,
     wires,
+    netLabels: {},
   };
 }
 
@@ -214,7 +222,8 @@ export const useCircuitStore = create<CircuitState>()(
       nodes: seedBreadboardNodes(),
       components: {},
       wires: {},
-  selectedNodeId: null,
+      netLabels: {},
+      selectedNodeId: null,
       selectedComponentId: null,
       selectedComponentIds: [],
       circuitName: '',
@@ -401,7 +410,7 @@ export const useCircuitStore = create<CircuitState>()(
       loadCircuit(components, wires) {
         set((state) => {
           const nodes = runNetAnalysis(state.nodes, wires, components);
-          return { components, wires, nodes, selectedComponentId: null, selectedComponentIds: [], selectedNodeId: null };
+          return { components, wires, nodes, netLabels: {}, selectedComponentId: null, selectedComponentIds: [], selectedNodeId: null };
         });
       },
 
@@ -418,6 +427,7 @@ export const useCircuitStore = create<CircuitState>()(
           nodes: runNetAnalysis(state.nodes, wireMap, componentMap),
           selectedComponentId: null,
           selectedNodeId: null,
+          netLabels: {},
         }));
       },
 
@@ -474,6 +484,7 @@ export const useCircuitStore = create<CircuitState>()(
           nodes: state.nodes,
           components: state.components,
           wires: state.wires,
+          netLabels: state.netLabels,
         } satisfies SavedCircuitJSON);
       },
 
@@ -492,6 +503,7 @@ export const useCircuitStore = create<CircuitState>()(
           nodes,
           components: payload.components,
           wires: payload.wires,
+          netLabels: payload.netLabels ?? {},
           circuitName: payloadName ?? '',
           selectedComponentId: null,
           selectedNodeId: null,
@@ -505,6 +517,7 @@ export const useCircuitStore = create<CircuitState>()(
           nodes: {},
           components: {},
           wires: {},
+          netLabels: {},
           circuitName: '',
           selectedComponentId: null,
           selectedComponentIds: [],
@@ -513,13 +526,33 @@ export const useCircuitStore = create<CircuitState>()(
         });
         clearUndoHistory?.();
       },
+
+      setNetLabel(netId, label) {
+        const trimmed = label.trim();
+        if (!trimmed) {
+          set((state) => {
+            const { [netId]: _removed, ...rest } = state.netLabels;
+            return { netLabels: rest };
+          });
+          return;
+        }
+        set((state) => ({ netLabels: { ...state.netLabels, [netId]: trimmed } }));
+      },
+
+      removeNetLabel(netId) {
+        set((state) => {
+          const { [netId]: _removed, ...rest } = state.netLabels;
+          return { netLabels: rest };
+        });
+      },
     }),
     {
-      // Only snapshot topology for undo — not UI cursor state
+      // Only snapshot topology + net labels for undo — not UI cursor state
       partialize: (state): TopologyState => ({
         nodes: state.nodes,
         components: state.components,
         wires: state.wires,
+        netLabels: state.netLabels,
       }),
       limit: 100,
     }
@@ -530,7 +563,12 @@ if (typeof window !== 'undefined') {
   clearUndoHistory = () => useCircuitStore.temporal.getState().clear();
 
   useCircuitStore.subscribe((state, prev) => {
-    if (state.nodes === prev.nodes && state.components === prev.components && state.wires === prev.wires) return;
+    if (
+      state.nodes === prev.nodes &&
+      state.components === prev.components &&
+      state.wires === prev.wires &&
+      state.netLabels === prev.netLabels
+    ) return;
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => {
       localStorage.setItem(CIRCUIT_SAVE_KEY, useCircuitStore.getState().saveToJSON());
