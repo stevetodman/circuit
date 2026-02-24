@@ -36,6 +36,7 @@ import CanvasOverlay from '@/components/CanvasOverlay';
 import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
 import { WireValidationTooltip } from '@/components/canvas/WirePreview';
+import ComponentTooltip from '@/components/canvas/ComponentTooltip';
 import SaveBlockPrompt from '@/components/SaveBlockPrompt';
 import CircuitAudit from '@/components/CircuitAudit';
 
@@ -243,6 +244,7 @@ export default function Home() {
         <div className="absolute inset-0 top-[36px]">
           <WiringBanner />
           <PinTooltip />
+          <ComponentTooltip />
           <CanvasSearch />
           <FindReplace />
           <Scene />

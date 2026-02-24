@@ -18,6 +18,11 @@ interface BoxSelectState {
 
 interface UIState {
   hoveredNodeId: string | null;
+  hoveredComponentId: string | null;
+  hoveredComponentPos: {
+    x: number;
+    y: number;
+  } | null;
   mouseX: number;
   mouseY: number;
   wireValidationStatus: 'clean' | 'short' | null;
@@ -157,6 +162,7 @@ interface UIState {
   setClickToPlaceBlock: (id: string | null) => void;
   openCircuitAudit: () => void;
   closeCircuitAudit: () => void;
+  setHoveredComponent: (id: string | null, pos?: { x: number; y: number }) => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -169,6 +175,8 @@ export const useUIStore = create<UIState>()(
   persist(
   (set) => ({
   hoveredNodeId: null,
+  hoveredComponentId: null,
+  hoveredComponentPos: null,
   mouseX:       0,
   mouseY:       0,
   wireValidationStatus: null,
@@ -226,6 +234,10 @@ export const useUIStore = create<UIState>()(
 
   recentlyUsedTypes: [],
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
+  setHoveredComponent: (id, pos) => set({
+    hoveredComponentId: id,
+    hoveredComponentPos: pos ?? null,
+  }),
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
   setSimStatus:   (status, error = undefined) => set({
     simStatus: status,
