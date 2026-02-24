@@ -8,6 +8,7 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
 import { useBodeStore } from '@/store/bodeStore';
 import { useToastStore } from '@/store/toastStore';
+import { PITCH } from '@/constants/breadboard';
 
 /**
  * Global keyboard shortcuts — mount once in app/page.tsx.
@@ -61,6 +62,18 @@ export default function KeyboardShortcuts() {
       // P1-9: check input focus before all shortcuts (including undo/redo)
       // so browser-native text undo (Ctrl+Z in inputs) is not intercepted
       if (isInputFocused()) return;
+
+      if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key)) {
+        const selId = useCircuitStore.getState().selectedComponentId;
+        const wiringActive = useCircuitStore.getState().selectedNodeId;
+        if (selId && !wiringActive && !dragging) {
+          e.preventDefault();
+          const dx = key === 'arrowright' ? PITCH : key === 'arrowleft' ? -PITCH : 0;
+          const dz = key === 'arrowdown' ? PITCH : key === 'arrowup' ? -PITCH : 0;
+          useCircuitStore.getState().nudgeComponent(selId, dx, dz);
+          return;
+        }
+      }
 
       if (key === 'tab') {
         e.preventDefault();

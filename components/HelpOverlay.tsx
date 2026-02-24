@@ -13,6 +13,8 @@ const SECTIONS = [
       ['Ctrl/Cmd+Shift+Z', 'Redo'],
       ['Ctrl/Cmd+C', 'Copy selected'],
       ['Ctrl/Cmd+V', 'Paste'],
+      ['↑ ↓ ← →', 'Nudge selected component 1 grid step'],
+      ['Ctrl/Cmd+N', 'New circuit'],
       ['Ctrl/Cmd+A', 'Select all'],
       ['Ctrl/Cmd+D', 'Duplicate'],
     ],
