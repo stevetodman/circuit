@@ -1,203 +1,175 @@
-# P7.a — Click-to-Place Mode
+# SPEC: Swap Component Type (p8.a)
 
 ## Goal
-Let users click a part in the sidebar to "arm" it, then click a spot on the breadboard canvas to place it — no cross-screen dragging required. One click to arm, one click to place.
+Let users change a placed component's type in-place via right-click → "Swap type".
+Keeps position, rotation, and any shared props. Then opens inline value editor.
 
 ## Acceptance Criteria
-1. Clicking a ComponentTile (instead of dragging) arms click-to-place mode for that type
-2. While armed: cursor over canvas is a `crosshair`, a floating badge near the cursor shows the component type (e.g. "Resistor — click to place")
-3. Clicking on the canvas (on the board plane) places the component at the nearest pin hole (same snap logic as drag-drop)
-4. `Escape` cancels click-to-place mode
-5. `R` key during click-to-place rotates the pending component (same as during drag)
-6. Dragging from ComponentTile still works exactly as before (unchanged behaviour)
-7. After placement the mode is cleared — user must click tile again to place another
-8. Works alongside the existing drag mode — they are mutually exclusive
-9. `pnpm build` must pass; no TypeScript errors
+1. Right-click any component → context menu has "Swap type" item (between Duplicate and Properties)
+2. Clicking "Swap type" opens a compact type-picker panel at the same screen position
+3. The type picker shows only types with the same pin count as the current component
+4. Selecting a type replaces the component in circuitStore keeping anchorPos + rotationY; props reset to {}
+5. If the new type has a primary value key, opens inline edit immediately after swap
+6. A toast "Swapped to [type] — Ctrl+Z to undo" confirms the action
+7. Locked components: "Swap type" is disabled/grayed in menu
 
-## Files to Modify
+## Pin-count compatibility groups
+- 2-pin: resistor, capacitor, inductor, battery, diode, zener, schottky, led, motor, tactileSwitch
+- 3-pin: bjt, pnp, mosfet, potentiometer
+- 5+ pin (timer555, arduino, opamp): do not show swap option at all — skip adding to menu for these types
 
-### `store/uiStore.ts`
-Add to UIState interface:
+## Implementation
+
+### 1. `store/circuitStore.ts`
+Add to the interface and implementation:
 ```ts
-clickToPlaceType: ComponentType | null;
-clickToPlaceRotation: number;
-setClickToPlace: (type: ComponentType | null) => void;
-rotateClickToPlace: () => void;
+swapComponentType(id: string, newType: ComponentType): void;
 ```
-Add to initial state:
+Implementation:
 ```ts
-clickToPlaceType: null,
-clickToPlaceRotation: 0,
-```
-Add actions:
-```ts
-setClickToPlace: (type) => set((s) => ({
-  clickToPlaceType: type,
-  clickToPlaceRotation: type == null ? 0 : s.clickToPlaceRotation,
-})),
-rotateClickToPlace: () => set((s) => ({ clickToPlaceRotation: (s.clickToPlaceRotation + 90) % 360 })),
+swapComponentType(id, newType) {
+  set((state) => {
+    const comp = state.components[id];
+    if (!comp || comp.locked) return state;
+    const components = {
+      ...state.components,
+      [id]: { ...comp, type: newType, props: {} },
+    };
+    const nodes = runNetAnalysis(state.nodes, state.wires, components);
+    return { components, nodes };
+  });
+  useToastStore.getState().addToast(`Swapped to ${newType} — Ctrl+Z to undo`, 'info');
+},
 ```
 
-### `components/sidebar/ComponentTile.tsx`
-Add `onClick` prop (in addition to existing `onAdd`):
+### 2. `store/uiStore.ts`
+Add to interface and state:
+```ts
+swapTypeMenuId: string | null;
+swapTypeMenuPos: { x: number; y: number } | null;
+openSwapTypeMenu: (id: string, x: number, y: number) => void;
+closeSwapTypeMenu: () => void;
+```
+Init: `swapTypeMenuId: null, swapTypeMenuPos: null`
+Actions:
+```ts
+openSwapTypeMenu: (id, x, y) => set({ swapTypeMenuId: id, swapTypeMenuPos: { x, y } }),
+closeSwapTypeMenu: () => set({ swapTypeMenuId: null, swapTypeMenuPos: null }),
+```
+Do NOT add these to the partialize list (ephemeral UI state, not persisted).
+
+### 3. `components/ContextMenu.tsx`
+In MENU_ITEMS, add after 'duplicate':
+```ts
+{ key: 'swapType', label: 'Swap type', kbd: null },
+```
+In the run() switch for 'swapType':
+```ts
+case 'swapType': {
+  const menuPos = useUIStore.getState().contextMenu;
+  if (menuPos) useUIStore.getState().openSwapTypeMenu(componentId, menuPos.x, menuPos.y);
+  break;
+}
+```
+Disable the item when comp.locked is true OR when the type is timer555/arduino/opamp
+(add a `disabled?: boolean` field to MENU_ITEMS or check inline before rendering).
+
+### 4. New `components/SwapTypeMenu.tsx`
+Create a new file. Floating panel showing compatible types:
+
 ```tsx
-onClick?: () => void;
-```
-If `onClick` is provided, call it on the tile's `onClick` event.
-If neither `onAdd` nor `onClick` is provided, fall back to existing behaviour.
+'use client';
 
-Actually simpler: the existing tile fires `onAdd` which starts a drag. Instead, we'll handle click-to-place in `Sidebar.tsx` by passing a special `onClick` that calls `setClickToPlace`.
+import { useCircuitStore } from '@/store/circuitStore';
+import { useUIStore } from '@/store/uiStore';
+import type { ComponentType } from '@/types/circuit';
 
-Since ComponentTile already has draggable behaviour, we need to distinguish a click (no movement) from a drag start. Use a `pointerdown`/`pointermove`/`pointerup` pattern on the tile — if pointer moves <5px before up, treat as a click → arm click-to-place mode. If it moves >5px, start drag as before.
+const TWO_PIN: ComponentType[] = [
+  'resistor','capacitor','inductor','battery','diode','zener','schottky','led','motor','tactileSwitch',
+];
+const THREE_PIN: ComponentType[] = ['bjt','pnp','mosfet','potentiometer'];
 
-Add to ComponentTile:
-```tsx
-const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
-const moved = useRef(false);
+function getPinGroup(type: ComponentType): ComponentType[] | null {
+  if ((TWO_PIN as ComponentType[]).includes(type)) return TWO_PIN;
+  if ((THREE_PIN as ComponentType[]).includes(type)) return THREE_PIN;
+  return null;
+}
 
-onPointerDown={(e) => {
-  pointerDownPos.current = { x: e.clientX, y: e.clientY };
-  moved.current = false;
-}}
-onPointerMove={(e) => {
-  if (pointerDownPos.current) {
-    const dx = e.clientX - pointerDownPos.current.x;
-    const dy = e.clientY - pointerDownPos.current.y;
-    if (Math.sqrt(dx*dx + dy*dy) > 5) moved.current = true;
-  }
-}}
-onPointerUp={(e) => {
-  if (pointerDownPos.current && !moved.current) {
-    // Click (not drag) — arm click-to-place
-    props.onClickToPlace?.();
-  }
-  pointerDownPos.current = null;
-}}
-```
-Add optional prop `onClickToPlace?: () => void`.
-
-### `components/sidebar/Sidebar.tsx`
-When rendering each `<ComponentTile>`, pass:
-```tsx
-onClickToPlace={() => {
-  useUIStore.getState().setClickToPlace(type);
-  // Also cancel any active drag
-  useDragStore.getState().cancel();
-}}
-```
-
-### `components/canvas/DragManager.tsx`
-Add click-to-place handling. In the main `useEffect` for pointer events:
-
-After the existing `pointerup` handler, add a separate `pointerup` handler that checks `clickToPlaceType`:
-```ts
-// Click-to-place: if click-to-place mode is active and user clicks canvas (not a component)
-// This runs BEFORE the drag handler — if dragging is active, skip
-const handleClickToPlace = (e: PointerEvent) => {
-  const { clickToPlaceType, clickToPlaceRotation } = useUIStore.getState();
-  if (!clickToPlaceType) return;
-  if (useDragStore.getState().dragging) return;
-  
-  const pos = clientToBoardPos(e.clientX, e.clientY);
-  if (!pos) {
-    useUIStore.getState().setClickToPlace(null);
-    return;
-  }
-  
-  // Use dragStore.startDrag + updatePos + commit pattern but with clickToPlaceRotation
-  // OR: inline the snap+commit logic here
-  const rotationY = clickToPlaceRotation;
-  const nodes = useCircuitStore.getState().nodes;
-  const pinTemplates = PIN_TEMPLATES[clickToPlaceType] ?? [];
-  let snappedAnchor: Vec3 = [...pos];
-  const pins: PinConnection[] = [];
-  
-  for (const pinDef of pinTemplates) {
-    const pinOffset = rotateOffset(pinDef.offset, rotationY);
-    const pinWorld: Vec3 = [snappedAnchor[0]+pinOffset[0], snappedAnchor[1]+pinOffset[1], snappedAnchor[2]+pinOffset[2]];
-    let bestNodeId: string | null = null; let bestWorldPos: Vec3 | null = null; let bestDist = Infinity;
-    for (const node of Object.values(nodes)) {
-      const d = distanceTo(pinWorld, node.worldPos);
-      if (d < bestDist) { bestDist = d; bestNodeId = node.id; bestWorldPos = node.worldPos; }
-    }
-    if (bestNodeId) pins.push({ name: pinDef.name, nodeId: bestNodeId });
-    if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
-      snappedAnchor = [bestWorldPos[0]-pinOffset[0], bestWorldPos[1]-pinOffset[1], bestWorldPos[2]-pinOffset[2]];
-    }
-  }
-  
-  useCircuitStore.getState().addComponent(clickToPlaceType, snappedAnchor, pins, rotationY);
-  useUIStore.getState().addRecentlyUsedType(clickToPlaceType);
-  useUIStore.getState().setClickToPlace(null); // clear after placement
+const PRIMARY_VALUE_KEY: Partial<Record<ComponentType, string>> = {
+  resistor: 'resistance', capacitor: 'capacitance', inductor: 'inductance',
+  battery: 'voltage', potentiometer: 'resistance', zener: 'voltage',
 };
 
-gl.domElement.addEventListener('pointerup', handleClickToPlace);
-// cleanup
-```
+const TYPE_LABELS: Record<ComponentType, string> = {
+  resistor: 'Resistor', capacitor: 'Capacitor', inductor: 'Inductor',
+  battery: 'Battery', diode: 'Diode', zener: 'Zener', schottky: 'Schottky',
+  led: 'LED', motor: 'Motor', tactileSwitch: 'Switch',
+  bjt: 'NPN BJT', pnp: 'PNP BJT', mosfet: 'MOSFET', potentiometer: 'Pot',
+  timer555: '555 Timer', arduino: 'Arduino', opamp: 'Op-Amp',
+};
 
-Also update the cursor effect:
-```ts
-const { dragging } = useDragStore.getState();
-const { clickToPlaceType } = useUIStore.getState();
-gl.domElement.style.cursor = dragging ? 'grabbing' : clickToPlaceType ? 'crosshair' : 'default';
-```
+export default function SwapTypeMenu() {
+  const id = useUIStore((s) => s.swapTypeMenuId);
+  const pos = useUIStore((s) => s.swapTypeMenuPos);
+  const closeSwapTypeMenu = useUIStore((s) => s.closeSwapTypeMenu);
+  const openInlineEdit = useUIStore((s) => s.openInlineEdit);
+  const components = useCircuitStore((s) => s.components);
+  const swapComponentType = useCircuitStore((s) => s.swapComponentType);
 
-### `components/KeyboardShortcuts.tsx`
-In the `R` key handler, also handle click-to-place rotation:
-```ts
-if (key === 'r') {
-  if (dragging) { e.preventDefault(); rotateDrag(); return; }
-  if (useUIStore.getState().clickToPlaceType) { 
-    e.preventDefault(); 
-    useUIStore.getState().rotateClickToPlace(); 
-    return; 
-  }
-  if (selectedComponentId) { e.preventDefault(); rotateComponent(selectedComponentId); }
-  return;
+  if (!id || !pos) return null;
+  const comp = components[id];
+  if (!comp) return null;
+  const group = getPinGroup(comp.type);
+  if (!group) return null;
+  const options = group.filter((t) => t !== comp.type);
+
+  const x = Math.min(pos.x, window.innerWidth - 180);
+  const y = Math.min(pos.y, window.innerHeight - 260);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={closeSwapTypeMenu} />
+      <div
+        className="fixed z-50 bg-[#18181c] border border-white/15 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] p-2 min-w-[160px]"
+        style={{ left: x, top: y, animation: 'toastIn 0.1s ease-out both' }}
+      >
+        <p className="text-[10px] text-white/40 px-1 pb-1">Swap type</p>
+        <div className="flex flex-col gap-0.5">
+          {options.map((type) => (
+            <button
+              key={type}
+              className="text-left text-[12px] text-white/80 hover:bg-white/[0.08] rounded px-2 py-1.5 transition-colors"
+              onClick={() => {
+                swapComponentType(id, type);
+                closeSwapTypeMenu();
+                const propKey = PRIMARY_VALUE_KEY[type];
+                if (propKey) {
+                  openInlineEdit(id, pos.x, pos.y);
+                }
+              }}
+            >
+              {TYPE_LABELS[type]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
 ```
-In the `Escape` handler, cancel click-to-place:
-```ts
-if (useUIStore.getState().clickToPlaceType) {
-  useUIStore.getState().setClickToPlace(null);
-  return;
-}
-```
-Add this before the `if (dragging)` check.
 
-Also add `Ctrl+N` for new circuit:
-```ts
-if (meta && key === 'n') {
-  e.preventDefault();
-  // Trigger new circuit — same as clicking "New Circuit" in ExportPanel
-  // circuitStore.newCircuit() but we need the confirm step — just toast a hint
-  // Actually: directly trigger it since keyboard users expect it to work
-  useCircuitStore.getState().newCircuit();
-  useToastStore.getState().addToast('New circuit — Ctrl+Z to restore', 'info');
-  return;
-}
-```
-Import `useToastStore` at the top of KeyboardShortcuts.tsx.
-
-### `app/page.tsx`
-Add a floating badge when click-to-place is active. In the JSX, add:
+### 5. `app/page.tsx`
+Import SwapTypeMenu and render it alongside ContextMenu:
 ```tsx
-const clickToPlaceType = useUIStore(s => s.clickToPlaceType);
-// ...
-{clickToPlaceType && (
-  <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
-    style={{ animation: 'toastIn 0.2s ease-out both' }}>
-    <div className="bg-[#18181c]/90 border border-[#7c6fff]/40 rounded-lg px-3 py-1.5 text-[12px] text-[#b8b0ff]">
-      Click breadboard to place <span className="font-semibold capitalize">{clickToPlaceType}</span>
-      <span className="text-white/40 ml-2">· R to rotate · Esc to cancel</span>
-    </div>
-  </div>
-)}
+import SwapTypeMenu from '@/components/SwapTypeMenu';
+// ... in JSX:
+<SwapTypeMenu />
 ```
 
-## Important: Import `ComponentType` in uiStore
-uiStore.ts must import `ComponentType` from `@/types/circuit` for the new field.
+## Type Safety Reminders
+- `PlacedComponent` has `locked?: boolean` — check `comp?.locked` not `comp.locked`
+- `ComponentType` union — arrays typed as `ComponentType[]` are fine for `.includes()`
+- `swapComponentType` must be added to BOTH the interface type and the implementation object in circuitStore.ts
 
-## Notes
-- The snap logic in DragManager is duplicated from dragStore.commit() — that's fine for now
-- `pnpm build` must pass
+## Verify
+Run `pnpm build` — must pass with zero type errors.

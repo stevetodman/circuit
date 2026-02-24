@@ -17,6 +17,7 @@ import Toolbar from '@/components/Toolbar';
 import HelpOverlay from '@/components/HelpOverlay';
 import ContextMenu from '@/components/ContextMenu';
 import { WireContextMenu } from '@/components/ContextMenu';
+import SwapTypeMenu from '@/components/SwapTypeMenu';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SimController from '@/components/SimController';
 import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
@@ -204,6 +205,7 @@ export default function Home() {
       <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
       <HelpOverlay />
       <ContextMenu />
+      <SwapTypeMenu />
       <WireContextMenu />
       <NoteEditOverlay />
       <KeyboardShortcuts />
