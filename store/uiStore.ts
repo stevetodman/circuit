@@ -97,6 +97,8 @@ interface UIState {
   saveBlockPromptOpen: boolean;
   clickToPlaceBlockId: string | null;
   circuitAuditOpen: boolean;
+  floatingNodeIds: string[];
+  nrFailTipsVisible: boolean;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -162,6 +164,8 @@ interface UIState {
   setClickToPlaceBlock: (id: string | null) => void;
   openCircuitAudit: () => void;
   closeCircuitAudit: () => void;
+  setFloatingNodeIds: (ids: string[]) => void;
+  setNrFailTipsVisible: (v: boolean) => void;
   setHoveredComponent: (id: string | null, pos?: { x: number; y: number }) => void;
 }
 
@@ -227,6 +231,8 @@ export const useUIStore = create<UIState>()(
   saveBlockPromptOpen: false,
   clickToPlaceBlockId: null,
   circuitAuditOpen: false,
+  floatingNodeIds: [],
+  nrFailTipsVisible: false,
   setWireValidationStatus: (status, message = null) => set({
     wireValidationStatus: status,
     wireValidationMessage: message,
@@ -341,6 +347,8 @@ export const useUIStore = create<UIState>()(
   setClickToPlaceBlock: (id) => set({ clickToPlaceBlockId: id }),
   openCircuitAudit: () => set({ circuitAuditOpen: true }),
   closeCircuitAudit: () => set({ circuitAuditOpen: false }),
+  setFloatingNodeIds: (ids) => set({ floatingNodeIds: ids }),
+  setNrFailTipsVisible: (v) => set({ nrFailTipsVisible: v }),
   }),
   {
     name: 'circuit-ui-prefs',

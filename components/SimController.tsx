@@ -216,10 +216,8 @@ export default function SimController() {
         useUIStore.getState().setOverloadIds([]);
         if (typeof message === 'string') addToast(message, 'error');
       } else if (type === 'SIM_NR_FAIL') {
-        if (typeof message === 'string') {
-          addToast(message, 'warn');
-        }
         useUIStore.getState().setSimStatus('warn');
+        useUIStore.getState().setNrFailTipsVisible(true);
       } else if (type === 'SIM_OK') {
         if (useUIStore.getState().simStatus === 'warn') {
           setSimStatus('running');
@@ -368,8 +366,9 @@ export default function SimController() {
     }
 
     // 4) Floating net (with 3 s grace period for newly placed components)
+    let hasFloatingPin = false;
     if (!warning) {
-      const hasFloatingPin = componentList.length >= 2 && componentList.some((component) => {
+      hasFloatingPin = componentList.length >= 2 && componentList.some((component) => {
         const placedAt = componentPlacedAtRef.current.get(component.id);
         if (!placedAt || now - placedAt < FLOATING_NET_GRACE_MS) return false;
 
@@ -379,6 +378,22 @@ export default function SimController() {
       if (hasFloatingPin) {
         warning = "Some component pins aren't connected — check all pins have wires";
       }
+    }
+
+    // Collect IDs of floating component pin nodes for visual highlighting
+    const floatingIds: string[] = [];
+    for (const component of componentList) {
+      for (const pin of component.pins) {
+        const node = nodesMap[pin.nodeId];
+        if (node && node.netId == null) {
+          floatingIds.push(node.id);
+        }
+      }
+    }
+    if (hasFloatingPin) {
+      useUIStore.getState().setFloatingNodeIds(floatingIds);
+    } else {
+      useUIStore.getState().setFloatingNodeIds([]);
     }
 
     if (warning !== lastHealthWarningRef.current) {
@@ -400,6 +415,7 @@ export default function SimController() {
 
     lastHealthWarningRef.current = null;
     setCircuitHealthWarning(null);
+    useUIStore.getState().setFloatingNodeIds([]);
     if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
     validationTimerRef.current = setTimeout(() => {
       runCircuitHealthCheck();

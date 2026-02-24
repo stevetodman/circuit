@@ -13,6 +13,7 @@ const COLOR_SELECTED    = new THREE.Color('#ff6b2b');   // wiring start pin
 const COLOR_NET_PEER    = new THREE.Color('#22ccee');   // same-net peers on hover
 const COLOR_NET_ACTIVE  = new THREE.Color('#ffaa00');   // same-net as selected pin
 const COLOR_SNAP_TARGET = new THREE.Color('#00ff88');   // drag snap preview
+const COLOR_FLOATING = new THREE.Color('#ff8c00');   // floating pins
 const COLOR_WIRE_VALID   = new THREE.Color('#00e676');  // valid wire target
 const COLOR_WIRE_INVALID = new THREE.Color('#2a3340');  // invalid wire target
 
@@ -25,6 +26,7 @@ export default function PinGrid() {
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const setHovered    = useUIStore((s) => s.setHoveredNode);
   const snapTargetNodeIds = useUIStore((s) => s.snapTargetNodeIds);
+  const floatingNodeIds = useUIStore((s) => s.floatingNodeIds);
   const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
   const PIN_HIT_RADIUS = isTouchDevice ? 0.08 : 0.05;
 
@@ -76,7 +78,9 @@ export default function PinGrid() {
     nodeList.forEach((node, i) => {
       let col: THREE.Color;
 
-      if (snapTargetNodeIds.includes(node.id)) {
+      if (!wiringMode && floatingNodeIds.includes(node.id)) {
+        col = COLOR_FLOATING;
+      } else if (snapTargetNodeIds.includes(node.id)) {
         col = COLOR_SNAP_TARGET;
       } else if (node.id === hoveredNodeId) {
         col = COLOR_HOVER;
@@ -102,7 +106,7 @@ export default function PinGrid() {
     });
 
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [hoveredNodeId, hoveredNetId, selectedId, selectedNetId, nodeList, snapTargetNodeIds]);
+  }, [hoveredNodeId, hoveredNetId, selectedId, selectedNetId, nodeList, snapTargetNodeIds, floatingNodeIds]);
 
   // ── Pointer events ────────────────────────────────────────────────────────
   const onMove = useCallback(

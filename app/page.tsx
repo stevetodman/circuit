@@ -24,6 +24,7 @@ import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
+import NrFailTips from '@/components/NrFailTips';
 import CanvasSearch from '@/components/CanvasSearch';
 import FindReplace from '@/components/FindReplace';
 import { MODULES } from '@/features/modules/definitions';
@@ -212,6 +213,7 @@ export default function Home() {
     >
       <SimController />
       <Toast />
+      <NrFailTips />
       <OnboardingTooltip />
       <CanvasContextMenu />
       <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
