@@ -20,7 +20,7 @@ import { branchCurrents, voltages } from '@/simulation/SimBridge';
 import { buildNetlist } from '@/simulation/mna/NetlistBuilder';
 import type { NetlistElement } from '@/simulation/mna/MNASolver';
 import { useToastStore } from '@/store/toastStore';
-import { CIRCUIT_URL_PARAM, decompressCircuit } from '@/features/sharing/circuitUrl';
+import { CIRCUIT_NAME_PARAM, CIRCUIT_URL_PARAM, decompressCircuit } from '@/features/sharing/circuitUrl';
 
 interface ResistiveBranch {
   branchIndex: number;
@@ -120,6 +120,10 @@ export default function SimController() {
       decompressCircuit(encoded)
         .then((json) => {
           loadFromJSON(json);
+          const urlName = params.get(CIRCUIT_NAME_PARAM);
+          if (urlName) {
+            useCircuitStore.getState().setCircuitName(decodeURIComponent(urlName));
+          }
           // Clean the URL so refreshing doesn't re-load stale shared state
           window.history.replaceState({}, '', window.location.pathname);
         })

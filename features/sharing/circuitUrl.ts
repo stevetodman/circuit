@@ -8,6 +8,7 @@
  */
 
 export const CIRCUIT_URL_PARAM = 'c';
+export const CIRCUIT_NAME_PARAM = 'name';
 
 /** Compress circuit JSON → URL-safe base64 string */
 export async function compressCircuit(json: string): Promise<string> {
