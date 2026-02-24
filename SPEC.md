@@ -1,155 +1,124 @@
-# SPEC: Simulation Diagnostics (p11.a)
+# SPEC: Reversed-Polarity Detector (p12.a)
 
 ## Goal
-Surface three specific simulation pain points that cause beginners to get stuck with no recovery path:
-1. Floating pin holes highlighted orange on the canvas when a health warning is active
-2. NR non-convergence toast replaced with an actionable tips panel (NrFailTips.tsx)
-3. Extend Pin.tsx color logic with `floatingNodeIds` from uiStore
+Detect when a diode, LED, Zener, or Schottky diode is connected backwards during live simulation and show a targeted component-level warning — the #1 reason beginner circuits don't work.
 
 ## Acceptance Criteria
-1. When circuitHealthWarning contains "Floating", floating pin holes pulse orange on breadboard
-2. SIM_NR_FAIL no longer fires a toast — instead shows a dismissible tips panel
-3. Tips panel lists 5 common causes with plain-English fixes
-4. Tips panel has ✕ dismiss button; re-shows on next NR_FAIL
-5. pnpm build passes with zero type errors
+1. When a diode/LED/Schottky/Zener has cathode voltage > anode voltage by more than 0.3V (during a circuit with active power), that component is flagged
+2. An amber pulsing sphere (same pattern as overload sphere but amber, positioned differently) appears above the component in the 3D view
+3. The health warning message becomes specific: "D1 may be reversed — longer leg (anode +) should connect toward higher voltage"
+4. Reversed components are cleared when polarity becomes correct
+5. `pnpm build` passes with zero type errors
 
 ## Implementation
 
 ### 1. `store/uiStore.ts`
 
-Add to the UIState interface and initial state:
+Add to the `UIState` interface:
 ```ts
-// In interface:
-floatingNodeIds: string[];
-setFloatingNodeIds: (ids: string[]) => void;
-nrFailTipsVisible: boolean;
-setNrFailTipsVisible: (v: boolean) => void;
+reversedComponentIds: string[];
+setReversedComponentIds: (ids: string[]) => void;
 ```
-Init values: `floatingNodeIds: []`, `nrFailTipsVisible: false`
 
-Actions:
+Add to initial state:
 ```ts
-setFloatingNodeIds: (ids) => set({ floatingNodeIds: ids }),
-setNrFailTipsVisible: (v) => set({ nrFailTipsVisible: v }),
+reversedComponentIds: [],
+```
+
+Add action:
+```ts
+setReversedComponentIds: (ids) => set({ reversedComponentIds: ids }),
 ```
 
 ### 2. `components/SimController.tsx`
 
-Find the existing block that detects floating pins (around line 372–386 where `hasFloatingPin` is computed and `setCircuitHealthWarning` is called with the floating warning). AFTER that block, add:
+In `runCircuitHealthCheck`, add a new check **as the first check** (before the existing `// 1) No current flowing` check). This ensures a specific polarity message takes precedence over the generic "no current" message.
 
 ```ts
-// Collect IDs of floating component pin nodes for visual highlighting
-const floatingIds: string[] = [];
-for (const component of componentList) {
-  for (const pin of component.pins) {
-    const node = nodesMap[pin.nodeId];
-    if (node && node.netId == null) {
-      floatingIds.push(node.id);
+// 0) Reversed polarity for diodes / LEDs
+const polarTypes = ['led', 'diode', 'zener', 'schottky'] as const;
+const reversedIds: string[] = [];
+if (componentList.some((c) => c.type === 'battery')) {
+  for (const comp of componentList) {
+    if (!polarTypes.includes(comp.type as typeof polarTypes[number])) continue;
+    const anodePin = comp.pins.find((p) => p.name === 'anode');
+    const cathodePin = comp.pins.find((p) => p.name === 'cathode');
+    if (!anodePin || !cathodePin) continue;
+    const anodeNetId = nodesMap[anodePin.nodeId]?.netId;
+    const cathodeNetId = nodesMap[cathodePin.nodeId]?.netId;
+    if (anodeNetId == null || cathodeNetId == null) continue;
+    const anodeV = voltages[anodeNetId] ?? 0;
+    const cathodeV = voltages[cathodeNetId] ?? 0;
+    if (cathodeV - anodeV > 0.3) {
+      reversedIds.push(comp.id);
     }
   }
 }
-useUIStore.getState().setFloatingNodeIds(floatingIds);
-```
-
-In the else branch where `setCircuitHealthWarning(null)` is called (when no warning), also add:
-```ts
-useUIStore.getState().setFloatingNodeIds([]);
-```
-
-In the `SIM_NR_FAIL` handler (around line 218), change it to:
-```ts
-} else if (type === 'SIM_NR_FAIL') {
-  useUIStore.getState().setSimStatus('warn');
-  useUIStore.getState().setNrFailTipsVisible(true);
-  // Do NOT call addToast here — NrFailTips panel replaces the toast
+useUIStore.getState().setReversedComponentIds(reversedIds);
+if (reversedIds.length > 0 && !warning) {
+  const state = useCircuitStore.getState();
+  const designator = state.getDesignator(reversedIds[0]);
+  warning = `${designator} may be reversed — longer leg (anode +) should connect toward higher voltage`;
 }
 ```
 
-### 3. `components/canvas/Pin.tsx`
-
-Add at the top with other color constants:
+Also clear `reversedComponentIds` in the else branch where components are cleared:
 ```ts
-const COLOR_FLOATING = new THREE.Color('#ff8c00'); // amber-orange for floating pins
+useUIStore.getState().setReversedComponentIds([]);
 ```
+(Add this next to the existing `setFloatingNodeIds([])` call in the cleanup branch at the bottom of SimController — around where `setCircuitHealthWarning(null)` and `setFloatingNodeIds([])` are already called on topology change.)
 
-Import floatingNodeIds:
-```tsx
-const floatingNodeIds = useUIStore((s) => s.floatingNodeIds);
-```
+### 3. `components/canvas/parts/ComponentRenderer.tsx`
 
-In the useEffect that assigns per-instance colors (the one with `nodeList.forEach`), add the floating check BEFORE the idle fallback and ONLY when not in wiring mode:
+Add to store reads at the top of the component function:
 ```ts
-if (!wiringMode && floatingNodeIds.includes(node.id)) {
-  col = COLOR_FLOATING;
-} else if (snapTargetNodeIds.includes(node.id)) {
-  col = COLOR_SNAP_TARGET;
-} else if (node.id === hoveredNodeId) {
-  // ... rest of existing logic
+const reversedComponentIds = useUIStore((state) => state.reversedComponentIds);
+const isReversed = reversedComponentIds.includes(componentId);
 ```
 
-Add `floatingNodeIds` to the useEffect dependency array.
+Add a ref for the reversed material:
+```ts
+const reversedMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+```
 
-### 4. `components/NrFailTips.tsx` (NEW FILE)
-
-```tsx
-'use client';
-import { useUIStore } from '@/store/uiStore';
-
-const TIPS = [
-  'Reversed diode or LED — check the + (anode) and − (cathode) labels',
-  'LED without a current-limiting resistor — add a 220Ω–1kΩ resistor in series',
-  'Missing ground connection — connect the − battery terminal to the GND rail',
-  'Very large resistance (>1MΩ) next to very small resistance (<1Ω) can cause instability',
-  'Directly shorted power rails — do not wire + and − rails together',
-];
-
-export default function NrFailTips() {
-  const visible = useUIStore((s) => s.nrFailTipsVisible);
-  const setNrFailTipsVisible = useUIStore((s) => s.setNrFailTipsVisible);
-
-  if (!visible) return null;
-
-  return (
-    <div
-      className="fixed z-50 bottom-20 left-1/2 -translate-x-1/2 w-80 bg-[#1e1a10] border border-amber-500/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)] px-4 py-3"
-      style={{ animation: 'toastIn 0.15s ease-out both' }}
-    >
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-[11px] font-semibold text-amber-400">⚠ Simulation may be inaccurate</p>
-        <button
-          onClick={() => setNrFailTipsVisible(false)}
-          className="text-white/30 hover:text-white/60 text-[13px] leading-none ml-2"
-        >
-          ✕
-        </button>
-      </div>
-      <p className="text-[10px] text-white/50 mb-2">Common causes to check:</p>
-      <ul className="space-y-1">
-        {TIPS.map((tip, i) => (
-          <li key={i} className="text-[10px] text-white/60 flex gap-1.5">
-            <span className="text-amber-500/70 shrink-0">·</span>
-            <span>{tip}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+In the `useFrame` callback, add animation for the reversed sphere (same pattern as overload):
+```ts
+if (reversedMaterialRef.current) {
+  if (!isReversed) {
+    reversedMaterialRef.current.emissiveIntensity = 0;
+  } else {
+    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 5);
+    reversedMaterialRef.current.emissiveIntensity = 0.3 + pulse * 0.5;
+  }
 }
 ```
 
-### 5. `app/page.tsx`
-
-Import and render alongside other overlays:
+Add the amber reversed sphere in JSX, positioned slightly differently from the red overload sphere (lower and offset so they don't overlap):
 ```tsx
-import NrFailTips from '@/components/NrFailTips';
-// In JSX:
-<NrFailTips />
+{isReversed && (
+  <mesh position={[0, 0.28, 0.08]}>
+    <sphereGeometry args={[0.14, 16, 12]} />
+    <meshStandardMaterial
+      ref={reversedMaterialRef}
+      color="#ff8c00"
+      emissive="#ff8c00"
+      emissiveIntensity={0}
+      transparent
+      opacity={0.45}
+      depthWrite={false}
+      toneMapped={false}
+    />
+  </mesh>
+)}
 ```
+
+Place this just after the `{isOverloaded && ...}` block.
 
 ## Type Safety Notes
-- floatingNodeIds is string[] — use .includes(node.id) safely
-- nodesMap[pin.nodeId] may be undefined — check before accessing .netId
-- Add floatingNodeIds to Pin.tsx useEffect dependency array
+- `polarTypes` includes `'led' | 'diode' | 'zener' | 'schottky'` — use `as const` and `includes` type guard
+- `voltages[anodeNetId]` may be 0 or undefined if SAB not yet initialized — use `?? 0`
+- `reversedIds` is `string[]` matching the pattern of `overloadIds`
+- The new check runs even when `warning` is already set (we still collect `reversedIds` for visuals), but only SET the warning if `!warning`
 
 ## Verify
 Run `pnpm build` — must pass with zero type errors.

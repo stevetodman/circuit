@@ -315,6 +315,32 @@ export default function SimController() {
 
     let warning: string | null = null;
 
+    // 0) Reversed polarity for diodes / LEDs
+    const polarTypes = ['led', 'diode', 'zener', 'schottky'] as const;
+    const reversedIds: string[] = [];
+    if (componentList.some((c) => c.type === 'battery')) {
+      for (const comp of componentList) {
+        if (!polarTypes.includes(comp.type as typeof polarTypes[number])) continue;
+        const anodePin = comp.pins.find((p) => p.name === 'anode');
+        const cathodePin = comp.pins.find((p) => p.name === 'cathode');
+        if (!anodePin || !cathodePin) continue;
+        const anodeNetId = nodesMap[anodePin.nodeId]?.netId;
+        const cathodeNetId = nodesMap[cathodePin.nodeId]?.netId;
+        if (anodeNetId == null || cathodeNetId == null) continue;
+        const anodeV = voltages[anodeNetId] ?? 0;
+        const cathodeV = voltages[cathodeNetId] ?? 0;
+        if (cathodeV - anodeV > 0.3) {
+          reversedIds.push(comp.id);
+        }
+      }
+    }
+    useUIStore.getState().setReversedComponentIds(reversedIds);
+    if (reversedIds.length > 0 && !warning) {
+      const state = useCircuitStore.getState();
+      const designator = state.getDesignator(reversedIds[0]);
+      warning = `${designator} may be reversed — longer leg (anode +) should connect toward higher voltage`;
+    }
+
     // 1) No current flowing (existing check with stronger copy)
     if (
       componentList.length >= 3
@@ -416,6 +442,7 @@ export default function SimController() {
     lastHealthWarningRef.current = null;
     setCircuitHealthWarning(null);
     useUIStore.getState().setFloatingNodeIds([]);
+    useUIStore.getState().setReversedComponentIds([]);
     if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
     validationTimerRef.current = setTimeout(() => {
       runCircuitHealthCheck();
