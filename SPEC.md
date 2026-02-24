@@ -1,111 +1,138 @@
-# P1.9 — Box select count badge + multi-select highlight
+# P1.10 — Batch property edit
 
 ## Overview
-Two improvements to the multi-select experience:
-1. While dragging a box select, show a live count badge "N selected" inside the selection rect
-2. Components in `selectedComponentIds` (multi-select) pulse with a blue/violet emissive ring, distinguishing them visually from single-selected (orange highlight)
+When multiple components of the **same type** are selected (`selectedComponentIds.length > 1`), the Properties Inspector shows shared editable fields in "batch mode": fields show "—" if values differ between components, or the shared value if they're all the same. Entering a value sets it on all selected components at once.
 
 ## Architecture context
-- `components/canvas/Scene.tsx` — has `BoxSelectOverlay` function component that renders the dashed rect; `selectedComponentIds` passed to `ComponentRenderer` via `selected` prop
-- `components/canvas/parts/ComponentRenderer.tsx` — wraps all part renders; has `selected` prop; has `useFrame` with overload pulse pattern
+- `components/sidebar/PropertiesInspector.tsx` — exports `PropertiesInspector` default; has an `Inspector` sub-component used for single component; also exports to Sidebar
+- `store/circuitStore.ts` — has `setProperty(componentId, key, value)` for single component
 
 ## Files to modify
-1. `components/canvas/Scene.tsx`
-2. `components/canvas/parts/ComponentRenderer.tsx`
+1. `components/sidebar/PropertiesInspector.tsx`
 
 ---
 
-## 1. `components/canvas/Scene.tsx`
+## Implementation
 
-### BoxSelectOverlay — add count badge
+### In `PropertiesInspector.tsx`
 
-The `BoxSelectOverlay` function currently renders only the dashed rect. Modify it to also read `selectedComponentIds` from circuitStore and show a count badge.
+The file exports a default `PropertiesInspector` component. It currently checks for a single `selectedComponentId` and renders the `Inspector` sub-component.
 
-**Read both from stores:**
+**Add batch mode detection at the top level:**
+
 ```tsx
-function BoxSelectOverlay() {
-  const boxSelectRect = useUIStore((state) => state.boxSelectRect);
-  const selectedCount = useCircuitStore((s) => s.selectedComponentIds.length);
-  if (!boxSelectRect) return null;
-  // ... existing rect rendering ...
-  // Add count badge:
+export default function PropertiesInspector() {
+  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
+  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
+  const components = useCircuitStore((s) => s.components);
+
+  // Batch mode: 2+ components all of same type
+  if (selectedComponentIds.length >= 2) {
+    const types = selectedComponentIds.map((id) => components[id]?.type).filter(Boolean);
+    const allSameType = types.length > 0 && types.every((t) => t === types[0]);
+    if (allSameType) {
+      const comps = selectedComponentIds.map((id) => components[id]).filter(Boolean);
+      return <BatchInspector components={comps as PlacedComponent[]} />;
+    }
+  }
+
+  // Single select (existing logic)
+  const component = selectedComponentId ? components[selectedComponentId] : null;
+  if (!component) return null;
+  return <Inspector component={component} />;
+}
+```
+
+### Add `BatchInspector` component
+
+**Place above the existing `Inspector` component:**
+
+```tsx
+function BatchInspector({ components }: { components: PlacedComponent[] }) {
+  const setProperty = useCircuitStore((s) => s.setProperty);
+  const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const setSelectedComponentIds = useCircuitStore((s) => s.setSelectedComponentIds);
+
+  const type = components[0].type;
+  const typeLabel = TYPE_LABELS[type] ?? type;
+  const fields = PROP_DEFS[type] ?? [];
+
+  function getBatchValue(field: PropOrLogField): string | number | '—' {
+    const values = components.map((c) => {
+      const stored = c.props[field.key];
+      return stored !== undefined ? stored : field.default;
+    });
+    const first = values[0];
+    return values.every((v) => v === first) ? first : '—';
+  }
+
+  function setBatchValue(key: string, value: string | number) {
+    for (const comp of components) {
+      setProperty(comp.id, key, value);
+    }
+  }
+
   return (
-    <div className="fixed pointer-events-none z-20" style={{ left, top, width, height, border, background }}>
-      {selectedCount > 0 && (
-        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/80 text-white leading-none">
-          {selectedCount}
-        </div>
-      )}
+    <div className="border-t border-white/[0.06]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <span className="text-[11px] font-semibold text-white/60 tracking-wide">
+          {typeLabel} ×{components.length}
+        </span>
+        <button
+          onClick={() => { selectComponent(null); setSelectedComponentIds([]); }}
+          className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
+          title="Deselect all"
+        >✕</button>
+      </div>
+
+      {/* Batch fields */}
+      {fields.filter((f): f is NumericField | LogNumberField => f.kind === 'number' || f.kind === 'log-number').map((field) => {
+        const batchVal = getBatchValue(field);
+        const displayVal = batchVal === '—' ? '' : String(batchVal);
+        return (
+          <div key={field.key} className="px-4 pb-2">
+            <label className="text-[10px] text-white/40 block mb-1">
+              {field.label}{field.unit ? ` (${field.unit})` : ''}
+            </label>
+            <input
+              type="number"
+              placeholder={batchVal === '—' ? '— (mixed)' : undefined}
+              defaultValue={displayVal}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 1}
+              className="w-full bg-white/[0.06] border border-white/[0.12] rounded px-2 py-1 text-[11px] text-white font-mono"
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!isNaN(v)) setBatchValue(field.key, v);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const v = parseFloat((e.target as HTMLInputElement).value);
+                  if (!isNaN(v)) setBatchValue(field.key, v);
+                }
+              }}
+            />
+          </div>
+        );
+      })}
+
+      <div className="px-4 pb-3">
+        <p className="text-[10px] text-white/30">
+          {components.length} {typeLabel}s selected — editing applies to all
+        </p>
+      </div>
     </div>
   );
 }
 ```
 
-**Important:** Already imports `useCircuitStore` at the top of Scene.tsx — just add the selector.
-
-### ComponentRenderer — pass `multiSelected` prop
-
-In the `components.map(...)` render, currently:
-```tsx
-selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
-```
-
-Change to also pass a `multiSelected` prop:
-```tsx
-selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
-multiSelected={selectedComponentIds.includes(component.id) && selectedComponentId !== component.id}
-```
-
----
-
-## 2. `components/canvas/parts/ComponentRenderer.tsx`
-
-### Add `multiSelected` prop and pulsing ring
-
-**Add to `ComponentRendererProps` interface:**
-```ts
-multiSelected?: boolean;
-```
-
-**Add pulsing highlight ring in `useFrame`:**
-
-The component already has a `useFrame` with an `overloadMaterialRef` for the overload pulse. Add a similar ref for multi-select. Use a `<mesh>` (scaled slightly larger than the component bounding box) with a pulsing emissive `meshStandardMaterial` in blue/violet.
-
-**Implementation pattern:**
-```tsx
-// At component level:
-const multiSelectRingRef = useRef<THREE.MeshStandardMaterial>(null);
-
-// In useFrame (add to existing useFrame callback):
-if (multiSelectRingRef.current) {
-  if (multiSelected) {
-    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 5);
-    multiSelectRingRef.current.emissiveIntensity = 0.3 + pulse * 0.5;
-    multiSelectRingRef.current.opacity = 0.25 + pulse * 0.25;
-  } else {
-    multiSelectRingRef.current.emissiveIntensity = 0;
-    multiSelectRingRef.current.opacity = 0;
-  }
-}
-
-// In JSX, add a slightly-enlarged box around the component when multiSelected:
-{multiSelected && (
-  <mesh>
-    <boxGeometry args={[0.8, 0.3, 0.8]} />
-    <meshStandardMaterial
-      ref={multiSelectRingRef}
-      color="#7b5cf0"
-      emissive="#7b5cf0"
-      emissiveIntensity={0.5}
-      transparent
-      opacity={0.3}
-      depthWrite={false}
-    />
-  </mesh>
-)}
-```
-
-**Read the file carefully** to understand the existing `useFrame` and where to place the ring JSX (inside the `<group>` wrapper).
+**Notes:**
+- `PROP_DEFS`, `TYPE_LABELS`, `NumericField`, `LogNumberField`, `PropOrLogField` are already defined in the file — reuse them
+- `setSelectedComponentIds` is already exported from circuitStore — check the actual function name in the file (it may be `setSelectedComponentIds` or similar)
+- Read the full file first to see all imports and ensure you don't duplicate existing ones
+- Keep the existing `Inspector` component fully intact
 
 ---
 
