@@ -13,12 +13,14 @@ function ToolbarBtn({
   disabled,
   active,
   children,
+  kbd,
 }: {
   onClick: () => void;
   title: string;
   disabled?: boolean;
   active?: boolean;
   children: ReactNode;
+  kbd?: string;
 }) {
   return (
     <button
@@ -28,9 +30,14 @@ function ToolbarBtn({
       className={`h-7 px-2.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1.5
         ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/[0.1] cursor-pointer'}
         ${active ? 'bg-white/[0.1] text-white/90' : 'text-white/55 hover:text-white/80'}
-        focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none`}
+      focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none`}
     >
       {children}
+      {kbd && (
+        <kbd className="ml-0.5 px-0.5 py-px rounded text-[8px] font-mono bg-white/[0.08] border border-white/[0.15] text-white/40 leading-none">
+          {kbd}
+        </kbd>
+      )}
     </button>
   );
 }
@@ -107,6 +114,7 @@ export default function Toolbar() {
         }}
         title={`Undo (Ctrl/Cmd+Z)${undoCount > 0 ? ` · ${undoCount} step${undoCount !== 1 ? 's' : ''}` : ''}`}
         disabled={!canUndo}
+        kbd="⌘Z"
       >
         ↩ Undo{canUndo && (
           <span className="ml-0.5 text-[9px] tabular-nums opacity-50">{undoCount}</span>
@@ -118,6 +126,7 @@ export default function Toolbar() {
         }}
         title={`Redo (Ctrl/Cmd+Shift+Z)${redoCount > 0 ? ` · ${redoCount} step${redoCount !== 1 ? 's' : ''}` : ''}`}
         disabled={!canRedo}
+        kbd="⌘⇧Z"
       >
         ↪ Redo{canRedo && (
           <span className="ml-0.5 text-[9px] tabular-nums opacity-50">{redoCount}</span>
@@ -129,6 +138,7 @@ export default function Toolbar() {
         onClick={deleteSelected}
         title="Delete"
         disabled={noSelection}
+        kbd="Del"
       >
         🗑 Delete
       </ToolbarBtn>
@@ -136,6 +146,7 @@ export default function Toolbar() {
         onClick={copySelected}
         title="Copy (Ctrl/Cmd+C)"
         disabled={noSelection}
+        kbd="⌘C"
       >
         ⎘ Copy
       </ToolbarBtn>
@@ -143,6 +154,7 @@ export default function Toolbar() {
         onClick={pasteClipboard}
         title="Paste (Ctrl/Cmd+V)"
         disabled={clipboardLength === 0}
+        kbd="⌘V"
       >
         ⎙ Paste
       </ToolbarBtn>
@@ -152,6 +164,7 @@ export default function Toolbar() {
         onClick={toggleDesignators}
         title="Toggle designators (L)"
         active={showDesignators}
+        kbd="L"
       >
         L Labels
       </ToolbarBtn>
@@ -159,6 +172,7 @@ export default function Toolbar() {
         onClick={toggleCurrentLabels}
         title="Toggle current labels (I)"
         active={showCurrentLabels}
+        kbd="I"
       >
         I Current
       </ToolbarBtn>
@@ -166,6 +180,7 @@ export default function Toolbar() {
         onClick={() => setShowPolarityLabels(!showPolarityLabels)}
         title="Toggle polarity labels (P)"
         active={showPolarityLabels}
+        kbd="P"
       >
         P Polarity
       </ToolbarBtn>
@@ -173,6 +188,7 @@ export default function Toolbar() {
         onClick={toggleWireVoltageColors}
         title="Toggle wire voltage colors (V)"
         active={showWireVoltageColors}
+        kbd="V"
       >
         V Voltage
       </ToolbarBtn>
@@ -180,6 +196,7 @@ export default function Toolbar() {
         onClick={toggleCurrentThickness}
         title="Toggle wire thickness by current (T)"
         active={showCurrentThickness}
+        kbd="T"
       >
         ~ Width
       </ToolbarBtn>
@@ -187,6 +204,7 @@ export default function Toolbar() {
         onClick={toggleVoltageHeatmap}
         title="Toggle voltage heatmap (H)"
         active={showVoltageHeatmap}
+        kbd="H"
       >
         H
       </ToolbarBtn>
@@ -194,6 +212,7 @@ export default function Toolbar() {
         onClick={toggleValueLabels}
         title="Values (W)"
         active={showValueLabels}
+        kbd="W"
       >
         Ω
       </ToolbarBtn>
@@ -201,6 +220,7 @@ export default function Toolbar() {
         onClick={toggleSchematic}
         title="Toggle schematic (S)"
         active={schematicOpen}
+        kbd="S"
       >
         S Schematic
       </ToolbarBtn>
