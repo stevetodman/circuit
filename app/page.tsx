@@ -46,6 +46,7 @@ const Scene = dynamic(() => import('@/components/canvas/Scene'), {
     </div>
   ),
 });
+const InlineValueEditor = dynamic(() => import('@/components/InlineValueEditor'), { ssr: false });
 
 const VISITED_KEY = 'circuit-has-visited';
 
@@ -206,6 +207,7 @@ export default function Home() {
       <WireContextMenu />
       <NoteEditOverlay />
       <KeyboardShortcuts />
+      <InlineValueEditor />
       <ModuleIntroOverlay />
       <ModuleValidator />
       {!showSidebar && (

@@ -69,6 +69,8 @@ interface UIState {
   snapTargetNodeIds: string[];
   zoomToComponentId: string | null;
   editingNoteId: string | null;
+  inlineEditComponentId: string | null;
+  inlineEditScreenPos: { x: number; y: number } | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -117,6 +119,8 @@ interface UIState {
   clearBoxSelect:      () => void;
   setWireValidationStatus: (status: 'clean' | 'short' | null, message?: string | null) => void;
   setEditingNoteId: (id: string | null) => void;
+  openInlineEdit: (id: string, x: number, y: number) => void;
+  closeInlineEdit: () => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -168,6 +172,8 @@ export const useUIStore = create<UIState>()(
   snapTargetNodeIds: [],
   zoomToComponentId: null,
   editingNoteId: null,
+  inlineEditComponentId: null,
+  inlineEditScreenPos: null,
   setWireValidationStatus: (status, message = null) => set({
     wireValidationStatus: status,
     wireValidationMessage: message,
@@ -244,9 +250,11 @@ export const useUIStore = create<UIState>()(
       if (!state.boxSelect) return state;
       const boxSelect = { ...state.boxSelect, endX, endY };
       return { boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) };
-    }),
+  }),
   clearBoxSelect: () => set({ boxSelect: null, boxSelectRect: null }),
   setEditingNoteId: (id) => set({ editingNoteId: id }),
+  openInlineEdit: (id, x, y) => set({ inlineEditComponentId: id, inlineEditScreenPos: { x, y } }),
+  closeInlineEdit: () => set({ inlineEditComponentId: null, inlineEditScreenPos: null }),
   }),
   {
     name: 'circuit-ui-prefs',

@@ -278,6 +278,7 @@ export default function KeyboardShortcuts() {
       // Escape — cancel drag / deselect
       // F3.5: if wiring, only cancel the wire — keep component selected
       if (e.key === 'Escape') {
+        useUIStore.getState().closeInlineEdit();
         closeContextMenu();
         clearBoxSelect();
         // Close wire menu first
