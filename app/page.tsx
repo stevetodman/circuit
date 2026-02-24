@@ -25,6 +25,7 @@ import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
 import CanvasSearch from '@/components/CanvasSearch';
+import FindReplace from '@/components/FindReplace';
 import { MODULES } from '@/features/modules/definitions';
 import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
 import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
@@ -241,6 +242,7 @@ export default function Home() {
           <WiringBanner />
           <PinTooltip />
           <CanvasSearch />
+          <FindReplace />
           <Scene />
           <CanvasOverlay />
           <EmptyStateGallery />
