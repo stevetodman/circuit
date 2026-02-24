@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useDragStore } from '@/store/dragStore';
 
 function safeFilename(name: string): string {
   const trimmed = name.trim();
@@ -16,6 +17,7 @@ export default function CanvasOverlay() {
   const requestZoomToFit = useUIStore((s) => s.requestZoomToFit);
   const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
   const circuitName = useCircuitStore((s) => s.circuitName);
+  const dragging = useDragStore((s) => s.dragging);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -44,45 +46,63 @@ export default function CanvasOverlay() {
   }
 
   return (
-    <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
-      {componentCount > 0 && (
-        <div className="text-[10px] font-mono text-white/30 bg-black/30 px-2 py-0.5 rounded-full pointer-events-none">
-          {componentCount} part{componentCount !== 1 ? 's' : ''}
+    <>
+      {componentCount === 0 && !dragging && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className="text-center select-none"
+            style={{ animation: 'toastIn 0.5s ease-out both', animationDelay: '0.3s', opacity: 0 }}
+          >
+            <div className="text-[40px] mb-3 text-white/10">←</div>
+            <p className="text-white/22 text-[13px] font-medium tracking-wide">
+              Drag a component from the panel
+            </p>
+            <p className="text-white/12 text-[11px] mt-1.5">
+              Press <kbd className="px-1 py-0.5 rounded text-[10px] bg-white/[0.06] border border-white/[0.1] font-mono">?</kbd> for keyboard shortcuts
+            </p>
+          </div>
         </div>
       )}
-      <div className="flex flex-col bg-black/40 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden pointer-events-auto">
-        <button onClick={handleScreenshot} className={btnClass} title="Take screenshot">
-          <svg
-            aria-hidden="true"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="currentColor"
+      <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
+        {componentCount > 0 && (
+          <div className="text-[10px] font-mono text-white/30 bg-black/30 px-2 py-0.5 rounded-full pointer-events-none">
+            {componentCount} part{componentCount !== 1 ? 's' : ''}
+          </div>
+        )}
+        <div className="flex flex-col bg-black/40 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden pointer-events-auto">
+          <button onClick={handleScreenshot} className={btnClass} title="Take screenshot">
+            <svg
+              aria-hidden="true"
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path d="M6 1L5 3H2a1 1 0 00-1 1v9a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1h-3L10 1H6zm2 3a3 3 0 110 6 3 3 0 010-6z" />
+            </svg>
+          </button>
+          <div className="h-px bg-white/10" />
+          <button onClick={requestZoomIn} className={btnClass} title="Zoom in">
+            +
+          </button>
+          <div className="h-px bg-white/10" />
+          <button onClick={requestZoomToFit} className={btnClass} title="Zoom to fit (F)">
+            ⊡
+          </button>
+          <div className="h-px bg-white/10" />
+          <button onClick={requestZoomOut} className={btnClass} title="Zoom out">
+            −
+          </button>
+          <div className="h-px bg-white/10" />
+          <button
+            onClick={toggleFullscreen}
+            className={btnClass}
+            title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
           >
-            <path d="M6 1L5 3H2a1 1 0 00-1 1v9a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1h-3L10 1H6zm2 3a3 3 0 110 6 3 3 0 010-6z" />
-          </svg>
-        </button>
-        <div className="h-px bg-white/10" />
-        <button onClick={requestZoomIn} className={btnClass} title="Zoom in">
-          +
-        </button>
-        <div className="h-px bg-white/10" />
-        <button onClick={requestZoomToFit} className={btnClass} title="Zoom to fit (F)">
-          ⊡
-        </button>
-        <div className="h-px bg-white/10" />
-        <button onClick={requestZoomOut} className={btnClass} title="Zoom out">
-          −
-        </button>
-        <div className="h-px bg-white/10" />
-        <button
-          onClick={toggleFullscreen}
-          className={btnClass}
-          title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
-        >
-          ⛶
-        </button>
+            ⛶
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

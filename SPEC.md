@@ -1,154 +1,152 @@
-# SPEC: P5.c — UI/UX Quick Polish
+# SPEC: P5.d — Medium UI/UX Polish
 
-Five focused improvements. Run `npx tsc --noEmit` and confirm exit 0.
-
----
-
-## 1 — HelpOverlay: add missing shortcuts
-
-**File:** `components/HelpOverlay.tsx`
-
-Update the `SECTIONS` constant. **Do not change the structure**, just add/fix rows:
-
-In the **View** section, add these missing rows (insert in logical order among existing rows):
-```
-['T', 'Toggle wire thickness by current'],
-['H', 'Toggle voltage heatmap on breadboard'],
-['D', 'Toggle Bode plot (AC frequency sweep)'],
-```
-
-In the **Navigation** section, add:
-```
-['Scroll on potentiometer', 'Adjust wiper position'],
-['Right-click wire', 'Wire colour + net label'],
-```
-
-The `~` / `Width` toolbar button actually maps to `T` (already confirmed in KeyboardShortcuts). No other changes.
+Three focused improvements. Run `npx tsc --noEmit` and confirm exit 0.
 
 ---
 
-## 2 — Toast: fade-in animation
+## 1 — Empty Canvas Hint
 
-**Files:** `components/Toast.tsx`, `app/globals.css`
+**File:** `components/CanvasOverlay.tsx`
+
+When no components are placed, show a centered hint over the canvas. It should fade in via the existing `toastIn` keyframe and disappear the moment the first component is placed.
+
+### Changes
+
+1. Add `dragging` from dragStore to detect active drag:
+   ```ts
+   import { useDragStore } from '@/store/dragStore';
+   // ...
+   const dragging = useDragStore((s) => s.dragging);
+   ```
+
+2. Change the return to a React fragment so the hint and the zoom controls are siblings:
+   ```tsx
+   return (
+     <>
+       {componentCount === 0 && !dragging && (
+         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+           <div
+             className="text-center select-none"
+             style={{ animation: 'toastIn 0.5s ease-out both', animationDelay: '0.3s', opacity: 0 }}
+           >
+             <div className="text-[40px] mb-3 text-white/10">←</div>
+             <p className="text-white/22 text-[13px] font-medium tracking-wide">
+               Drag a component from the panel
+             </p>
+             <p className="text-white/12 text-[11px] mt-1.5">
+               Press <kbd className="px-1 py-0.5 rounded text-[10px] bg-white/[0.06] border border-white/[0.1] font-mono">?</kbd> for keyboard shortcuts
+             </p>
+           </div>
+         </div>
+       )}
+       <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
+         {/* ...existing componentCount badge and zoom/screenshot buttons... */}
+       </div>
+     </>
+   );
+   ```
+
+3. Move the existing content (componentCount badge + zoom button group) inside the `<div className="absolute bottom-4 right-4 ...">` wrapper in the fragment — it's identical to what's currently returned but now nested inside the fragment structure.
+
+---
+
+## 2 — Sidebar Tab Crossfade
+
+**Files:** `app/globals.css`, `components/sidebar/Sidebar.tsx`
 
 ### globals.css
 
-Append to `app/globals.css`:
+Append a new keyframe for the tab transition (opacity-only, no movement — avoids janky shift):
 ```css
-@keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+@keyframes tabIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.toast-enter {
-  animation: toastIn 0.15s ease-out both;
+.tab-enter {
+  animation: tabIn 0.12s ease-out both;
 }
 ```
 
-### Toast.tsx
+### Sidebar.tsx
 
-Add `toast-enter` class to the per-toast `<div>`:
+Find the tab content wrapper div (around line 440). It currently looks like:
 ```tsx
 <div
-  key={toast.id}
-  className={`toast-enter pointer-events-auto inline-flex max-w-[32rem] items-start gap-3 rounded-full border px-4 py-2 text-sm shadow-lg ${levelStyles[toast.level]}`}
+  className={`flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
+>
+  {tab === 'parts' ? (
+    ...
+  ) : tab === 'learn' ? (
+    ...
+  ) : (
+    ...
+  )}
+</div>
+```
+
+Add `key={tab}` and `tab-enter` to trigger a re-mount + fade on each tab switch:
+```tsx
+<div
+  key={tab}
+  className={`tab-enter flex-1 min-h-0 overflow-y-auto py-2 ${spotlightTarget === 'sidebar-parts' ? 'ring-1 ring-[#7c6fff]/25' : ''}`}
 >
 ```
 
-That's the only change to Toast.tsx — add `toast-enter ` at the start of the className string.
+**Only change:** add `key={tab}` prop and prepend `tab-enter ` to the className. No other changes to the content.
 
 ---
 
-## 3 — Context menus: visual polish
+## 3 — Single-Selection Ring Pulse
 
-**File:** `components/ContextMenu.tsx`
+**File:** `components/canvas/parts/ComponentRenderer.tsx`
 
-### ContextMenu (component right-click)
+Add a persistent violet ring below the selected component that pulses in `useFrame`. This is analogous to the existing `multiSelected` purple box, but for single selection (`selected && !multiSelected`).
 
-Current outer div:
+### Add ref
+
+After the existing `multiSelectRingRef` declaration:
+```ts
+const selectedRingRef = useRef<THREE.MeshStandardMaterial>(null);
+```
+
+### Extend useFrame
+
+Inside the existing `useFrame` callback, after the `multiSelectRingRef` block:
+```ts
+if (selectedRingRef.current) {
+  if (selected && !multiSelected) {
+    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 4);
+    selectedRingRef.current.emissiveIntensity = 0.2 + pulse * 0.3;
+    selectedRingRef.current.opacity = 0.18 + pulse * 0.18;
+  } else {
+    selectedRingRef.current.emissiveIntensity = 0;
+    selectedRingRef.current.opacity = 0;
+  }
+}
+```
+
+### Add ring mesh to JSX
+
+Inside the returned `<group>`, after the `{multiSelected && ...}` block (near the end, before `</group>`):
 ```tsx
-<div
-  ref={menuRef}
-  className="fixed z-40 min-w-[160px] rounded border border-white/15 bg-[#161616] shadow-2xl overflow-hidden"
-  style={{ left: `${cx}px`, top: `${cy}px` }}
+{/* Single-selection ring — always mounted, animated by useFrame */}
+<mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+  <ringGeometry args={[0.13, 0.18, 28]} />
+  <meshStandardMaterial
+    ref={selectedRingRef}
+    color="#7c6fff"
+    emissive="#7c6fff"
+    emissiveIntensity={0}
+    transparent
+    opacity={0}
+    depthWrite={false}
+    toneMapped={false}
+  />
+</mesh>
 ```
 
-Replace with:
-```tsx
-<div
-  ref={menuRef}
-  className="fixed z-40 min-w-[160px] rounded-lg border border-white/[0.12] bg-[#18181c] shadow-[0_8px_32px_rgba(0,0,0,0.6)] overflow-hidden"
-  style={{
-    left: `${cx}px`,
-    top: `${cy}px`,
-    animation: 'toastIn 0.12s ease-out both',
-  }}
-```
-
-Changes: `rounded` → `rounded-lg`, border opacity/color to match WireContextMenu, `bg-[#161616]` → `bg-[#18181c]`, enhance shadow, add entrance animation.
-
-### ContextMenu button items
-
-Current button className:
-```
-"w-full px-3 py-2 text-left text-xs text-white/85 hover:bg-white/10"
-```
-Replace with:
-```
-"w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
-```
-
-Apply to BOTH the Lock/Unlock button and the `.map` buttons.
-
-### WireContextMenu
-
-Current outer div:
-```tsx
-<div
-  className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-2xl py-1.5 min-w-[160px]"
-  style={{ left: wireMenu.x, top: wireMenu.y }}
-```
-
-Add entrance animation:
-```tsx
-<div
-  className="fixed z-50 bg-[#18181c] border border-white/[0.12] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] py-1.5 min-w-[160px]"
-  style={{
-    left: wireMenu.x,
-    top: wireMenu.y,
-    animation: 'toastIn 0.12s ease-out both',
-  }}
-```
-
----
-
-## 4 — Toolbar: horizontal scroll on overflow
-
-**File:** `components/Toolbar.tsx`
-
-Current outer div className:
-```
-"absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px]"
-```
-
-Replace with:
-```
-"absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px] overflow-x-auto"
-```
-
-Also add inline style to hide scrollbar cross-browser:
-```tsx
-<div
-  className="absolute top-0 left-0 right-0 z-20 flex items-center gap-1 px-3 py-1.5 bg-black/60 backdrop-blur-sm border-b border-white/[0.07] h-[36px] overflow-x-auto"
-  style={{ scrollbarWidth: 'none' } as React.CSSProperties}
->
-```
+The ring is flat on the ground plane (rotated -90° on X), radius ~1.3–1.8 cm, violet to match the accent colour. Always mounted so refs are stable; invisible when not selected.
 
 ---
 
@@ -161,8 +159,7 @@ Exit 0 required. No console.log, no TODOs.
 
 ## Files modified
 
-- `components/HelpOverlay.tsx`
-- `components/Toast.tsx`
+- `components/CanvasOverlay.tsx`
 - `app/globals.css`
-- `components/ContextMenu.tsx`
-- `components/Toolbar.tsx`
+- `components/sidebar/Sidebar.tsx`
+- `components/canvas/parts/ComponentRenderer.tsx`

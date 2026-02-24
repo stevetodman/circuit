@@ -137,6 +137,7 @@ export default function ComponentRenderer({
   const locked = useCircuitStore((state) => state.components[componentId]?.locked ?? false);
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const multiSelectRingRef = useRef<THREE.MeshStandardMaterial>(null);
+  const selectedRingRef = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
     if (overloadMaterialRef.current) {
@@ -156,6 +157,17 @@ export default function ComponentRenderer({
       } else {
         multiSelectRingRef.current.emissiveIntensity = 0;
         multiSelectRingRef.current.opacity = 0;
+      }
+    }
+
+    if (selectedRingRef.current) {
+      if (selected && !multiSelected) {
+        const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 4);
+        selectedRingRef.current.emissiveIntensity = 0.2 + pulse * 0.3;
+        selectedRingRef.current.opacity = 0.18 + pulse * 0.18;
+      } else {
+        selectedRingRef.current.emissiveIntensity = 0;
+        selectedRingRef.current.opacity = 0;
       }
     }
   });
@@ -427,6 +439,20 @@ export default function ComponentRenderer({
           />
         </mesh>
       )}
+      {/* Single-selection ring — always mounted, animated by useFrame */}
+      <mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.13, 0.18, 28]} />
+        <meshStandardMaterial
+          ref={selectedRingRef}
+          color="#7c6fff"
+          emissive="#7c6fff"
+          emissiveIntensity={0}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
     </group>
   );
 }
