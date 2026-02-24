@@ -10,6 +10,7 @@ import { useModuleStore } from '@/store/moduleStore';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
 import Sidebar from '@/components/sidebar/Sidebar';
+import CanvasContextMenu from '@/components/CanvasContextMenu';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import EmptyStateGallery from '@/components/canvas/EmptyStateGallery';
 import Toolbar from '@/components/Toolbar';
@@ -31,6 +32,7 @@ import ModuleIntroOverlay from '@/components/ModuleIntroOverlay';
 import CanvasOverlay from '@/components/CanvasOverlay';
 import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
+import { WireValidationTooltip } from '@/components/canvas/WirePreview';
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -154,6 +156,7 @@ export default function Home() {
     >
       <SimController />
       <Toast />
+      <CanvasContextMenu />
       <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
       <HelpOverlay />
       <ContextMenu />
@@ -183,6 +186,7 @@ export default function Home() {
           <CanvasOverlay />
           <EmptyStateGallery />
           <WiringHint />
+          <WireValidationTooltip />
           <CameraHint />
           <ErrorBoundary>
             <Oscilloscope

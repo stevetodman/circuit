@@ -133,6 +133,7 @@ function applyZoomToFit(
 
 function BoxSelectOverlay() {
   const boxSelectRect = useUIStore((state) => state.boxSelectRect);
+  const selectedCount = useCircuitStore((state) => state.selectedComponentIds.length);
   if (!boxSelectRect) return null;
 
   const width = Math.max(boxSelectRect.width, BOX_SELECT_LINE_SIZE);
@@ -149,7 +150,13 @@ function BoxSelectOverlay() {
         border: '1px dashed rgba(90, 150, 255, 0.85)',
         background: 'rgba(90, 150, 255, 0.15)',
       }}
-    />
+    >
+      {selectedCount > 0 && (
+        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/80 text-white leading-none">
+          {selectedCount}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -159,6 +166,8 @@ function SceneInteractions() {
   const updateBoxSelect = useUIStore((state) => state.updateBoxSelect);
   const clearBoxSelect = useUIStore((state) => state.clearBoxSelect);
   const setMousePos     = useUIStore((state) => state.setMousePos);
+  const requestZoomToComponent = useUIStore((state) => state.requestZoomToComponent);
+  const openCanvasMenu = useUIStore((state) => state.openCanvasMenu);
   const setSelectedComponentIds = useCircuitStore((state) => state.setSelectedComponentIds);
 
   useEffect(() => {
@@ -240,6 +249,19 @@ function SceneInteractions() {
       clearBoxSelect();
     };
 
+    const onDblClick = (event: MouseEvent) => {
+      const componentId = findComponentAtPointer(event.clientX, event.clientY);
+      if (componentId) requestZoomToComponent(componentId);
+    };
+
+    const onContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      const componentId = findComponentAtPointer(event.clientX, event.clientY);
+      if (!componentId) {
+        openCanvasMenu(event.clientX, event.clientY);
+      }
+    };
+
     gl.domElement.addEventListener('pointerdown', onPointerDown, true);
     gl.domElement.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointermove', onPointerMove);
@@ -247,6 +269,8 @@ function SceneInteractions() {
     window.addEventListener('pointerup', onPointerUp);
     gl.domElement.addEventListener('pointercancel', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
+    gl.domElement.addEventListener('dblclick', onDblClick);
+    gl.domElement.addEventListener('contextmenu', onContextMenu);
 
     return () => {
       gl.domElement.removeEventListener('pointerdown', onPointerDown, true);
@@ -256,8 +280,10 @@ function SceneInteractions() {
       window.removeEventListener('pointerup', onPointerUp);
       gl.domElement.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
+      gl.domElement.removeEventListener('dblclick', onDblClick);
+      gl.domElement.removeEventListener('contextmenu', onContextMenu);
     };
-  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds]);
+  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent, openCanvasMenu]);
 
   return null;
 }
@@ -270,6 +296,8 @@ function CameraController() {
   const clearZoomToFit = useUIStore((s) => s.clearZoomToFit);
   const cameraPreset   = useUIStore((s) => s.cameraPreset);
   const clearCameraPreset = useUIStore((s) => s.clearCameraPreset);
+  const zoomToComponentId = useUIStore((s) => s.zoomToComponentId);
+  const clearZoomToComponent = useUIStore((s) => s.clearZoomToComponent);
   const componentsMap  = useCircuitStore((s) => s.components);
 
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -311,6 +339,23 @@ function CameraController() {
     if (cameraPreset === 'top') {
       applyCameraPreset(camera, controls, TOP_DOWN_CAMERA_POSITION, [0, 0, 0]);
       clearCameraPreset();
+      return;
+    }
+
+    if (zoomToComponentId) {
+      const comp = componentsMap[zoomToComponentId];
+      if (comp) {
+        const target = new THREE.Vector3(comp.anchorPos[0], comp.anchorPos[1], comp.anchorPos[2]);
+        const dir = camera.position.clone().sub(controls.target).normalize();
+        if (!Number.isFinite(dir.lengthSq()) || dir.lengthSq() < 1e-6) {
+          dir.set(0.45, 0.6, 0.65).normalize();
+        }
+        camera.position.copy(target).addScaledVector(dir, 3.5);
+        controls.target.copy(target);
+        camera.lookAt(target);
+        controls.update();
+      }
+      clearZoomToComponent();
       return;
     }
   });
@@ -393,6 +438,7 @@ export default function Scene() {
                 rotationY={component.rotationY}
                 pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
                 selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
+                multiSelected={selectedComponentIds.includes(component.id) && selectedComponentId !== component.id}
                 anodeNetId={pinNet('anode')}
                 cathodeNetId={pinNet('cathode')}
                 onContextMenu={(event) => {

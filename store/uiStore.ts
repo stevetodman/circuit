@@ -3,8 +3,10 @@
 /**
  * Lightweight UI state that doesn't need undo/redo tracking.
  * Shared between canvas components and sidebar indicators.
+ * Visualization preferences are persisted to localStorage.
  */
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface BoxSelectState {
   startX: number;
@@ -17,6 +19,8 @@ interface UIState {
   hoveredNodeId: string | null;
   mouseX: number;
   mouseY: number;
+  wireValidationStatus: 'clean' | 'short' | null;
+  wireValidationMessage: string | null;
   simStatus: 'idle' | 'running' | 'error' | 'warn';
   simError: string | null;
   simErrorDismissed: boolean;
@@ -28,6 +32,7 @@ interface UIState {
   showPolarityLabels: boolean;
   showWireVoltageColors: boolean;
   showValueLabels: boolean;
+  showCurrentThickness: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showSidebar: boolean;
@@ -43,6 +48,11 @@ interface UIState {
     x: number;
     y: number;
   } | null;
+  canvasMenu: {
+    x: number;
+    y: number;
+  } | null;
+  recentlyUsedTypes: string[];
   wireMenu: {
     wireId: string;
     x: number;
@@ -51,6 +61,8 @@ interface UIState {
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
   circuitHealthWarning: string | null;
+  snapTargetNodeIds: string[];
+  zoomToComponentId: string | null;
 
   setHoveredNode:      (id: string | null) => void;
   setMousePos:         (x: number, y: number) => void;
@@ -62,6 +74,7 @@ interface UIState {
   toggleSimPaused: () => void;
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
+  toggleCurrentThickness: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
   toggleWireVoltageColors: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
@@ -71,6 +84,9 @@ interface UIState {
   toggleValueLabels:  () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
   closeContextMenu:    () => void;
+  openCanvasMenu:     (x: number, y: number) => void;
+  closeCanvasMenu:    () => void;
+  addRecentlyUsedType: (type: string) => void;
   openWireMenu:       (wireId: string, x: number, y: number) => void;
   closeWireMenu:      () => void;
   requestZoomToFit:    () => void;
@@ -81,11 +97,15 @@ interface UIState {
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
+  setSnapTargetNodeIds: (ids: string[]) => void;
+  requestZoomToComponent: (id: string) => void;
+  clearZoomToComponent: () => void;
   appendSerialOutput:  (text: string) => void;
   clearSerialOutput:   () => void;
   startBoxSelect:      (startX: number, startY: number) => void;
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
+  setWireValidationStatus: (status: 'clean' | 'short' | null, message?: string | null) => void;
 }
 
 const makeBoxSelectRect = (state: BoxSelectState) => {
@@ -94,10 +114,14 @@ const makeBoxSelectRect = (state: BoxSelectState) => {
   return new DOMRect(left, top, Math.abs(state.endX - state.startX), Math.abs(state.endY - state.startY));
 };
 
-export const useUIStore = create<UIState>()((set) => ({
+export const useUIStore = create<UIState>()(
+  persist(
+  (set) => ({
   hoveredNodeId: null,
   mouseX:       0,
   mouseY:       0,
+  wireValidationStatus: null,
+  wireValidationMessage: null,
   simStatus:     'idle',
   simError:      null,
   simErrorDismissed: false,
@@ -109,6 +133,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showPolarityLabels: true,
   showWireVoltageColors: true,
   showValueLabels: true,
+  showCurrentThickness: false,
   sab:           null,
   showHelp:      false,
   showSidebar:   true,
@@ -120,11 +145,19 @@ export const useUIStore = create<UIState>()((set) => ({
   cameraPreset:  null,
   serialOutput:  '',
   contextMenu:    null,
+  canvasMenu:     null,
   wireMenu:       null,
   boxSelect:      null,
   boxSelectRect:  null,
   circuitHealthWarning: null,
+  snapTargetNodeIds: [],
+  zoomToComponentId: null,
+  setWireValidationStatus: (status, message = null) => set({
+    wireValidationStatus: status,
+    wireValidationMessage: message,
+  }),
 
+  recentlyUsedTypes: [],
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
   setSimStatus:   (status, error = undefined) => set({
@@ -149,8 +182,16 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleSidebar:  () => set((s) => ({ showSidebar: !s.showSidebar })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
+  toggleCurrentThickness: () => set((state) => ({ showCurrentThickness: !state.showCurrentThickness })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openCanvasMenu: (x, y) => set({ canvasMenu: { x, y } }),
+  closeCanvasMenu: () => set({ canvasMenu: null }),
+  addRecentlyUsedType: (type) =>
+    set((state) => {
+      const filtered = state.recentlyUsedTypes.filter((t) => t !== type);
+      return { recentlyUsedTypes: [type, ...filtered].slice(0, 5) };
+    }),
   openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
   closeWireMenu: () => set({ wireMenu: null }),
   requestZoomToFit:    () => set({ zoomToFit: true }),
@@ -161,6 +202,9 @@ export const useUIStore = create<UIState>()((set) => ({
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
   setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
+  setSnapTargetNodeIds: (ids) => set({ snapTargetNodeIds: ids }),
+  requestZoomToComponent: (id) => set({ zoomToComponentId: id }),
+  clearZoomToComponent: () => set({ zoomToComponentId: null }),
   appendSerialOutput: (text) => set((state) => {
     const next = `${state.serialOutput}${text}`;
     return { serialOutput: next.length > 10_000 ? next.slice(-10_000) : next };
@@ -177,4 +221,17 @@ export const useUIStore = create<UIState>()((set) => ({
       return { boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) };
     }),
   clearBoxSelect: () => set({ boxSelect: null, boxSelectRect: null }),
-}));
+  }),
+  {
+    name: 'circuit-ui-prefs',
+    partialize: (state) => ({
+      showDesignators: state.showDesignators,
+      showPolarityLabels: state.showPolarityLabels,
+      showWireVoltageColors: state.showWireVoltageColors,
+      showValueLabels: state.showValueLabels,
+      showCurrentLabels: state.showCurrentLabels,
+      recentlyUsedTypes: state.recentlyUsedTypes,
+      showCurrentThickness: state.showCurrentThickness,
+    }),
+  },
+));

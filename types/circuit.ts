@@ -93,6 +93,7 @@ type BasePlacedComponent = {
   rotationY: number;
   pins: PinConnection[];
   props: Record<string, number | string>;
+  locked?: boolean;
   // For overload detection (M6: smoke effect)
   powerRating?: number;   // watts
   maxCurrent?: number;    // amps

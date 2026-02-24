@@ -5,6 +5,7 @@ import type { ComponentType, Vec3, PinConnection, PinTemplate } from '@/types/ci
 import { PIN_TEMPLATES } from '@/types/circuit';
 import { BOARD_TOP_Y, SNAP_THRESHOLD } from '@/store/circuitStore';
 import { useCircuitStore } from '@/store/circuitStore';
+import { useUIStore } from '@/store/uiStore';
 
 const BOARD_CENTER: Vec3 = [0, BOARD_TOP_Y, 0];
 
@@ -108,6 +109,7 @@ export const useDragStore = create<DragState>()((set, get) => ({
     }
 
     useCircuitStore.getState().addComponent(state.type, snappedAnchor, pins, state.rotationY);
+    useUIStore.getState().addRecentlyUsedType(state.type);
     set({ dragging: false, type: null, position: BOARD_CENTER, rotationY: 0 });
   },
 

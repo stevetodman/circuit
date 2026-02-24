@@ -19,6 +19,7 @@ export default function StepCard() {
   const justCompleted = useModuleStore((s) => s.justCompleted);
   const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
   const exitModule = useModuleStore((s) => s.exitModule);
+  const validationFailed = useModuleStore((s) => s.validationFailed);
   const startModule = useModuleStore((s) => s.startModule);
   const [hintVisible, setHintVisible] = useState(false);
   const [completedModuleTitle, setCompletedModuleTitle] = useState<string | null>(null);
@@ -120,6 +121,12 @@ export default function StepCard() {
             <div className={`overflow-hidden transition-all duration-200 ${hintVisible ? 'max-h-40 opacity-100 mt-1.5' : 'max-h-0 opacity-0'}`}>
               <p className="text-white/40 text-xs">{step.hint}</p>
             </div>
+          </div>
+        )}
+
+        {validationFailed && step.failHint && (
+          <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
+            <p className="text-amber-300/80 text-[11px] leading-snug">Not quite — {step.failHint}</p>
           </div>
         )}
 

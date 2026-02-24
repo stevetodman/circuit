@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 
@@ -16,6 +16,8 @@ export default function ContextMenu() {
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
 
   const removeComponent = useCircuitStore((s) => s.removeComponent);
+  const toggleComponentLock = useCircuitStore((s) => s.toggleComponentLock);
+  const components = useCircuitStore((s) => s.components);
   const rotateComponent = useCircuitStore((s) => s.rotateComponent);
   const copySelected = useCircuitStore((s) => s.copySelected);
   const pasteClipboard = useCircuitStore((s) => s.pasteClipboard);
@@ -46,10 +48,11 @@ export default function ContextMenu() {
   if (!contextMenu) return null;
 
   const { componentId, x, y } = contextMenu;
+  const isLocked = components[componentId]?.locked ?? false;
 
   // F10.5: clamp so menu never overflows viewport
   const MENU_W = 160;
-  const MENU_H = MENU_ITEMS.length * 33 + 4;
+  const MENU_H = (MENU_ITEMS.length + 1) * 33 + 4;
   const PAD = 8;
   const cx = Math.min(x, window.innerWidth  - MENU_W - PAD);
   const cy = Math.min(y, window.innerHeight - MENU_H - PAD);
@@ -89,6 +92,16 @@ export default function ContextMenu() {
       style={{ left: `${cx}px`, top: `${cy}px` }}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <button
+        type="button"
+        className="w-full px-3 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+        onClick={() => {
+          toggleComponentLock(componentId);
+          closeContextMenu();
+        }}
+      >
+        {isLocked ? '🔓 Unlock' : '🔒 Lock'}
+      </button>
       {MENU_ITEMS.map((item) => (
         <button
           key={item.key}
@@ -108,10 +121,25 @@ export function WireContextMenu() {
   const closeWireMenu = useUIStore((s) => s.closeWireMenu);
   const updateWireColor = useCircuitStore((s) => s.updateWireColor);
   const removeWire = useCircuitStore((s) => s.removeWire);
+  const wires = useCircuitStore((s) => s.wires);
+  const nodes = useCircuitStore((s) => s.nodes);
+  const netLabels = useCircuitStore((s) => s.netLabels);
+  const setNetLabel = useCircuitStore((s) => s.setNetLabel);
+
+  const wire = wireMenu ? wires[wireMenu.wireId] : null;
+  const netId = wire ? (nodes[wire.fromNodeId]?.netId ?? null) : null;
+  const currentLabel = (netId != null) ? (netLabels[netId] ?? '') : '';
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState('');
 
   if (!wireMenu) return null;
 
   const WIRE_COLORS = ['#cc3333', '#3399ff', '#33cc66', '#ffaa00', '#cc66ff', '#ffffff', '#aaaaaa'];
+
+  useEffect(() => {
+    setEditingLabel(false);
+    setLabelDraft('');
+  }, [wireMenu]);
 
   return (
     <div
@@ -130,6 +158,43 @@ export function WireContextMenu() {
           />
         ))}
       </div>
+      {netId != null && !editingLabel && (
+        <button
+          type="button"
+          onClick={() => { setLabelDraft(currentLabel); setEditingLabel(true); }}
+          className="w-full text-left text-[11px] text-white/55 hover:text-white/85 px-2 py-1.5 hover:bg-white/[0.06] transition-colors"
+        >
+          {currentLabel ? `✏ "${currentLabel}"` : '＋ Name this net'}
+        </button>
+      )}
+      {netId != null && editingLabel && (
+        <div className="px-2 py-1.5 flex items-center gap-1">
+          <input
+            autoFocus
+            type="text"
+            value={labelDraft}
+            onChange={(e) => setLabelDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setNetLabel(netId, labelDraft);
+                setEditingLabel(false);
+                closeWireMenu();
+              }
+              if (e.key === 'Escape') setEditingLabel(false);
+            }}
+            placeholder="e.g. GND, VCC"
+            className="flex-1 bg-white/[0.08] text-white/80 text-[11px] rounded px-1.5 py-0.5 border border-white/[0.12] focus:outline-none focus:border-[#7c6fff]/50 placeholder-white/25"
+            maxLength={20}
+          />
+          <button
+            type="button"
+            onClick={() => { setNetLabel(netId, labelDraft); setEditingLabel(false); closeWireMenu(); }}
+            className="text-[10px] text-[#7c6fff] hover:text-[#9b8fff] font-medium"
+          >
+            OK
+          </button>
+        </div>
+      )}
       <div className="h-px bg-white/[0.08] mx-2 my-1" />
       <button
         onClick={() => { removeWire(wireMenu.wireId); closeWireMenu(); }}
