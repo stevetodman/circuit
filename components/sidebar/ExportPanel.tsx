@@ -4,6 +4,7 @@ import { useMemo, useRef, type ChangeEvent } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { exportSPICE } from '@/features/export/exportNetlist';
 import { exportBreadboardSVG } from '@/features/export/exportBreadboardSVG';
+import { buildBOM, exportBOMAsCSV } from '@/features/export/exportBOM';
 import { useToastStore } from '@/store/toastStore';
 import { CIRCUIT_NAME_PARAM, CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
 
@@ -23,10 +24,13 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
   const components = useCircuitStore((state) => state.components);
   const wires = useCircuitStore((state) => state.wires);
   const circuitName = useCircuitStore((state) => state.circuitName);
+  const getDesignator = useCircuitStore((state) => state.getDesignator);
   const saveToJSON = useCircuitStore((state) => state.saveToJSON);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
   const addToast = useToastStore((state) => state.addToast);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const bomRows = buildBOM(components, getDesignator);
+  const totalComponents = Object.keys(components).length;
 
   const spiceText = useMemo(() => {
     return exportSPICE(nodes, components, wires, 'circuit');
@@ -152,6 +156,48 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
       >
         🔗 Copy link
       </button>
+
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Bill of Materials</p>
+          {bomRows.length > 0 && (
+            <button
+              className="text-[10px] text-[#7c6fff] hover:text-[#a89fff]"
+              onClick={() => exportBOMAsCSV(bomRows, circuitName)}
+            >
+              Download CSV
+            </button>
+          )}
+        </div>
+        {bomRows.length === 0 ? (
+          <p className="text-[11px] text-white/20">No components</p>
+        ) : (
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="text-white/25">
+                <th className="text-left py-0.5 pr-2">Ref</th>
+                <th className="text-left py-0.5 pr-2">Type</th>
+                <th className="text-left py-0.5 pr-2">Value</th>
+                <th className="text-right py-0.5">Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bomRows.map((row) => (
+                <tr key={`${row.type}-${row.value}`} className="border-t border-white/5 text-white/50">
+                  <td className="py-0.5 pr-2 text-white/30 text-[9px]">{row.designators.slice(0, 3).join(', ')}{row.designators.length > 3 ? '…' : ''}</td>
+                  <td className="py-0.5 pr-2">{row.type}</td>
+                  <td className="py-0.5 pr-2 font-mono">{row.value}</td>
+                  <td className="py-0.5 text-right">{row.count}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-white/10 text-white/30 text-[9px]">
+                <td colSpan={3} className="pt-1">Total</td>
+                <td className="pt-1 text-right">{totalComponents}</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <button
         type="button"
