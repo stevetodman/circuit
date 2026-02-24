@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ComponentType } from '@/types/circuit';
+import type { ComponentType, Vec3 } from '@/types/circuit';
 
 interface BoxSelectState {
   startX: number;
@@ -68,6 +68,12 @@ interface UIState {
   } | null;
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
+  placedDrag: {
+    dragging: boolean;
+    anchorId: string | null;
+    startWorldPos: { x: number; z: number } | null;
+    startAnchorPositions: Record<string, Vec3> | null;
+  } | null;
   circuitHealthWarning: string | null;
   clickToPlaceType: ComponentType | null;
   clickToPlaceRotation: number;
@@ -113,6 +119,8 @@ interface UIState {
   requestZoomOut:      () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
+  startPlacedDrag: (anchorId: string, worldX: number, worldZ: number, positions: Record<string, Vec3>) => void;
+  endPlacedDrag: () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
   setClickToPlace: (type: ComponentType | null) => void;
   rotateClickToPlace: () => void;
@@ -175,6 +183,7 @@ export const useUIStore = create<UIState>()(
   wireMenu:       null,
   boxSelect:      null,
   boxSelectRect:  null,
+  placedDrag:     null,
   circuitHealthWarning: null,
   clickToPlaceType: null,
   clickToPlaceRotation: 0,
@@ -236,6 +245,15 @@ export const useUIStore = create<UIState>()(
   requestZoomOut:      () => set((s) => ({ zoomOutRequested: s.zoomOutRequested + 1 })),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
+  startPlacedDrag: (anchorId, worldX, worldZ, positions) => set({
+    placedDrag: {
+      dragging: true,
+      anchorId,
+      startWorldPos: { x: worldX, z: worldZ },
+      startAnchorPositions: positions,
+    },
+  }),
+  endPlacedDrag: () => set({ placedDrag: null }),
   setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
   setClickToPlace: (type) => set((s) => ({
     clickToPlaceType: type,

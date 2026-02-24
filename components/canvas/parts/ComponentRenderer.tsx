@@ -36,6 +36,7 @@ interface ComponentRendererProps {
   transparent?:   boolean;
   onClick?:       (event: ThreeEvent<MouseEvent>) => void;
   onContextMenu?: (event: ThreeEvent<MouseEvent>) => void;
+  onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
   anodeNetId?:    number | null;
   cathodeNetId?:  number | null;
   componentProps?: Record<string, number | string>;
@@ -131,6 +132,7 @@ export default function ComponentRenderer({
   transparent,
   onClick,
   onContextMenu,
+  onPointerDown,
   anodeNetId,
   cathodeNetId,
   componentProps,
@@ -409,6 +411,7 @@ export default function ComponentRenderer({
       position={anchorPos}
       rotation={[0, rotYRad, 0]}
       userData={{ componentId }}
+      onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       onDoubleClick={handleDoubleClick}
     >
