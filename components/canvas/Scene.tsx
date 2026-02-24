@@ -133,6 +133,7 @@ function applyZoomToFit(
 
 function BoxSelectOverlay() {
   const boxSelectRect = useUIStore((state) => state.boxSelectRect);
+  const selectedCount = useCircuitStore((state) => state.selectedComponentIds.length);
   if (!boxSelectRect) return null;
 
   const width = Math.max(boxSelectRect.width, BOX_SELECT_LINE_SIZE);
@@ -149,7 +150,13 @@ function BoxSelectOverlay() {
         border: '1px dashed rgba(90, 150, 255, 0.85)',
         background: 'rgba(90, 150, 255, 0.15)',
       }}
-    />
+    >
+      {selectedCount > 0 && (
+        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/80 text-white leading-none">
+          {selectedCount}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -431,6 +438,7 @@ export default function Scene() {
                 rotationY={component.rotationY}
                 pinOffsets={PIN_TEMPLATES[component.type].map((pin) => pin.offset)}
                 selected={selectedComponentId === component.id || selectedComponentIds.includes(component.id)}
+                multiSelected={selectedComponentIds.includes(component.id) && selectedComponentId !== component.id}
                 anodeNetId={pinNet('anode')}
                 cathodeNetId={pinNet('cathode')}
                 onContextMenu={(event) => {

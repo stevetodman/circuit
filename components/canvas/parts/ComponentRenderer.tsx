@@ -32,6 +32,7 @@ interface ComponentRendererProps {
   rotationY?:     number;   // degrees (0 | 90 | 180 | 270)
   pinOffsets?:    Vec3[];
   selected?:      boolean;
+  multiSelected?: boolean;
   transparent?:   boolean;
   onClick?:       (event: ThreeEvent<MouseEvent>) => void;
   onContextMenu?: (event: ThreeEvent<MouseEvent>) => void;
@@ -115,6 +116,7 @@ export default function ComponentRenderer({
   rotationY = 0,
   pinOffsets,
   selected,
+  multiSelected,
   transparent,
   onClick,
   onContextMenu,
@@ -134,15 +136,28 @@ export default function ComponentRenderer({
   const isOverloaded = overloadIds.includes(componentId);
   const locked = useCircuitStore((state) => state.components[componentId]?.locked ?? false);
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const multiSelectRingRef = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!overloadMaterialRef.current) return;
-    if (!isOverloaded) {
-      overloadMaterialRef.current.emissiveIntensity = 0;
-      return;
+    if (overloadMaterialRef.current) {
+      if (!isOverloaded) {
+        overloadMaterialRef.current.emissiveIntensity = 0;
+      } else {
+        const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
+        overloadMaterialRef.current.emissiveIntensity = 0.2 + pulse * 0.6;
+      }
     }
-    const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 8);
-    overloadMaterialRef.current.emissiveIntensity = 0.2 + pulse * 0.6;
+
+    if (multiSelectRingRef.current) {
+      if (multiSelected) {
+        const pulse = 0.5 + 0.5 * Math.sin(clock.getElapsedTime() * 5);
+        multiSelectRingRef.current.emissiveIntensity = 0.3 + pulse * 0.5;
+        multiSelectRingRef.current.opacity = 0.25 + pulse * 0.25;
+      } else {
+        multiSelectRingRef.current.emissiveIntensity = 0;
+        multiSelectRingRef.current.opacity = 0;
+      }
+    }
   });
 
   const toggleSelectedComponent = useCircuitStore((state) => state.toggleSelectedComponent);
@@ -395,6 +410,20 @@ export default function ComponentRenderer({
             opacity={0.35}
             depthWrite={false}
             toneMapped={false}
+          />
+        </mesh>
+      )}
+      {multiSelected && (
+        <mesh position={[0, 0.01, 0]}>
+          <boxGeometry args={[0.8, 0.3, 0.8]} />
+          <meshStandardMaterial
+            ref={multiSelectRingRef}
+            color="#7b5cf0"
+            emissive="#7b5cf0"
+            emissiveIntensity={0.5}
+            transparent
+            opacity={0.3}
+            depthWrite={false}
           />
         </mesh>
       )}
