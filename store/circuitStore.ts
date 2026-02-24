@@ -94,6 +94,7 @@ interface CircuitState extends TopologyState {
   addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
   removeComponent(id: string): void;
   toggleComponentLock(id: string): void;
+  nudgeComponent(id: string, dx: number, dz: number): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
   updateWireColor: (id: string, color: string) => void;
@@ -353,6 +354,77 @@ export const useCircuitStore = create<CircuitState>()(
           const components = {
             ...state.components,
             [componentId]: { ...component, rotationY: (component.rotationY + 90) % 360 },
+          };
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes };
+        });
+      },
+
+      nudgeComponent(componentId, dx, dz) {
+        const comp = get().components[componentId];
+        if (!comp || comp.locked) return;
+
+        const candidateAnchor: Vec3 = [
+          comp.anchorPos[0] + dx,
+          comp.anchorPos[1],
+          comp.anchorPos[2] + dz,
+        ];
+        let snappedAnchor: Vec3 = [candidateAnchor[0], candidateAnchor[1], candidateAnchor[2]];
+        const pinTemplates = PIN_TEMPLATES[comp.type] ?? [];
+        const pins: import('@/types/circuit').PinConnection[] = [];
+
+        for (const pinDef of pinTemplates) {
+          const pinOffset = rotateOffset(pinDef.offset, comp.rotationY);
+          const pinWorld: Vec3 = [
+            candidateAnchor[0] + pinOffset[0],
+            candidateAnchor[1] + pinOffset[1],
+            candidateAnchor[2] + pinOffset[2],
+          ];
+
+          let bestNodeId: string | null = null;
+          let bestWorldPos: Vec3 | null = null;
+          let bestDist = Number.POSITIVE_INFINITY;
+
+          for (const node of Object.values(get().nodes)) {
+            const dxn = pinWorld[0] - node.worldPos[0];
+            const dyn = pinWorld[1] - node.worldPos[1];
+            const dzn = pinWorld[2] - node.worldPos[2];
+            const d = Math.sqrt(dxn * dxn + dyn * dyn + dzn * dzn);
+            if (d < bestDist) {
+              bestDist = d;
+              bestNodeId = node.id;
+              bestWorldPos = node.worldPos;
+            }
+          }
+
+          if (bestNodeId) {
+            pins.push({ name: pinDef.name, nodeId: bestNodeId });
+          }
+
+          if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
+            snappedAnchor = [
+              bestWorldPos[0] - pinOffset[0],
+              bestWorldPos[1] - pinOffset[1],
+              bestWorldPos[2] - pinOffset[2],
+            ] as Vec3;
+          }
+        }
+
+        if (pins.length === 0) {
+          const fallbackPins = comp.pins.map((pin) => ({ ...pin }));
+          pins.push(...fallbackPins);
+        }
+
+        set((state) => {
+          const component = state.components[componentId];
+          if (!component) return state;
+          const components = {
+            ...state.components,
+            [componentId]: {
+              ...component,
+              anchorPos: snappedAnchor,
+              pins,
+            },
           };
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
