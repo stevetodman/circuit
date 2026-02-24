@@ -37,6 +37,7 @@ import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
 import { WireValidationTooltip } from '@/components/canvas/WirePreview';
 import SaveBlockPrompt from '@/components/SaveBlockPrompt';
+import CircuitAudit from '@/components/CircuitAudit';
 
 const BodePlot = dynamic(() => import('@/features/bode/BodePlot'), { ssr: false });
 const OnboardingTooltip = dynamic(() => import('@/components/OnboardingTooltip'), { ssr: false });
@@ -221,6 +222,7 @@ export default function Home() {
       <KeyboardShortcuts />
       <InlineValueEditor />
       <SaveBlockPrompt />
+      <CircuitAudit />
       <ModuleIntroOverlay />
       <ModuleValidator />
       {!showSidebar && (

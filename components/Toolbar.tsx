@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { type CSSProperties } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -8,6 +8,7 @@ import { useCircuitHistory, useCircuitStore } from '@/store/circuitStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
 import { useBodeStore } from '@/store/bodeStore';
+import { runAudit } from '@/features/audit/circuitAudit';
 
 function ToolbarBtn({
   onClick,
@@ -61,6 +62,9 @@ export default function Toolbar() {
     selectedComponentId,
     selectedComponentIds,
     clipboardLength,
+    components,
+    nodes,
+    getDesignator,
   } = useCircuitStore(
     useShallow((s) => ({
       deleteSelected: s.deleteSelected,
@@ -69,6 +73,9 @@ export default function Toolbar() {
       selectedComponentId: s.selectedComponentId,
       selectedComponentIds: s.selectedComponentIds,
       clipboardLength: s.clipboardLength,
+      components: s.components,
+      nodes: s.nodes,
+      getDesignator: s.getDesignator,
     }))
   );
 
@@ -105,12 +112,17 @@ export default function Toolbar() {
   const toggleVoltageHeatmap = useUIStore((s) => s.toggleVoltageHeatmap);
   const showValueLabels = useUIStore((s) => s.showValueLabels);
   const toggleValueLabels = useUIStore((s) => s.toggleValueLabels);
+  const openCircuitAudit = useUIStore((s) => s.openCircuitAudit);
 
   const { open: schematicOpen, toggle: toggleSchematic } = useSchematicStore(
     useShallow((s) => ({ open: s.open, toggle: s.toggle }))
   );
   const bodeOpen = useBodeStore((s) => s.open);
   const toggleBode = useBodeStore((s) => s.toggle);
+  const auditIssueCount = useMemo(
+    () => runAudit(components, nodes, getDesignator).length,
+    [components, nodes, getDesignator]
+  );
 
   const noSelection = !selectedComponentId && selectedComponentIds.length === 0;
 
@@ -254,6 +266,21 @@ export default function Toolbar() {
       >
         ≈ Bode
       </ToolbarBtn>
+      <button
+        onClick={openCircuitAudit}
+        title={`Circuit Audit (Ctrl/Cmd+Shift+A)${auditIssueCount > 0 ? ` · ${auditIssueCount} issue${auditIssueCount === 1 ? '' : 's'}` : ''}`}
+        className={`h-7 px-2.5 rounded text-[11px] transition-colors flex items-center gap-1.5 relative
+          ${auditIssueCount > 0 ? 'text-white/90' : 'text-white/55 hover:text-white/80'}
+          ${auditIssueCount > 0 ? 'bg-[#7c6fff]/12' : 'hover:bg-white/[0.1]'}
+          focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none`}
+      >
+        🛡 Audit
+        {auditIssueCount > 0 && (
+          <span className="ml-0.5 px-1 rounded-full text-[8px] leading-none bg-[#ff3e5b] text-white min-w-[16px] text-center font-medium">
+            {auditIssueCount}
+          </span>
+        )}
+      </button>
     </div>
   );
 }
