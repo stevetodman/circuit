@@ -48,6 +48,7 @@ interface UIState {
   canvasSearchOpen: boolean;
   findReplaceOpen: boolean;
   serialOutput: string;
+  arduinoPlotterData: number[][];
   contextMenu: {
     componentId: string;
     x: number;
@@ -141,6 +142,8 @@ interface UIState {
   clearZoomToComponent: () => void;
   appendSerialOutput:  (text: string) => void;
   clearSerialOutput:   () => void;
+  appendPlotterData:  (values: number[]) => void;
+  clearPlotterData:   () => void;
   startBoxSelect:      (startX: number, startY: number) => void;
   updateBoxSelect:     (endX: number, endY: number) => void;
   clearBoxSelect:      () => void;
@@ -193,6 +196,7 @@ export const useUIStore = create<UIState>()(
   canvasSearchOpen: false,
   findReplaceOpen: false,
   serialOutput:  '',
+  arduinoPlotterData: [[], [], [], []],
   contextMenu:    null,
   swapTypeMenuId: null,
   swapTypeMenuPos: null,
@@ -293,6 +297,15 @@ export const useUIStore = create<UIState>()(
     return { serialOutput: next.length > 10_000 ? next.slice(-10_000) : next };
   }),
   clearSerialOutput: () => set({ serialOutput: '' }),
+  appendPlotterData: (values) => set((state) => {
+    const next = state.arduinoPlotterData.map((ch, i) => {
+      if (values[i] == null) return ch;
+      const updated = [...ch, values[i]];
+      return updated.length > 200 ? updated.slice(-200) : updated;
+    });
+    return { arduinoPlotterData: next };
+  }),
+  clearPlotterData: () => set({ arduinoPlotterData: [[], [], [], []] }),
   startBoxSelect: (startX, startY) => {
     const boxSelect = { startX, startY, endX: startX, endY: startY };
     set({ boxSelect, boxSelectRect: makeBoxSelectRect(boxSelect) });

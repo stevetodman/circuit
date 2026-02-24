@@ -14,6 +14,7 @@ import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
+import SerialPlotter from './SerialPlotter';
 
 // Blink sketch compiled for ATmega328P (pin 13, 1 Hz)
 const BLINK_HEX = `
@@ -205,9 +206,14 @@ export default function ArduinoPanel() {
   const [hexName,   setHexName]   = useState<string | null>(null);
   const [cycleCount,setCycleCount]= useState(0);
   const [userScrolled, setUserScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState<'monitor' | 'plotter'>('monitor');
   const serialOutput = useUIStore((s) => s.serialOutput);
   const clearSerialOutput = useUIStore((s) => s.clearSerialOutput);
+  const arduinoPlotterData = useUIStore((s) => s.arduinoPlotterData);
+  const appendPlotterData = useUIStore((s) => s.appendPlotterData);
+  const clearPlotterData = useUIStore((s) => s.clearPlotterData);
   const serialRef = useRef<HTMLPreElement | null>(null);
+  const prevSerialRef = useRef('');
 
   // Derive whether we are looking at an Arduino component
   const component = selectedId ? components[selectedId] : null;
@@ -318,6 +324,24 @@ export default function ArduinoPanel() {
     }
   }, [serialOutput, userScrolled]);
 
+  useEffect(() => {
+    const prev = prevSerialRef.current;
+    if (serialOutput.length <= prev.length) {
+      prevSerialRef.current = serialOutput;
+      return;
+    }
+    const newText = serialOutput.slice(prev.length);
+    prevSerialRef.current = serialOutput;
+
+    const lines = newText.split('\n').filter(Boolean);
+    for (const line of lines) {
+      const parts = line.trim().split(',').map((value) => Number(value));
+      if (parts.every((v) => !Number.isNaN(v) && parts.length >= 1)) {
+        appendPlotterData(parts);
+      }
+    }
+  }, [serialOutput, appendPlotterData]);
+
   const handleScroll = () => {
     const el = serialRef.current;
     if (!el) return;
@@ -417,37 +441,58 @@ export default function ArduinoPanel() {
         </p>
       )}
 
-      {/* Serial monitor */}
-      <div className="space-y-1.5 relative">
-        <div className="flex items-center justify-between">
-          <p className="text-[9px] text-white/25 uppercase tracking-widest">Serial Monitor</p>
-          <button
-            onClick={clearSerialOutput}
-            className="text-[9px] px-2 py-1 rounded bg-white/[0.07] text-white/40 hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
-          >
-            Clear
-          </button>
+      {/* Serial monitor / plotter */}
+      <div className="space-y-1.5">
+        <div className="flex gap-1 mb-2">
+          {(['monitor', 'plotter'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`text-[10px] px-2 py-0.5 rounded capitalize transition-colors ${
+                activeTab === tab
+                  ? 'bg-[#7c6fff]/30 text-[#a89fff]'
+                  : 'text-white/40 hover:text-white/60'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-        <pre
-          ref={serialRef}
-          className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 h-40 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap"
-          onScroll={handleScroll}
-        >
-          {serialOutput.length > 0
-            ? serialOutput
-            : 'No serial output yet. Upload a sketch with Serial.print().'}
-        </pre>
-        {userScrolled && (
-          <button
-            type="button"
-            onClick={() => {
-              setUserScrolled(false);
-              if (serialRef.current) serialRef.current.scrollTop = serialRef.current.scrollHeight;
-            }}
-            className="absolute bottom-2 right-2 bg-white/10 hover:bg-white/20 text-white/60 text-[10px] px-1.5 py-0.5 rounded"
-          >
-            ↓ latest
-          </button>
+        {activeTab === 'monitor' ? (
+          <div className="space-y-1.5 relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] text-white/25 uppercase tracking-widest">Serial Monitor</p>
+              <button
+                onClick={clearSerialOutput}
+                className="text-[9px] px-2 py-1 rounded bg-white/[0.07] text-white/40 hover:bg-white/[0.12] focus-visible:ring-2 focus-visible:ring-[#7c6fff] focus-visible:outline-none"
+              >
+                Clear
+              </button>
+            </div>
+            <pre
+              ref={serialRef}
+              className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 h-40 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap"
+              onScroll={handleScroll}
+            >
+              {serialOutput.length > 0
+                ? serialOutput
+                : 'No serial output yet. Upload a sketch with Serial.print().'}
+            </pre>
+            {userScrolled && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUserScrolled(false);
+                  if (serialRef.current) serialRef.current.scrollTop = serialRef.current.scrollHeight;
+                }}
+                className="absolute bottom-2 right-2 bg-white/10 hover:bg-white/20 text-white/60 text-[10px] px-1.5 py-0.5 rounded"
+              >
+                ↓ latest
+              </button>
+            )}
+          </div>
+        ) : (
+          <SerialPlotter data={arduinoPlotterData} onClear={clearPlotterData} />
         )}
       </div>
 
