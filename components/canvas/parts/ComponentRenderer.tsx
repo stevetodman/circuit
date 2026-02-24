@@ -146,6 +146,8 @@ export default function ComponentRenderer({
   const showDesignators = useUIStore((state) => state.showDesignators);
   const showValueLabels = useUIStore((state) => state.showValueLabels);
   const overloadIds = useUIStore((state) => state.overloadIds);
+  const setHoveredComponent = useUIStore((state) => state.setHoveredComponent);
+  const wiringMode = useCircuitStore((state) => state.wiringMode);
   const componentValueLabel = formatComponentValue({
     type,
     props: componentProps ?? {},
@@ -425,6 +427,31 @@ export default function ComponentRenderer({
       position={anchorPos}
       rotation={[0, rotYRad, 0]}
       userData={{ componentId }}
+      onPointerEnter={(event) => {
+        if (dragging || wiringMode) return;
+        event.stopPropagation();
+        setHoveredComponent(componentId, {
+          x: event.nativeEvent.clientX,
+          y: event.nativeEvent.clientY,
+        });
+      }}
+      onPointerLeave={(event) => {
+        if (dragging || wiringMode) {
+          setHoveredComponent(null);
+          return;
+        }
+        event.stopPropagation();
+        setHoveredComponent(null);
+      }}
+      onPointerMove={(event) => {
+        if (dragging || wiringMode) return;
+        if (useUIStore.getState().hoveredComponentId === componentId) {
+          setHoveredComponent(componentId, {
+            x: event.nativeEvent.clientX,
+            y: event.nativeEvent.clientY,
+          });
+        }
+      }}
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       onDoubleClick={handleDoubleClick}
