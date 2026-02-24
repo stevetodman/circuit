@@ -152,6 +152,7 @@ export default function Home() {
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
   const circuitName = useCircuitStore((state) => state.circuitName);
   const activeModuleId = useModuleStore((state) => state.activeModuleId);
+  const clickToPlaceType = useUIStore((s) => s.clickToPlaceType);
 
   useEffect(() => {
     if (!activeModuleId) return;
@@ -228,6 +229,15 @@ export default function Home() {
           <Scene />
           <CanvasOverlay />
           <EmptyStateGallery />
+          {clickToPlaceType && (
+            <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              style={{ animation: 'toastIn 0.2s ease-out both' }}>
+              <div className="bg-[#18181c]/90 border border-[#7c6fff]/40 rounded-lg px-3 py-1.5 text-[12px] text-[#b8b0ff]">
+                Click breadboard to place <span className="font-semibold capitalize">{clickToPlaceType}</span>
+                <span className="text-white/40 ml-2">· R to rotate · Esc to cancel</span>
+              </div>
+            </div>
+          )}
           <WiringHint />
           <WireValidationTooltip />
           <CameraHint />

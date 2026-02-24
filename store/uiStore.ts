@@ -7,6 +7,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { ComponentType } from '@/types/circuit';
 
 interface BoxSelectState {
   startX: number;
@@ -63,6 +64,8 @@ interface UIState {
   boxSelect: BoxSelectState | null;
   boxSelectRect: DOMRect | null;
   circuitHealthWarning: string | null;
+  clickToPlaceType: ComponentType | null;
+  clickToPlaceRotation: number;
   snapTargetNodeIds: string[];
   zoomToComponentId: string | null;
   editingNoteId: string | null;
@@ -102,6 +105,8 @@ interface UIState {
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
+  setClickToPlace: (type: ComponentType | null) => void;
+  rotateClickToPlace: () => void;
   setSnapTargetNodeIds: (ids: string[]) => void;
   requestZoomToComponent: (id: string) => void;
   clearZoomToComponent: () => void;
@@ -158,6 +163,8 @@ export const useUIStore = create<UIState>()(
   boxSelect:      null,
   boxSelectRect:  null,
   circuitHealthWarning: null,
+  clickToPlaceType: null,
+  clickToPlaceRotation: 0,
   snapTargetNodeIds: [],
   zoomToComponentId: null,
   editingNoteId: null,
@@ -213,6 +220,13 @@ export const useUIStore = create<UIState>()(
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
   clearCameraPreset:   () => set({ cameraPreset: null }),
   setCircuitHealthWarning: (warning) => set({ circuitHealthWarning: warning }),
+  setClickToPlace: (type) => set((s) => ({
+    clickToPlaceType: type,
+    clickToPlaceRotation: type == null ? 0 : s.clickToPlaceRotation,
+  })),
+  rotateClickToPlace: () => set((s) => ({
+    clickToPlaceRotation: (s.clickToPlaceRotation + 90) % 360,
+  })),
   setSnapTargetNodeIds: (ids) => set({ snapTargetNodeIds: ids }),
   requestZoomToComponent: (id) => set({ zoomToComponentId: id }),
   clearZoomToComponent: () => set({ zoomToComponentId: null }),

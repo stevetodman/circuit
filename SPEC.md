@@ -1,104 +1,203 @@
-# P6.a — Onboarding Tooltip Sequence
+# P7.a — Click-to-Place Mode
 
 ## Goal
-Show a brief 2-step guided overlay to first-time visitors that smoothly introduces the app without blocking the UI.
+Let users click a part in the sidebar to "arm" it, then click a spot on the breadboard canvas to place it — no cross-screen dragging required. One click to arm, one click to place.
 
 ## Acceptance Criteria
-1. On first visit (no `circuit-onboarded` in localStorage), show step 1 of the overlay
-2. Step 1: empty canvas hint — floating card bottom-center pointing ← at the sidebar with text "Drag a component from the panel to get started" + "Press ? for keyboard shortcuts" + a "Got it →" button
-3. Step 2: shown automatically after the user places their first component (circuitStore.components goes from empty to non-empty) — floating card pointing ↓ at the breadboard with text "Click any pin hole to start drawing a wire" + a "Got it ✓" button
-4. After step 2 "Got it", write `localStorage.setItem('circuit-onboarded', '1')` and never show again
-5. "Got it →" on step 1 advances to step 2 immediately (skip step 1 without waiting)
-6. Overlay is pointer-events-none on the backdrop; only the card is interactive
-7. Cards fade in with `toastIn` CSS animation (already in globals.css)
-8. No new Zustand store needed — use local `useState` in the component
-
-## Files to Create
-- `components/OnboardingTooltip.tsx` — new component
+1. Clicking a ComponentTile (instead of dragging) arms click-to-place mode for that type
+2. While armed: cursor over canvas is a `crosshair`, a floating badge near the cursor shows the component type (e.g. "Resistor — click to place")
+3. Clicking on the canvas (on the board plane) places the component at the nearest pin hole (same snap logic as drag-drop)
+4. `Escape` cancels click-to-place mode
+5. `R` key during click-to-place rotates the pending component (same as during drag)
+6. Dragging from ComponentTile still works exactly as before (unchanged behaviour)
+7. After placement the mode is cleared — user must click tile again to place another
+8. Works alongside the existing drag mode — they are mutually exclusive
+9. `pnpm build` must pass; no TypeScript errors
 
 ## Files to Modify
-- `app/page.tsx` — import and render `<OnboardingTooltip />` (dynamic import, ssr:false)
 
-## Implementation Details
+### `store/uiStore.ts`
+Add to UIState interface:
+```ts
+clickToPlaceType: ComponentType | null;
+clickToPlaceRotation: number;
+setClickToPlace: (type: ComponentType | null) => void;
+rotateClickToPlace: () => void;
+```
+Add to initial state:
+```ts
+clickToPlaceType: null,
+clickToPlaceRotation: 0,
+```
+Add actions:
+```ts
+setClickToPlace: (type) => set((s) => ({
+  clickToPlaceType: type,
+  clickToPlaceRotation: type == null ? 0 : s.clickToPlaceRotation,
+})),
+rotateClickToPlace: () => set((s) => ({ clickToPlaceRotation: (s.clickToPlaceRotation + 90) % 360 })),
+```
 
-### `components/OnboardingTooltip.tsx`
+### `components/sidebar/ComponentTile.tsx`
+Add `onClick` prop (in addition to existing `onAdd`):
 ```tsx
-'use client';
-import { useEffect, useState } from 'react';
-import { useCircuitStore } from '@/store/circuitStore';
+onClick?: () => void;
+```
+If `onClick` is provided, call it on the tile's `onClick` event.
+If neither `onAdd` nor `onClick` is provided, fall back to existing behaviour.
 
-export default function OnboardingTooltip() {
-  const [step, setStep] = useState<1 | 2 | 'done'>(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('circuit-onboarded')) return 'done';
-    return 1;
-  });
-  const components = useCircuitStore(s => s.components);
+Actually simpler: the existing tile fires `onAdd` which starts a drag. Instead, we'll handle click-to-place in `Sidebar.tsx` by passing a special `onClick` that calls `setClickToPlace`.
 
-  // Auto-advance from step 1 to step 2 when first component is placed
-  useEffect(() => {
-    if (step === 1 && Object.keys(components).length > 0) {
-      setStep(2);
+Since ComponentTile already has draggable behaviour, we need to distinguish a click (no movement) from a drag start. Use a `pointerdown`/`pointermove`/`pointerup` pattern on the tile — if pointer moves <5px before up, treat as a click → arm click-to-place mode. If it moves >5px, start drag as before.
+
+Add to ComponentTile:
+```tsx
+const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+const moved = useRef(false);
+
+onPointerDown={(e) => {
+  pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  moved.current = false;
+}}
+onPointerMove={(e) => {
+  if (pointerDownPos.current) {
+    const dx = e.clientX - pointerDownPos.current.x;
+    const dy = e.clientY - pointerDownPos.current.y;
+    if (Math.sqrt(dx*dx + dy*dy) > 5) moved.current = true;
+  }
+}}
+onPointerUp={(e) => {
+  if (pointerDownPos.current && !moved.current) {
+    // Click (not drag) — arm click-to-place
+    props.onClickToPlace?.();
+  }
+  pointerDownPos.current = null;
+}}
+```
+Add optional prop `onClickToPlace?: () => void`.
+
+### `components/sidebar/Sidebar.tsx`
+When rendering each `<ComponentTile>`, pass:
+```tsx
+onClickToPlace={() => {
+  useUIStore.getState().setClickToPlace(type);
+  // Also cancel any active drag
+  useDragStore.getState().cancel();
+}}
+```
+
+### `components/canvas/DragManager.tsx`
+Add click-to-place handling. In the main `useEffect` for pointer events:
+
+After the existing `pointerup` handler, add a separate `pointerup` handler that checks `clickToPlaceType`:
+```ts
+// Click-to-place: if click-to-place mode is active and user clicks canvas (not a component)
+// This runs BEFORE the drag handler — if dragging is active, skip
+const handleClickToPlace = (e: PointerEvent) => {
+  const { clickToPlaceType, clickToPlaceRotation } = useUIStore.getState();
+  if (!clickToPlaceType) return;
+  if (useDragStore.getState().dragging) return;
+  
+  const pos = clientToBoardPos(e.clientX, e.clientY);
+  if (!pos) {
+    useUIStore.getState().setClickToPlace(null);
+    return;
+  }
+  
+  // Use dragStore.startDrag + updatePos + commit pattern but with clickToPlaceRotation
+  // OR: inline the snap+commit logic here
+  const rotationY = clickToPlaceRotation;
+  const nodes = useCircuitStore.getState().nodes;
+  const pinTemplates = PIN_TEMPLATES[clickToPlaceType] ?? [];
+  let snappedAnchor: Vec3 = [...pos];
+  const pins: PinConnection[] = [];
+  
+  for (const pinDef of pinTemplates) {
+    const pinOffset = rotateOffset(pinDef.offset, rotationY);
+    const pinWorld: Vec3 = [snappedAnchor[0]+pinOffset[0], snappedAnchor[1]+pinOffset[1], snappedAnchor[2]+pinOffset[2]];
+    let bestNodeId: string | null = null; let bestWorldPos: Vec3 | null = null; let bestDist = Infinity;
+    for (const node of Object.values(nodes)) {
+      const d = distanceTo(pinWorld, node.worldPos);
+      if (d < bestDist) { bestDist = d; bestNodeId = node.id; bestWorldPos = node.worldPos; }
     }
-  }, [components, step]);
+    if (bestNodeId) pins.push({ name: pinDef.name, nodeId: bestNodeId });
+    if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
+      snappedAnchor = [bestWorldPos[0]-pinOffset[0], bestWorldPos[1]-pinOffset[1], bestWorldPos[2]-pinOffset[2]];
+    }
+  }
+  
+  useCircuitStore.getState().addComponent(clickToPlaceType, snappedAnchor, pins, rotationY);
+  useUIStore.getState().addRecentlyUsedType(clickToPlaceType);
+  useUIStore.getState().setClickToPlace(null); // clear after placement
+};
 
-  const dismiss = () => {
-    localStorage.setItem('circuit-onboarded', '1');
-    setStep('done');
-  };
+gl.domElement.addEventListener('pointerup', handleClickToPlace);
+// cleanup
+```
 
-  if (step === 'done') return null;
+Also update the cursor effect:
+```ts
+const { dragging } = useDragStore.getState();
+const { clickToPlaceType } = useUIStore.getState();
+gl.domElement.style.cursor = dragging ? 'grabbing' : clickToPlaceType ? 'crosshair' : 'default';
+```
 
-  return (
-    <div className="fixed inset-0 pointer-events-none z-40">
-      {step === 1 && (
-        <div
-          className="absolute bottom-24 left-[50%] -translate-x-[50%] pointer-events-auto"
-          style={{ animation: 'toastIn 0.4s ease-out both' }}
-        >
-          <div className="bg-[#18181c] border border-white/10 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.7)] px-5 py-4 max-w-[280px] text-center">
-            <div className="text-2xl mb-2">👋</div>
-            <p className="text-white/80 text-[13px] font-medium mb-1">Welcome to Circuit Simulator</p>
-            <p className="text-white/45 text-[11px] mb-3">Drag a component from the panel on the left to get started. Press <kbd className="text-[10px] bg-white/10 rounded px-1 py-0.5">?</kbd> for all shortcuts.</p>
-            <button
-              onClick={() => setStep(2)}
-              className="w-full text-[12px] py-1.5 rounded-lg bg-[#7c6fff]/20 text-[#b8b0ff] hover:bg-[#7c6fff]/35 transition-colors"
-            >
-              Got it →
-            </button>
-          </div>
-        </div>
-      )}
-      {step === 2 && (
-        <div
-          className="absolute bottom-24 left-[50%] -translate-x-[50%] pointer-events-auto"
-          style={{ animation: 'toastIn 0.4s ease-out both' }}
-        >
-          <div className="bg-[#18181c] border border-white/10 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.7)] px-5 py-4 max-w-[280px] text-center">
-            <div className="text-2xl mb-2">🔌</div>
-            <p className="text-white/80 text-[13px] font-medium mb-1">Now wire it up</p>
-            <p className="text-white/45 text-[11px] mb-3">Click any pin hole on the breadboard to start drawing a wire. Click a second pin to connect them.</p>
-            <button
-              onClick={dismiss}
-              className="w-full text-[12px] py-1.5 rounded-lg bg-[#22cc66]/15 text-[#6fffaa] hover:bg-[#22cc66]/25 transition-colors"
-            >
-              Got it ✓
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+### `components/KeyboardShortcuts.tsx`
+In the `R` key handler, also handle click-to-place rotation:
+```ts
+if (key === 'r') {
+  if (dragging) { e.preventDefault(); rotateDrag(); return; }
+  if (useUIStore.getState().clickToPlaceType) { 
+    e.preventDefault(); 
+    useUIStore.getState().rotateClickToPlace(); 
+    return; 
+  }
+  if (selectedComponentId) { e.preventDefault(); rotateComponent(selectedComponentId); }
+  return;
 }
 ```
+In the `Escape` handler, cancel click-to-place:
+```ts
+if (useUIStore.getState().clickToPlaceType) {
+  useUIStore.getState().setClickToPlace(null);
+  return;
+}
+```
+Add this before the `if (dragging)` check.
+
+Also add `Ctrl+N` for new circuit:
+```ts
+if (meta && key === 'n') {
+  e.preventDefault();
+  // Trigger new circuit — same as clicking "New Circuit" in ExportPanel
+  // circuitStore.newCircuit() but we need the confirm step — just toast a hint
+  // Actually: directly trigger it since keyboard users expect it to work
+  useCircuitStore.getState().newCircuit();
+  useToastStore.getState().addToast('New circuit — Ctrl+Z to restore', 'info');
+  return;
+}
+```
+Import `useToastStore` at the top of KeyboardShortcuts.tsx.
 
 ### `app/page.tsx`
-Add near the top with other dynamic imports:
+Add a floating badge when click-to-place is active. In the JSX, add:
 ```tsx
-const OnboardingTooltip = dynamic(() => import('@/components/OnboardingTooltip'), { ssr: false });
+const clickToPlaceType = useUIStore(s => s.clickToPlaceType);
+// ...
+{clickToPlaceType && (
+  <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+    style={{ animation: 'toastIn 0.2s ease-out both' }}>
+    <div className="bg-[#18181c]/90 border border-[#7c6fff]/40 rounded-lg px-3 py-1.5 text-[12px] text-[#b8b0ff]">
+      Click breadboard to place <span className="font-semibold capitalize">{clickToPlaceType}</span>
+      <span className="text-white/40 ml-2">· R to rotate · Esc to cancel</span>
+    </div>
+  </div>
+)}
 ```
-Render inside the main JSX alongside `<Toast />` and `<HelpOverlay />`.
+
+## Important: Import `ComponentType` in uiStore
+uiStore.ts must import `ComponentType` from `@/types/circuit` for the new field.
 
 ## Notes
-- `toastIn` keyframe is already defined in `app/globals.css` — reuse it
-- Don't add any Zustand store — local state is sufficient for this component
-- `pnpm build` must pass without TypeScript errors
+- The snap logic in DragManager is duplicated from dragStore.commit() — that's fine for now
+- `pnpm build` must pass

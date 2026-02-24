@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { useDragStore } from '@/store/dragStore';
 import { BOARD_TOP_Y, SNAP_THRESHOLD, useCircuitStore } from '@/store/circuitStore';
-import { PIN_TEMPLATES } from '@/types/circuit';
+import { PIN_TEMPLATES, type PinConnection } from '@/types/circuit';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
 import ComponentRenderer from './parts/ComponentRenderer';
@@ -33,11 +33,12 @@ export default function DragManager() {
   const type     = useDragStore((state) => state.type);
   const position = useDragStore((state) => state.position);
   const rotationY = useDragStore((state) => state.rotationY);
+  const clickToPlaceType = useUIStore((state) => state.clickToPlaceType);
 
   // Cursor: 'grabbing' while dragging a component, restore after
   useEffect(() => {
-    gl.domElement.style.cursor = dragging ? 'grabbing' : 'default';
-  }, [dragging, gl]);
+    gl.domElement.style.cursor = dragging ? 'grabbing' : clickToPlaceType ? 'crosshair' : 'default';
+  }, [dragging, clickToPlaceType, gl]);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
@@ -109,6 +110,54 @@ export default function DragManager() {
       dragState.commit();
     };
 
+    // Click-to-place: if click-to-place mode is active and user clicks canvas (not a component)
+    // This runs before the drag handler because click-to-place should be ignored while dragging.
+    const handleClickToPlace = (event: PointerEvent) => {
+      const { clickToPlaceType, clickToPlaceRotation } = useUIStore.getState();
+      if (!clickToPlaceType) return;
+      if (useDragStore.getState().dragging) return;
+
+      const pos = clientToBoardPos(event.clientX, event.clientY);
+      if (!pos) {
+        useUIStore.getState().setClickToPlace(null);
+        return;
+      }
+
+      const nodes = useCircuitStore.getState().nodes;
+      const pinTemplates = PIN_TEMPLATES[clickToPlaceType] ?? [];
+      let snappedAnchor: Vec3 = [...pos];
+      const pins: PinConnection[] = [];
+
+      for (const pinDef of pinTemplates) {
+        const pinOffset = rotateOffset(pinDef.offset, clickToPlaceRotation);
+        const pinWorld: Vec3 = [
+          snappedAnchor[0] + pinOffset[0],
+          snappedAnchor[1] + pinOffset[1],
+          snappedAnchor[2] + pinOffset[2],
+        ];
+        let bestNodeId: string | null = null;
+        let bestWorldPos: Vec3 | null = null;
+        let bestDist = Infinity;
+
+        for (const node of Object.values(nodes)) {
+          const d = distanceTo(pinWorld, node.worldPos);
+          if (d < bestDist) { bestDist = d; bestNodeId = node.id; bestWorldPos = node.worldPos; }
+        }
+        if (bestNodeId) pins.push({ name: pinDef.name, nodeId: bestNodeId });
+        if (bestDist < SNAP_THRESHOLD && bestWorldPos) {
+          snappedAnchor = [
+            bestWorldPos[0] - pinOffset[0],
+            bestWorldPos[1] - pinOffset[1],
+            bestWorldPos[2] - pinOffset[2],
+          ];
+        }
+      }
+
+      useCircuitStore.getState().addComponent(clickToPlaceType, snappedAnchor, pins, clickToPlaceRotation);
+      useUIStore.getState().addRecentlyUsedType(clickToPlaceType);
+      useUIStore.getState().setClickToPlace(null);
+    };
+
     const onPointerCancel = () => {
       if (useDragStore.getState().dragging) {
         useDragStore.getState().cancel();
@@ -120,12 +169,14 @@ export default function DragManager() {
     window.addEventListener('pointermove', onPointerMove);
     // pointerup on window — but only commits when released over canvas
     window.addEventListener('pointerup', onPointerUp);
+    gl.domElement.addEventListener('pointerup', handleClickToPlace);
     // pointercancel is canvas-specific (touch cancel, etc.)
     gl.domElement.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      gl.domElement.removeEventListener('pointerup', handleClickToPlace);
       gl.domElement.removeEventListener('pointercancel', onPointerCancel);
     };
   }, [gl, camera]);
