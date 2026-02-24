@@ -87,6 +87,29 @@ function engNotation(value: number, unit: string): string {
   return `${value.toFixed(1)}${baseUnit}`;
 }
 
+function parseEngValue(raw: string): number | null {
+  const s = raw.trim().replace(',', '.');
+  if (s === '') return null;
+  const m = s.match(/^([+-]?\d*\.?\d+)\s*([kKmMuUnNpP]?)$/);
+  if (!m) return null;
+
+  const base = parseFloat(m[1]);
+  if (!Number.isFinite(base)) return null;
+
+  const suffix = m[2];
+  if (suffix === 'M') return base * 1e6;
+
+  const multipliers: Record<string, number> = {
+    k: 1e3, K: 1e3,
+    m: 1e-3,
+    u: 1e-6, U: 1e-6,
+    n: 1e-9, N: 1e-9,
+    p: 1e-12, P: 1e-12,
+  };
+
+  return base * (multipliers[suffix] ?? 1);
+}
+
 const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
     { kind: 'number', key: 'resistance', label: 'Resistance', default: 1000, min: 1, max: 10_000_000, unit: 'Ω' },
@@ -338,27 +361,51 @@ function NumberInput({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const [inputText, setInputText] = useState(String(value));
   const [wasClamped, setWasClamped] = useState(false);
+
+  useEffect(() => {
+    setInputText(String(value));
+  }, [value]);
+
+  const commitValue = () => {
+    const parsed = parseEngValue(inputText);
+    if (parsed != null) {
+      const clamped = Math.max(field.min, Math.min(field.max, parsed));
+      onChange(clamped);
+      setWasClamped(clamped !== parsed);
+      setInputText(String(clamped));
+      return;
+    }
+
+    setWasClamped(false);
+    setInputText(String(value));
+  };
 
   return (
     <div className="space-y-0.5">
       <div className="flex items-center gap-2">
         <input
-          type="number"
-          value={value}
+          type="text"
+          inputMode="decimal"
+          value={inputText}
           min={field.min}
           max={field.max}
           step={field.step ?? 1}
           onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) {
-              const clamped = Math.max(field.min, Math.min(field.max, n));
-              onChange(clamped);
-              setWasClamped(clamped !== n);
+            setInputText(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              commitValue();
+              resumePropertyUndo();
             }
           }}
           onFocus={() => { pausePropertyUndo(); setWasClamped(false); }}
-          onBlur={resumePropertyUndo}
+          onBlur={() => {
+            commitValue();
+            resumePropertyUndo();
+          }}
           className="flex-1 bg-white/[0.06] text-white/80 text-[12px] font-mono
                      rounded px-2 py-1 border border-white/[0.08]
                      focus:outline-none focus:border-[#7c6fff]/60
@@ -528,7 +575,8 @@ function BatchInspector({ components }: { components: PlacedComponent[] }) {
                 {field.label}{field.unit ? ` (${field.unit})` : ''}
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder={batchVal === '—' ? '— (mixed)' : undefined}
                 defaultValue={displayVal}
                 min={field.min}
@@ -536,13 +584,27 @@ function BatchInspector({ components }: { components: PlacedComponent[] }) {
                 step={'step' in field ? (field.step ?? 1) : 1}
                 className="w-full bg-white/[0.06] border border-white/[0.12] rounded px-2 py-1 text-[11px] text-white font-mono"
                 onBlur={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v)) setBatchValue(field.key, v);
+                  const parsed = parseEngValue(e.target.value);
+                  if (parsed != null) {
+                    const clamped = Math.max(field.min, Math.min(field.max, parsed));
+                    setBatchValue(field.key, clamped);
+                    e.currentTarget.value = String(clamped);
+                    return;
+                  }
+
+                  e.currentTarget.value = displayVal;
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    if (!isNaN(v)) setBatchValue(field.key, v);
+                    const parsed = parseEngValue((e.target as HTMLInputElement).value);
+                    if (parsed != null) {
+                      const clamped = Math.max(field.min, Math.min(field.max, parsed));
+                      setBatchValue(field.key, clamped);
+                      (e.target as HTMLInputElement).value = String(clamped);
+                      return;
+                    }
+
+                    (e.target as HTMLInputElement).value = displayVal;
                   }
                 }}
               />
