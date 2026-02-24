@@ -85,6 +85,7 @@ interface CircuitState extends TopologyState {
   selectedNodeId: string | null;
   selectedComponentId: string | null;
   selectedComponentIds: string[];
+  setSelectedComponents: (ids: string[]) => void;
   circuitName: string;
   clipboardLength: number;
   setCircuitName: (name: string) => void;
@@ -571,9 +572,12 @@ export const useCircuitStore = create<CircuitState>()(
         set({ selectedComponentId: id, selectedComponentIds: id ? [id] : [] });
       },
 
-      setSelectedComponentIds(ids) {
+      setSelectedComponents(ids) {
         const uniqueIds = [...new Set(ids)];
         set({ selectedComponentIds: uniqueIds, selectedComponentId: uniqueIds[0] ?? null });
+      },
+      setSelectedComponentIds(ids) {
+        get().setSelectedComponents(ids);
       },
 
       toggleSelectedComponent(id) {

@@ -46,6 +46,7 @@ interface UIState {
   zoomOutRequested: number;
   cameraPreset: 'default' | 'top' | null;
   canvasSearchOpen: boolean;
+  findReplaceOpen: boolean;
   serialOutput: string;
   contextMenu: {
     componentId: string;
@@ -128,6 +129,8 @@ interface UIState {
   requestZoomOut:      () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
   clearCameraPreset:   () => void;
+  openFindReplace:     () => void;
+  closeFindReplace:    () => void;
   startPlacedDrag: (anchorId: string, worldX: number, worldZ: number, positions: Record<string, Vec3>) => void;
   endPlacedDrag: () => void;
   setCircuitHealthWarning: (warning: string | null) => void;
@@ -188,6 +191,7 @@ export const useUIStore = create<UIState>()(
   zoomOutRequested: 0,
   cameraPreset:  null,
   canvasSearchOpen: false,
+  findReplaceOpen: false,
   serialOutput:  '',
   contextMenu:    null,
   swapTypeMenuId: null,
@@ -258,6 +262,8 @@ export const useUIStore = create<UIState>()(
   clearZoomToFit:      () => set({ zoomToFit: false }),
   openCanvasSearch:    () => set({ canvasSearchOpen: true }),
   closeCanvasSearch:   () => set({ canvasSearchOpen: false }),
+  openFindReplace:     () => set({ findReplaceOpen: true }),
+  closeFindReplace:    () => set({ findReplaceOpen: false }),
   requestZoomIn:       () => set((s) => ({ zoomInRequested: s.zoomInRequested + 1 })),
   requestZoomOut:      () => set((s) => ({ zoomOutRequested: s.zoomOutRequested + 1 })),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),

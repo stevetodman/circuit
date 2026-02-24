@@ -18,6 +18,7 @@ const SECTIONS = [
       ['Ctrl/Cmd+A', 'Select all'],
       ['Ctrl/Cmd+D', 'Duplicate'],
       ['Ctrl/Cmd+F', 'Search placed components'],
+      ['Ctrl/Cmd+H', 'Find & replace component values'],
       ['Double-click component', 'Edit primary value inline'],
     ],
   },

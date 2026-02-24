@@ -44,6 +44,7 @@ export default function KeyboardShortcuts() {
   const requestZoomIn       = useUIStore((s) => s.requestZoomIn);
   const requestZoomOut      = useUIStore((s) => s.requestZoomOut);
   const openCanvasSearch    = useUIStore((s) => s.openCanvasSearch);
+  const openFindReplace     = useUIStore((s) => s.openFindReplace);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
   const toggleWireVoltageColors = useUIStore((s) => s.toggleWireVoltageColors);
@@ -54,6 +55,8 @@ export default function KeyboardShortcuts() {
   const toggleCurrentLabels = useUIStore((s) => s.toggleCurrentLabels);
   const showPolarityLabels  = useUIStore((s) => s.showPolarityLabels);
   const setShowPolarityLabels = useUIStore((s) => s.setShowPolarityLabels);
+  const findReplaceOpen = useUIStore((s) => s.findReplaceOpen);
+  const closeFindReplace = useUIStore((s) => s.closeFindReplace);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -65,6 +68,14 @@ export default function KeyboardShortcuts() {
         e.stopPropagation();
         if (isInputFocused()) return;
         openCanvasSearch();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && key === 'h') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isInputFocused()) return;
+        openFindReplace();
         return;
       }
 
@@ -303,6 +314,11 @@ export default function KeyboardShortcuts() {
       // Escape — cancel drag / deselect
       // F3.5: if wiring, only cancel the wire — keep component selected
       if (e.key === 'Escape') {
+        if (findReplaceOpen) {
+          e.preventDefault();
+          closeFindReplace();
+          return;
+        }
         useUIStore.getState().closeInlineEdit();
         closeContextMenu();
         clearBoxSelect();
@@ -337,11 +353,14 @@ export default function KeyboardShortcuts() {
     selectNode, selectComponent, cancelDrag, toggleSchematic,
     requestZoomToFit, requestZoomIn, requestZoomOut, requestCameraPreset,
     openCanvasSearch,
+    openFindReplace,
     toggleDesignators, toggleWireVoltageColors,
     toggleValueLabels, closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
     components,
     toggleWireRouting,
+    closeFindReplace,
+    findReplaceOpen,
   ]);
 
   return null;
