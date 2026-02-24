@@ -1,164 +1,210 @@
-# SPEC: P3.a — Oscilloscope Upgrades
+# SPEC: P4.a — Sidebar UX (Recent Parts + Resize + Kbd Tooltips)
 
-Implement four oscilloscope improvements in `features/oscilloscope/Oscilloscope.tsx` and related files.
-Run `npx tsc --noEmit` before finishing to confirm zero TypeScript errors.
-
----
-
-## P3.1 — Dual Measurement Cursors
-
-### Goal
-Add two draggable vertical cursor lines on the oscilloscope canvas. When both are placed, show:
-- **ΔT** = |t2 − t1| in ms
-- **ΔV** = |v2 − v1| measured on the first active channel at each cursor x
-- **freq** = 1/ΔT
-
-### Implementation
-
-**State / refs to add inside the Oscilloscope component:**
-
-```ts
-const cursor1Ref = useRef<number | null>(null);  // sample-fraction 0..1
-const cursor2Ref = useRef<number | null>(null);
-const [cursorsReadout, setCursorsReadout] = useState<{ dt: number; dv: number; freq: number } | null>(null);
-```
-
-**Rendering in the canvas draw loop (inside the existing RAF draw function):**
-- If cursor1Ref.current !== null, draw a vertical dashed line in rgba(255,255,100,0.85) at the appropriate canvas x
-- If cursor2Ref.current !== null, draw a vertical dashed line in rgba(100,200,255,0.85) at the appropriate canvas x
-- After drawing both: compute dtMs = |cursor2 - cursor1| * timeWindowMs; interpolate first channel voltage at each cursor; compute dv; call setCursorsReadout({ dt: dtMs, dv, freq: dtMs > 0 ? 1000/dtMs : 0 })
-
-**Mouse interaction:**
-- Left-click on canvas: place cursor 1 at that x-fraction. If shift-click or right-click: place cursor 2.
-- While dragging (mousedown + move): move the nearest cursor.
-- Add a small "× cursors" button (only visible when at least one cursor is set) that resets both to null.
-
-**Readout display:**
-- Below the existing cursorReadout line, show a second line when both cursors are placed:
-  `C1→C2: ΔT=3.2ms  ΔV=1.45V  f=312Hz`
-- Display it in the same readout area (the floating div/span that shows cursor voltage).
+Three sidebar/toolbar improvements. Run `npx tsc --noEmit` and confirm exit 0.
 
 ---
 
-## P3.2 — Trigger Level + Edge
+## P4.1 — Recently Used Parts
 
-### Goal
-Add a trigger control: level (volts) + edge (rising/falling). When enabled, only display a stable snapshot — capture one time-window of samples after the signal crosses the trigger level on the specified edge.
+uiStore already has `recentlyUsedTypes: string[]` (persisted) and `addRecentlyUsedType(type)`.
 
-### Implementation
+### Changes to `components/sidebar/Sidebar.tsx`
 
-**State to add:**
-```ts
-const [triggerEnabled, setTriggerEnabled] = useState(false);
-const [triggerLevel, setTriggerLevel] = useState(0);
-const [triggerEdge, setTriggerEdge] = useState<'rising' | 'falling'>('rising');
-const triggerCaptureRef = useRef<Map<number, Float32Array> | null>(null); // netId → captured buffer
-const prevTriggerVoltRef = useRef<number | null>(null);
-```
+1. **Add "recent" to the category type:**
+   Change `type Category = 'all' | 'passive' | 'active' | 'power' | 'ic'`
+   to `type Category = 'all' | 'recent' | 'passive' | 'active' | 'power' | 'ic'`
 
-**Logic in the RAF render loop (or in the buffer sampling effect):**
-When triggerEnabled and triggerCaptureRef.current is null (not yet captured):
-1. Read the current voltage of channel 0's netId from voltages SAB
-2. Compare with prevTriggerVoltRef.current using triggerEdge:
-   - rising: prev < triggerLevel && curr >= triggerLevel → fire
-   - falling: prev > triggerLevel && curr <= triggerLevel → fire
-3. On fire: for each active channel, snapshot getSamples(ch.netId) into a new Float32Array and store in triggerCaptureRef.current
-4. Update prevTriggerVoltRef.current = curr each tick
+2. **Read recentlyUsedTypes from uiStore:**
+   ```ts
+   const recentlyUsedTypes = useUIStore((s) => s.recentlyUsedTypes);
+   const addRecentlyUsedType = useUIStore((s) => s.addRecentlyUsedType);
+   ```
 
-When triggerEnabled and triggerCaptureRef.current is not null:
-- The draw loop uses the captured buffers instead of the live ring buffer (pass the captured map to the draw function or check inside draw)
-- Add a "Re-arm" button that sets triggerCaptureRef.current = null to capture next trigger event
+3. **Add "Recent" chip to the category filter row:**
+   Add before the "All" chip (or right after "All"):
+   ```tsx
+   {recentlyUsedTypes.length > 0 && (
+     <button
+       key="recent"
+       onClick={() => setCategory('recent')}
+       className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+         category === 'recent'
+           ? 'bg-amber-500/25 border-amber-500/50 text-amber-200'
+           : 'border-white/[0.1] text-white/35 hover:text-white/60 hover:border-white/20'
+       }`}
+     >
+       Recent
+     </button>
+   )}
+   ```
 
-**UI controls (add to the oscilloscope controls bar):**
-- A small "Trig" toggle button same style as existing "Freeze" button
-- When trigger is ON, show inline:
-  - A number input for trigger level (range -15 to 15, step 0.1)
-  - A ↑/↓ toggle for rising/falling edge
-  - A horizontal dashed line on the canvas at the trigger level in rgba(255,180,50,0.7)
-  - A "Re-arm" button to clear the captured snapshot
+4. **Filter logic for "recent" category:**
+   Update `filteredParts`:
+   ```ts
+   const filteredParts = PARTS.filter((p) => {
+     const matchesQuery = !query || p.label.toLowerCase().includes(query.toLowerCase());
+     if (category === 'recent') {
+       return matchesQuery && recentlyUsedTypes.includes(p.type as string);
+     }
+     const matchesCategory = category === 'all' || PART_CATEGORIES[p.type] === category;
+     return matchesQuery && matchesCategory;
+   });
+   ```
+   Also sort `filteredParts` by recency when category === 'recent':
+   When category is 'recent', return parts sorted so most recently used appears first:
+   ```ts
+   if (category === 'recent') {
+     return filteredParts.sort((a, b) =>
+       recentlyUsedTypes.indexOf(a.type as string) - recentlyUsedTypes.indexOf(b.type as string)
+     );
+   }
+   ```
 
----
-
-## P3.3 — User-Selectable Channel Colors
-
-### Goal
-Clicking a channel's color swatch opens a 7-color picker. The chosen color is saved in scopeStore.
-
-### Add to `store/scopeStore.ts`
-
-Add action:
-```ts
-updateChannelColor: (netId: number, color: string) => void;
-```
-Implementation:
-```ts
-updateChannelColor: (netId, color) =>
-  set((s) => ({
-    channels: s.channels.map((ch) => ch.netId === netId ? { ...ch, color } : ch),
-  })),
-```
-
-### UI in `Oscilloscope.tsx`
-
-**7 preset colors:**
-```ts
-const PICKER_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0', '#ff6b6b', '#ff9f1c', '#ffffff'];
-```
-
-**State:**
-```ts
-const [pickingColorForNetId, setPickingColorForNetId] = useState<number | null>(null);
-```
-
-In each channel label row, the existing colored indicator should become a `<button>` that sets `pickingColorForNetId = ch.netId`.
-When `pickingColorForNetId === ch.netId`, render a small absolute-positioned div with 7 colored circles (16px diameter, 4px gap). Clicking a circle calls `updateChannelColor(netId, color)` and closes picker. Clicking elsewhere closes it.
+5. **Call addRecentlyUsedType when dragging a component:**
+   In the onAdd handler for non-wire parts:
+   ```ts
+   onAdd={() => {
+     addRecentlyUsedType(p.type as string);
+     startDrag(p.type as ComponentType);
+   }}
+   ```
 
 ---
 
-## P3.4 — Export CSV
+## P4.3 — Sidebar Resizable
 
 ### Goal
-Add a "↓ CSV" button to the oscilloscope header. Downloads scope buffer as `scope-capture.csv` with columns: `time_ms,ch1_V,ch2_V,...`
+Drag handle on the sidebar's right edge. Width clamped 200–400px, persisted to localStorage.
 
-### Function to add in `Oscilloscope.tsx`
+### Implementation in `components/sidebar/Sidebar.tsx`
 
+**Add state:**
 ```ts
-function downloadScopeCSV(channels: Array<{ netId: number; color: string; label?: string }>, timeWindowMs: number) {
-  const cols = channels.map((ch) => getSamples(ch.netId));
-  const sampleCount = Math.max(...cols.map((c) => c?.length ?? 0));
-  if (sampleCount === 0) return;
+const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+  if (typeof window === 'undefined') return 260;
+  const saved = window.localStorage.getItem('circuit-sidebar-width');
+  return saved ? Math.max(200, Math.min(400, Number(saved))) : 260;
+});
+```
 
-  const header = ['time_ms', ...channels.map((_, i) => `ch${i + 1}_V`)].join(',');
-  const rows: string[] = [header];
-  for (let i = 0; i < sampleCount; i++) {
-    const t = ((i / sampleCount) * timeWindowMs).toFixed(3);
-    const vals = cols.map((c) => (c && i < c.length ? c[i].toFixed(4) : '0'));
-    rows.push([t, ...vals].join(','));
-  }
+**Persist width changes:**
+```ts
+useEffect(() => {
+  window.localStorage.setItem('circuit-sidebar-width', String(sidebarWidth));
+}, [sidebarWidth]);
+```
 
-  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'scope-capture.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+**Add drag handle:**
+```tsx
+{/* Resize handle on right edge */}
+<div
+  style={{
+    position: 'absolute',
+    top: 0,
+    right: -3,
+    width: 6,
+    height: '100%',
+    cursor: 'col-resize',
+    zIndex: 10,
+  }}
+  onMouseDown={(e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(200, Math.min(400, startW + ev.clientX - startX));
+      setSidebarWidth(newW);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }}
+/>
+```
+
+**Apply width to the `<aside>` element:**
+Change the aside's style to use `sidebarWidth` instead of the CSS variable:
+```tsx
+<aside
+  className="flex flex-col h-full select-none relative"
+  style={{
+    width: sidebarWidth,
+    background: 'var(--sidebar-bg, #111113)',
+    borderRight: '1px solid var(--sidebar-border, #252528)',
+    flexShrink: 0,
+  }}
+>
+```
+Note: add `relative` to className so the absolute-positioned handle works.
+
+---
+
+## P4.6 — Keyboard Shortcut Badges on Toolbar
+
+### Goal
+Add a `kbd` prop to `ToolbarBtn`. When provided, renders a small styled `<kbd>` badge inside the button after the label text.
+
+### Changes to `components/Toolbar.tsx`
+
+**Update ToolbarBtn interface and component:**
+```tsx
+function ToolbarBtn({
+  onClick, title, disabled, active, children, kbd,
+}: {
+  onClick: () => void;
+  title: string;
+  disabled?: boolean;
+  active?: boolean;
+  children: ReactNode;
+  kbd?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={`h-7 px-2.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1
+        ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/[0.1] cursor-pointer'}
+        ${active ? 'bg-white/[0.1] text-white/90' : 'text-white/55 hover:text-white/80'}
+        focus-visible:ring-1 focus-visible:ring-[#7c6fff] focus-visible:outline-none`}
+    >
+      {children}
+      {kbd && (
+        <kbd className="ml-0.5 px-0.5 py-px rounded text-[8px] font-mono bg-white/[0.08] border border-white/[0.15] text-white/40 leading-none">
+          {kbd}
+        </kbd>
+      )}
+    </button>
+  );
 }
 ```
 
-`getSamples` is imported from `@/features/oscilloscope/scopeBuffer`.
-Add an "↓ CSV" button in the oscilloscope header, enabled when channels.length > 0.
+**Add kbd props to existing buttons:**
+- Undo: `kbd="⌘Z"`
+- Redo: `kbd="⌘⇧Z"`
+- Delete: `kbd="Del"`
+- Copy: `kbd="⌘C"`
+- Paste: `kbd="⌘V"`
+- Labels (L): `kbd="L"`
+- Current (I): `kbd="I"`
+- Polarity (P): `kbd="P"`
+- Voltage (V): `kbd="V"`
+- Width (~): `kbd="T"`
+- Heatmap (H): `kbd="H"`
+- Values (Ω): `kbd="W"`
+- Schematic (S): `kbd="S"`
 
 ---
 
 ## Files to Modify
-
-- `features/oscilloscope/Oscilloscope.tsx` — all four features
-- `store/scopeStore.ts` — add updateChannelColor (P3.3)
+- `components/sidebar/Sidebar.tsx` — P4.1 + P4.3
+- `components/Toolbar.tsx` — P4.6
 
 ## Type-check
-
 ```bash
 npx tsc --noEmit
 ```
-Fix all errors. Do not leave console.log or TODO comments.
+Exit 0 required. No console.log, no TODOs.

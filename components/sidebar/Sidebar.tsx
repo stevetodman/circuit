@@ -202,7 +202,7 @@ function SchematicIcon({ active }: { active: boolean }) {
 }
 
 // ── Component catalogue (beginner-first order) ────────────────────────────────
-type Category = 'all' | 'passive' | 'active' | 'power' | 'ic';
+type Category = 'all' | 'recent' | 'passive' | 'active' | 'power' | 'ic';
 
 const PARTS: { type: ComponentType | 'wire'; label: string; icon: React.ReactNode; tooltip: string }[] = [
   { type: 'battery',       label: 'Battery',        tooltip: 'DC voltage source (1.5–30V). Powers your circuit.', icon: <Battery /> },
@@ -256,6 +256,8 @@ export default function Sidebar() {
   const toggleHelp = useUIStore((state) => state.toggleHelp);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const addToast = useToastStore((state) => state.addToast);
+  const recentlyUsedTypes = useUIStore((s) => s.recentlyUsedTypes);
+  const addRecentlyUsedType = useUIStore((s) => s.addRecentlyUsedType);
   const circuitName = useCircuitStore((s) => s.circuitName);
   const setCircuitName = useCircuitStore((s) => s.setCircuitName);
   const newCircuit = useCircuitStore((s) => s.newCircuit);
@@ -266,6 +268,15 @@ export default function Sidebar() {
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 260;
+    const saved = window.localStorage.getItem('circuit-sidebar-width');
+    return saved ? Math.max(200, Math.min(400, Number(saved))) : 260;
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem('circuit-sidebar-width', String(sidebarWidth));
+  }, [sidebarWidth]);
 
   useEffect(() => {
     if (arduinoTabRequested > 0) {
@@ -275,15 +286,23 @@ export default function Sidebar() {
 
   const filteredParts = PARTS.filter((p) => {
     const matchesQuery = !query || p.label.toLowerCase().includes(query.toLowerCase());
+    if (category === 'recent') {
+      return matchesQuery && recentlyUsedTypes.includes(p.type as string);
+    }
     const matchesCategory = category === 'all' || PART_CATEGORIES[p.type] === category;
     return matchesQuery && matchesCategory;
   });
+  if (category === 'recent') {
+    filteredParts.sort((a, b) =>
+      recentlyUsedTypes.indexOf(a.type as string) - recentlyUsedTypes.indexOf(b.type as string)
+    );
+  }
 
   return (
     <aside
-      className="flex flex-col h-full select-none"
+      className="flex flex-col h-full select-none relative"
       style={{
-        width: 'var(--sidebar-w, 260px)',
+        width: sidebarWidth,
         background: 'var(--sidebar-bg, #111113)',
         borderRight: '1px solid var(--sidebar-border, #252528)',
         flexShrink: 0,
@@ -421,6 +440,19 @@ export default function Sidebar() {
               </div>
 
               <div className="flex gap-1 px-2 pb-1 flex-wrap">
+                {recentlyUsedTypes.length > 0 && (
+                  <button
+                    key="recent"
+                    onClick={() => setCategory('recent')}
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                      category === 'recent'
+                        ? 'bg-amber-500/25 border-amber-500/50 text-amber-200'
+                        : 'border-white/[0.1] text-white/35 hover:text-white/60 hover:border-white/20'
+                    }`}
+                  >
+                    Recent
+                  </button>
+                )}
                 {(['all', 'passive', 'active', 'power', 'ic'] as Category[]).map((cat) => (
                   <button
                     key={cat}
@@ -448,7 +480,10 @@ export default function Sidebar() {
                     onAdd={
                       p.type === 'wire'
                         ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
-                        : () => startDrag(p.type as ComponentType)
+                        : () => {
+                            addRecentlyUsedType(p.type as string);
+                            startDrag(p.type as ComponentType);
+                          }
                     }
                   />
                 ))}
@@ -513,6 +548,34 @@ export default function Sidebar() {
       <div className="flex-shrink-0">
         <StatusBar />
       </div>
+
+      {/* Resize handle on right edge */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -3,
+          width: 6,
+          height: '100%',
+          cursor: 'col-resize',
+          zIndex: 10,
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          const startX = e.clientX;
+          const startW = sidebarWidth;
+          const onMove = (ev: MouseEvent) => {
+            const newW = Math.max(200, Math.min(400, startW + ev.clientX - startX));
+            setSidebarWidth(newW);
+          };
+          const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        }}
+      />
     </aside>
   );
 }
