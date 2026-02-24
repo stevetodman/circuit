@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ComponentTile from './ComponentTile';
 import PropertiesInspector from './PropertiesInspector';
 import ArduinoPanel from './ArduinoPanel';
@@ -263,11 +263,12 @@ export default function Sidebar() {
   const newCircuit = useCircuitStore((s) => s.newCircuit);
   const spotlightTarget = useModuleStore((s) => s.activeStep?.spotlightTarget ?? null);
   const arduinoTabRequested = useUIStore((s) => s.arduinoTabRequested);
-  const [query, setQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<Category>('all');
   const [tab, setTab] = useState<'parts' | 'learn' | 'arduino'>('parts');
   const [showNetlist, setShowNetlist] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 768,
   );
@@ -294,8 +295,24 @@ export default function Sidebar() {
     }
   }, [arduinoTabRequested]);
 
+  useEffect(() => {
+    if (searchQuery.trim() && category !== 'all') {
+      setCategory('all');
+    }
+  }, [searchQuery, category]);
+
+  const selectPartsTab = () => {
+    setTab('parts');
+    if (!window.matchMedia('(pointer: coarse)').matches) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  };
+
   const filteredParts = PARTS.filter((p) => {
-    const matchesQuery = !query || p.label.toLowerCase().includes(query.toLowerCase());
+    const trimmedQuery = searchQuery.trim();
+    const matchesQuery = !trimmedQuery || p.label.toLowerCase().includes(trimmedQuery.toLowerCase());
     if (category === 'recent') {
       return matchesQuery && recentlyUsedTypes.includes(p.type as string);
     }
@@ -401,7 +418,7 @@ export default function Sidebar() {
       <div className="flex border-b border-white/[0.08]">
         <button
           type="button"
-          onClick={() => setTab('parts')}
+          onClick={selectPartsTab}
           className={`flex-1 text-[11px] py-2 font-semibold transition-colors ${
             tab === 'parts'
               ? 'bg-white/[0.05] text-white'
@@ -453,26 +470,33 @@ export default function Sidebar() {
                 <div className="relative">
                   <input
                     type="text"
-                    value={query}
+                    ref={searchInputRef}
+                    value={searchQuery}
                     onChange={(e) => {
-                      setQuery(e.target.value);
-                      if (e.target.value) setCategory('all');
+                      setSearchQuery(e.target.value);
                     }}
-                    onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.stopPropagation(); } }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); e.stopPropagation(); } }}
                     placeholder="Filter parts…"
                     className="w-full bg-white/[0.05] text-white/70 text-[11px] rounded px-2 py-1.5
                                border border-white/[0.08] placeholder-white/20 focus:outline-none
                                focus:border-[#7c6fff]/50 pr-6"
                   />
-                  {query && (
+                  {searchQuery && (
                     <button
-                      onClick={() => setQuery('')}
+                      onClick={() => setSearchQuery('')}
                       className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-[12px] leading-none"
                     >
                       ✕
                     </button>
                   )}
                 </div>
+                {searchQuery.trim() && (
+                  <p className="text-[10px] text-white/35 px-1 mt-0.5">
+                    {filteredParts.length === 0
+                      ? 'No results'
+                      : `${filteredParts.length} result${filteredParts.length === 1 ? '' : 's'}`}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-1 px-2 pb-1 flex-wrap">
@@ -505,24 +529,33 @@ export default function Sidebar() {
               </div>
 
               <div className="space-y-0.5 px-2">
-                {filteredParts.map((p) => (
-                  <ComponentTile
-                    key={`${p.type}-${p.label}`}
-                    type={p.type}
-                    label={p.label}
-                    icon={p.icon}
-                    tooltip={p.tooltip}
-                    description={PART_DESCRIPTIONS[p.type]}
-                    onAdd={
-                      p.type === 'wire'
-                        ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
-                        : () => {
-                            addRecentlyUsedType(p.type as string);
-                            startDrag(p.type as ComponentType);
-                          }
-                    }
-                  />
-                ))}
+                {searchQuery.trim() && filteredParts.length === 0 ? (
+                  <div className="text-[11px] text-white/30 text-center py-6">
+                    No components match
+                    <br />
+                    <span className="text-white/50">&quot;{searchQuery}&quot;</span>
+                  </div>
+                ) : (
+                  filteredParts.map((p) => (
+                    <ComponentTile
+                      key={`${p.type}-${p.label}`}
+                      type={p.type}
+                      label={p.label}
+                      icon={p.icon}
+                      tooltip={p.tooltip}
+                      description={PART_DESCRIPTIONS[p.type]}
+                      highlightQuery={searchQuery}
+                      onAdd={
+                        p.type === 'wire'
+                          ? () => addToast('Click any pin to start a wire, then click another pin to connect', 'info')
+                          : () => {
+                              addRecentlyUsedType(p.type as string);
+                              startDrag(p.type as ComponentType);
+                            }
+                      }
+                    />
+                  ))
+                )}
               </div>
             </>
           ) : tab === 'learn' ? (

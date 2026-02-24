@@ -9,10 +9,35 @@ interface Props {
   icon: React.ReactNode;
   tooltip?: string;
   description?: string;
+  highlightQuery?: string;
   onAdd?: () => void;
 }
 
-export default function ComponentTile({ type, label, icon, tooltip, description, onAdd }: Props) {
+function HighlightLabel({ label, query }: { label: string; query: string }) {
+  if (!query) return <>{label}</>;
+  const idx = label.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{label}</>;
+
+  return (
+    <>
+      {label.slice(0, idx)}
+      <mark className="bg-amber-400/30 text-amber-200 rounded-sm px-0.5 not-italic">
+        {label.slice(idx, idx + query.length)}
+      </mark>
+      {label.slice(idx + query.length)}
+    </>
+  );
+}
+
+export default function ComponentTile({
+  type,
+  label,
+  icon,
+  tooltip,
+  description,
+  highlightQuery,
+  onAdd,
+}: Props) {
   const highlightComponent = useModuleStore((s) => s.activeStep?.highlightComponent ?? null);
   const isHighlighted = highlightComponent !== null && highlightComponent === (type as string);
 
@@ -33,7 +58,9 @@ export default function ComponentTile({ type, label, icon, tooltip, description,
           {icon}
         </span>
         <div className="flex flex-col min-w-0 flex-1">
-          <span className="leading-none text-[13px] text-[#c8c8d0] group-hover:text-white">{label}</span>
+          <span className="leading-none text-[13px] text-[#c8c8d0] group-hover:text-white">
+            <HighlightLabel label={label} query={highlightQuery ?? ''} />
+          </span>
           {description && (
             <span className="text-[10px] text-white/28 leading-tight truncate mt-0.5">{description}</span>
           )}
