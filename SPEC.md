@@ -1,140 +1,164 @@
-# P1.10 — Batch property edit
+# SPEC: P3.a — Oscilloscope Upgrades
 
-## Overview
-When multiple components of the **same type** are selected (`selectedComponentIds.length > 1`), the Properties Inspector shows shared editable fields in "batch mode": fields show "—" if values differ between components, or the shared value if they're all the same. Entering a value sets it on all selected components at once.
-
-## Architecture context
-- `components/sidebar/PropertiesInspector.tsx` — exports `PropertiesInspector` default; has an `Inspector` sub-component used for single component; also exports to Sidebar
-- `store/circuitStore.ts` — has `setProperty(componentId, key, value)` for single component
-
-## Files to modify
-1. `components/sidebar/PropertiesInspector.tsx`
+Implement four oscilloscope improvements in `features/oscilloscope/Oscilloscope.tsx` and related files.
+Run `npx tsc --noEmit` before finishing to confirm zero TypeScript errors.
 
 ---
 
-## Implementation
+## P3.1 — Dual Measurement Cursors
 
-### In `PropertiesInspector.tsx`
+### Goal
+Add two draggable vertical cursor lines on the oscilloscope canvas. When both are placed, show:
+- **ΔT** = |t2 − t1| in ms
+- **ΔV** = |v2 − v1| measured on the first active channel at each cursor x
+- **freq** = 1/ΔT
 
-The file exports a default `PropertiesInspector` component. It currently checks for a single `selectedComponentId` and renders the `Inspector` sub-component.
+### Implementation
 
-**Add batch mode detection at the top level:**
+**State / refs to add inside the Oscilloscope component:**
 
-```tsx
-export default function PropertiesInspector() {
-  const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
-  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
-  const components = useCircuitStore((s) => s.components);
-
-  // Batch mode: 2+ components all of same type
-  if (selectedComponentIds.length >= 2) {
-    const types = selectedComponentIds.map((id) => components[id]?.type).filter(Boolean);
-    const allSameType = types.length > 0 && types.every((t) => t === types[0]);
-    if (allSameType) {
-      const comps = selectedComponentIds.map((id) => components[id]).filter(Boolean);
-      return <BatchInspector components={comps as PlacedComponent[]} />;
-    }
-  }
-
-  // Single select (existing logic)
-  const component = selectedComponentId ? components[selectedComponentId] : null;
-  if (!component) return null;
-  return <Inspector component={component} />;
-}
+```ts
+const cursor1Ref = useRef<number | null>(null);  // sample-fraction 0..1
+const cursor2Ref = useRef<number | null>(null);
+const [cursorsReadout, setCursorsReadout] = useState<{ dt: number; dv: number; freq: number } | null>(null);
 ```
 
-### Add `BatchInspector` component
+**Rendering in the canvas draw loop (inside the existing RAF draw function):**
+- If cursor1Ref.current !== null, draw a vertical dashed line in rgba(255,255,100,0.85) at the appropriate canvas x
+- If cursor2Ref.current !== null, draw a vertical dashed line in rgba(100,200,255,0.85) at the appropriate canvas x
+- After drawing both: compute dtMs = |cursor2 - cursor1| * timeWindowMs; interpolate first channel voltage at each cursor; compute dv; call setCursorsReadout({ dt: dtMs, dv, freq: dtMs > 0 ? 1000/dtMs : 0 })
 
-**Place above the existing `Inspector` component:**
+**Mouse interaction:**
+- Left-click on canvas: place cursor 1 at that x-fraction. If shift-click or right-click: place cursor 2.
+- While dragging (mousedown + move): move the nearest cursor.
+- Add a small "× cursors" button (only visible when at least one cursor is set) that resets both to null.
 
-```tsx
-function BatchInspector({ components }: { components: PlacedComponent[] }) {
-  const setProperty = useCircuitStore((s) => s.setProperty);
-  const selectComponent = useCircuitStore((s) => s.selectComponent);
-  const setSelectedComponentIds = useCircuitStore((s) => s.setSelectedComponentIds);
-
-  const type = components[0].type;
-  const typeLabel = TYPE_LABELS[type] ?? type;
-  const fields = PROP_DEFS[type] ?? [];
-
-  function getBatchValue(field: PropOrLogField): string | number | '—' {
-    const values = components.map((c) => {
-      const stored = c.props[field.key];
-      return stored !== undefined ? stored : field.default;
-    });
-    const first = values[0];
-    return values.every((v) => v === first) ? first : '—';
-  }
-
-  function setBatchValue(key: string, value: string | number) {
-    for (const comp of components) {
-      setProperty(comp.id, key, value);
-    }
-  }
-
-  return (
-    <div className="border-t border-white/[0.06]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="text-[11px] font-semibold text-white/60 tracking-wide">
-          {typeLabel} ×{components.length}
-        </span>
-        <button
-          onClick={() => { selectComponent(null); setSelectedComponentIds([]); }}
-          className="text-white/25 hover:text-white/60 text-[14px] leading-none transition-colors"
-          title="Deselect all"
-        >✕</button>
-      </div>
-
-      {/* Batch fields */}
-      {fields.filter((f): f is NumericField | LogNumberField => f.kind === 'number' || f.kind === 'log-number').map((field) => {
-        const batchVal = getBatchValue(field);
-        const displayVal = batchVal === '—' ? '' : String(batchVal);
-        return (
-          <div key={field.key} className="px-4 pb-2">
-            <label className="text-[10px] text-white/40 block mb-1">
-              {field.label}{field.unit ? ` (${field.unit})` : ''}
-            </label>
-            <input
-              type="number"
-              placeholder={batchVal === '—' ? '— (mixed)' : undefined}
-              defaultValue={displayVal}
-              min={field.min}
-              max={field.max}
-              step={field.step ?? 1}
-              className="w-full bg-white/[0.06] border border-white/[0.12] rounded px-2 py-1 text-[11px] text-white font-mono"
-              onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v)) setBatchValue(field.key, v);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const v = parseFloat((e.target as HTMLInputElement).value);
-                  if (!isNaN(v)) setBatchValue(field.key, v);
-                }
-              }}
-            />
-          </div>
-        );
-      })}
-
-      <div className="px-4 pb-3">
-        <p className="text-[10px] text-white/30">
-          {components.length} {typeLabel}s selected — editing applies to all
-        </p>
-      </div>
-    </div>
-  );
-}
-```
-
-**Notes:**
-- `PROP_DEFS`, `TYPE_LABELS`, `NumericField`, `LogNumberField`, `PropOrLogField` are already defined in the file — reuse them
-- `setSelectedComponentIds` is already exported from circuitStore — check the actual function name in the file (it may be `setSelectedComponentIds` or similar)
-- Read the full file first to see all imports and ensure you don't duplicate existing ones
-- Keep the existing `Inspector` component fully intact
+**Readout display:**
+- Below the existing cursorReadout line, show a second line when both cursors are placed:
+  `C1→C2: ΔT=3.2ms  ΔV=1.45V  f=312Hz`
+- Display it in the same readout area (the floating div/span that shows cursor voltage).
 
 ---
 
-## Build validation
-Run `pnpm build` to verify no type errors.
+## P3.2 — Trigger Level + Edge
+
+### Goal
+Add a trigger control: level (volts) + edge (rising/falling). When enabled, only display a stable snapshot — capture one time-window of samples after the signal crosses the trigger level on the specified edge.
+
+### Implementation
+
+**State to add:**
+```ts
+const [triggerEnabled, setTriggerEnabled] = useState(false);
+const [triggerLevel, setTriggerLevel] = useState(0);
+const [triggerEdge, setTriggerEdge] = useState<'rising' | 'falling'>('rising');
+const triggerCaptureRef = useRef<Map<number, Float32Array> | null>(null); // netId → captured buffer
+const prevTriggerVoltRef = useRef<number | null>(null);
+```
+
+**Logic in the RAF render loop (or in the buffer sampling effect):**
+When triggerEnabled and triggerCaptureRef.current is null (not yet captured):
+1. Read the current voltage of channel 0's netId from voltages SAB
+2. Compare with prevTriggerVoltRef.current using triggerEdge:
+   - rising: prev < triggerLevel && curr >= triggerLevel → fire
+   - falling: prev > triggerLevel && curr <= triggerLevel → fire
+3. On fire: for each active channel, snapshot getSamples(ch.netId) into a new Float32Array and store in triggerCaptureRef.current
+4. Update prevTriggerVoltRef.current = curr each tick
+
+When triggerEnabled and triggerCaptureRef.current is not null:
+- The draw loop uses the captured buffers instead of the live ring buffer (pass the captured map to the draw function or check inside draw)
+- Add a "Re-arm" button that sets triggerCaptureRef.current = null to capture next trigger event
+
+**UI controls (add to the oscilloscope controls bar):**
+- A small "Trig" toggle button same style as existing "Freeze" button
+- When trigger is ON, show inline:
+  - A number input for trigger level (range -15 to 15, step 0.1)
+  - A ↑/↓ toggle for rising/falling edge
+  - A horizontal dashed line on the canvas at the trigger level in rgba(255,180,50,0.7)
+  - A "Re-arm" button to clear the captured snapshot
+
+---
+
+## P3.3 — User-Selectable Channel Colors
+
+### Goal
+Clicking a channel's color swatch opens a 7-color picker. The chosen color is saved in scopeStore.
+
+### Add to `store/scopeStore.ts`
+
+Add action:
+```ts
+updateChannelColor: (netId: number, color: string) => void;
+```
+Implementation:
+```ts
+updateChannelColor: (netId, color) =>
+  set((s) => ({
+    channels: s.channels.map((ch) => ch.netId === netId ? { ...ch, color } : ch),
+  })),
+```
+
+### UI in `Oscilloscope.tsx`
+
+**7 preset colors:**
+```ts
+const PICKER_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0', '#ff6b6b', '#ff9f1c', '#ffffff'];
+```
+
+**State:**
+```ts
+const [pickingColorForNetId, setPickingColorForNetId] = useState<number | null>(null);
+```
+
+In each channel label row, the existing colored indicator should become a `<button>` that sets `pickingColorForNetId = ch.netId`.
+When `pickingColorForNetId === ch.netId`, render a small absolute-positioned div with 7 colored circles (16px diameter, 4px gap). Clicking a circle calls `updateChannelColor(netId, color)` and closes picker. Clicking elsewhere closes it.
+
+---
+
+## P3.4 — Export CSV
+
+### Goal
+Add a "↓ CSV" button to the oscilloscope header. Downloads scope buffer as `scope-capture.csv` with columns: `time_ms,ch1_V,ch2_V,...`
+
+### Function to add in `Oscilloscope.tsx`
+
+```ts
+function downloadScopeCSV(channels: Array<{ netId: number; color: string; label?: string }>, timeWindowMs: number) {
+  const cols = channels.map((ch) => getSamples(ch.netId));
+  const sampleCount = Math.max(...cols.map((c) => c?.length ?? 0));
+  if (sampleCount === 0) return;
+
+  const header = ['time_ms', ...channels.map((_, i) => `ch${i + 1}_V`)].join(',');
+  const rows: string[] = [header];
+  for (let i = 0; i < sampleCount; i++) {
+    const t = ((i / sampleCount) * timeWindowMs).toFixed(3);
+    const vals = cols.map((c) => (c && i < c.length ? c[i].toFixed(4) : '0'));
+    rows.push([t, ...vals].join(','));
+  }
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'scope-capture.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+```
+
+`getSamples` is imported from `@/features/oscilloscope/scopeBuffer`.
+Add an "↓ CSV" button in the oscilloscope header, enabled when channels.length > 0.
+
+---
+
+## Files to Modify
+
+- `features/oscilloscope/Oscilloscope.tsx` — all four features
+- `store/scopeStore.ts` — add updateChannelColor (P3.3)
+
+## Type-check
+
+```bash
+npx tsc --noEmit
+```
+Fix all errors. Do not leave console.log or TODO comments.

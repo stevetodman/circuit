@@ -23,6 +23,9 @@ const DEFAULT_Y_MAX = 15;
 const H_DIVISIONS = 10;
 const V_DIVISIONS = 8;
 const MARGIN = { left: 34, right: 8, top: 24, bottom: 18 };
+const PICKER_COLORS = ['#56c2ff', '#ffd166', '#9b5de5', '#06d6a0', '#ff6b6b', '#ff9f1c', '#ffffff'];
+
+type TriggerEdge = 'rising' | 'falling';
 
 type ChannelStats = {
   vmin: number;
@@ -76,6 +79,46 @@ function valueToPixel(v: number, min: number, max: number, plot: { top: number; 
   return plot.top + plot.height - ((clamped - min) / (max - min)) * plot.height;
 }
 
+function sampleAtFraction(samples: Float32Array, fraction: number): number {
+  if (samples.length === 0) return 0;
+  if (samples.length === 1) return samples[0] ?? 0;
+  const t = Math.max(0, Math.min(1, fraction));
+  const pos = t * (samples.length - 1);
+  const leftIdx = Math.floor(pos);
+  const rightIdx = Math.min(samples.length - 1, leftIdx + 1);
+  if (leftIdx === rightIdx) return samples[leftIdx] ?? 0;
+  const frac = pos - leftIdx;
+  const leftVal = samples[leftIdx] ?? 0;
+  const rightVal = samples[rightIdx] ?? 0;
+  return leftVal + (rightVal - leftVal) * frac;
+}
+
+function downloadScopeCSV(
+  channels: Array<{ netId: number; color: string; label?: string }>,
+  timeWindowMs: number,
+  sampleResolver: (netId: number) => Float32Array,
+) {
+  const cols = channels.map((ch) => sampleResolver(ch.netId));
+  const sampleCount = Math.max(...cols.map((c) => c?.length ?? 0));
+  if (sampleCount === 0 || channels.length === 0) return;
+
+  const header = ['time_ms', ...channels.map((_, i) => `ch${i + 1}_V`)].join(',');
+  const rows: string[] = [header];
+  for (let i = 0; i < sampleCount; i++) {
+    const t = ((i / sampleCount) * timeWindowMs).toFixed(3);
+    const vals = cols.map((c) => (c && i < c.length ? c[i].toFixed(4) : '0'));
+    rows.push([t, ...vals].join(','));
+  }
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'scope-capture.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Oscilloscope({
   open,
   channels,
@@ -87,6 +130,9 @@ export default function Oscilloscope({
   const channelsRef = useRef<Channel[]>(channels);
   const autoScaleRef = useRef(false);
   const timeWindowRef = useRef(1000);
+  const cursor1Ref = useRef<number | null>(null);
+  const cursor2Ref = useRef<number | null>(null);
+  const draggingCursorRef = useRef<1 | 2 | null>(null);
   const [autoScale, setAutoScale] = useState(false);
   const [timeWindow, setTimeWindow] = useState<number>(1000);
   const [addingChannel, setAddingChannel] = useState(false);
@@ -94,6 +140,11 @@ export default function Oscilloscope({
   const [invalidInput, setInvalidInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [liveV, setLiveV] = useState<number[]>([]);
+  const [triggerEnabled, setTriggerEnabled] = useState(false);
+  const [triggerLevel, setTriggerLevel] = useState(0);
+  const [triggerEdge, setTriggerEdge] = useState<TriggerEdge>('rising');
+  const triggerCaptureRef = useRef<Map<number, Float32Array> | null>(null);
+  const prevTriggerVoltRef = useRef<number | null>(null);
 
   // Cursor state — ref for the render loop, state for the readout overlay
   const cursorXRef = useRef<number | null>(null);
@@ -101,12 +152,17 @@ export default function Oscilloscope({
     x: number; // CSS pixel x within the panel
     readings: { netId: number; color: string; voltage: number }[];
   } | null>(null);
+  const [cursorsReadout, setCursorsReadout] = useState<{ dt: number; dv: number; freq: number } | null>(null);
   const [statsMap, setStatsMap] = useState<Record<number, ChannelStats>>({});
+  const [pickingColorForNetId, setPickingColorForNetId] = useState<number | null>(null);
+  const [hasCursor1, setHasCursor1] = useState(false);
+  const [hasCursor2, setHasCursor2] = useState(false);
 
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const clearChannels = useScopeStore((s) => s.clearChannels);
   const frozen = useScopeStore((s) => s.frozen);
   const toggleFrozen = useScopeStore((s) => s.toggleFrozen);
+  const updateChannelColor = useScopeStore((state) => state.updateChannelColor);
   const hoveredNetId  = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? null) : null
   );
@@ -175,6 +231,32 @@ export default function Oscilloscope({
     }
   }, [handleCancelAdd, handleConfirmAdd]);
 
+  const getDisplaySamples = useCallback((netId: number) => {
+    const captured = triggerCaptureRef.current;
+    return captured?.get(netId) ?? getSamples(netId);
+  }, []);
+
+  const getWindowedSamples = useCallback(
+    (netId: number) => {
+      const rawSamples = getDisplaySamples(netId);
+      return rawSamples.length > timeWindowRef.current
+        ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
+        : rawSamples;
+    },
+    [getDisplaySamples],
+  );
+
+  const clearCursors = useCallback(() => {
+    cursor1Ref.current = null;
+    cursor2Ref.current = null;
+    setHasCursor1(false);
+    setHasCursor2(false);
+    setCursorsReadout(null);
+    setCursorReadout(null);
+    cursorXRef.current = null;
+    draggingCursorRef.current = null;
+  }, []);
+
   const handleCanvasMouseMove = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -184,19 +266,39 @@ export default function Oscilloscope({
     const plotLeft = MARGIN.left;
     const plotWidth = PANEL_WIDTH - MARGIN.left - MARGIN.right;
     if (px < plotLeft || px > plotLeft + plotWidth) {
-      cursorXRef.current = null;
-      setCursorReadout(null);
+      if (draggingCursorRef.current == null) {
+        cursorXRef.current = null;
+        setCursorReadout(null);
+      }
       return;
     }
-    cursorXRef.current = px;
     const t = (px - plotLeft) / plotWidth;
+
+    if (draggingCursorRef.current != null) {
+      if (draggingCursorRef.current === 1) {
+        cursor1Ref.current = t;
+        setHasCursor1(true);
+      } else {
+        cursor2Ref.current = t;
+        setHasCursor2(true);
+      }
+      cursorXRef.current = px;
+      const readings = channelsRef.current
+        .map((ch) => {
+          const samples = getWindowedSamples(ch.netId);
+          if (samples.length === 0) return null;
+          const idx = Math.min(Math.round(t * (samples.length - 1)), samples.length - 1);
+          return { netId: ch.netId, color: ch.color, voltage: samples[idx] };
+        })
+        .filter((r): r is { netId: number; color: string; voltage: number } => r !== null);
+      setCursorReadout(readings.length > 0 ? { x: px, readings } : null);
+      return;
+    }
+
+    cursorXRef.current = px;
     const readings = channelsRef.current
       .map((ch) => {
-        const rawSamples = getSamples(ch.netId);
-        const samples =
-          rawSamples.length > timeWindowRef.current
-            ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
-            : rawSamples;
+        const samples = getWindowedSamples(ch.netId);
         if (samples.length === 0) return null;
         const idx = Math.min(Math.round(t * (samples.length - 1)), samples.length - 1);
         return { netId: ch.netId, color: ch.color, voltage: samples[idx] };
@@ -208,6 +310,48 @@ export default function Oscilloscope({
   const handleCanvasMouseLeave = useCallback(() => {
     cursorXRef.current = null;
     setCursorReadout(null);
+    draggingCursorRef.current = null;
+  }, []);
+
+  const handleCanvasMouseDown = useCallback((event: ReactMouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 2) {
+      event.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = PANEL_WIDTH / rect.width;
+    const px = (event.clientX - rect.left) * scaleX;
+    const plotLeft = MARGIN.left;
+    const plotWidth = PANEL_WIDTH - MARGIN.left - MARGIN.right;
+    const minX = plotLeft;
+    const maxX = plotLeft + plotWidth;
+    const clampedX = Math.max(minX, Math.min(maxX, px));
+
+    if (clampedX < plotLeft || clampedX > maxX) return;
+    const t = (clampedX - plotLeft) / plotWidth;
+    const useCursor2 = event.shiftKey || event.button === 2;
+    const target = useCursor2 || cursor1Ref.current == null || cursor2Ref.current == null
+      ? (useCursor2 ? 2 : 1)
+      : Math.abs(t - cursor1Ref.current) <= Math.abs(t - cursor2Ref.current)
+        ? 1
+        : 2;
+    if (target === 1) {
+      cursor1Ref.current = t;
+      setHasCursor1(true);
+    } else {
+      cursor2Ref.current = t;
+      setHasCursor2(true);
+    }
+    draggingCursorRef.current = target;
+  }, []);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    draggingCursorRef.current = null;
+  }, []);
+
+  const handleCanvasContextMenu = useCallback((event: ReactMouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
   }, []);
 
   const handleExportPNG = useCallback(() => {
@@ -220,6 +364,67 @@ export default function Oscilloscope({
     a.click();
   }, []);
 
+  const handleExportCSV = useCallback(() => {
+    if (channels.length === 0) return;
+    downloadScopeCSV(channels, timeWindow, getDisplaySamples);
+  }, [channels, getDisplaySamples, timeWindow]);
+
+  const toggleTrigger = useCallback(() => {
+    setTriggerEnabled((previous) => {
+      const next = !previous;
+      triggerCaptureRef.current = null;
+      prevTriggerVoltRef.current = null;
+      return next;
+    });
+  }, []);
+
+  const rearmTrigger = useCallback(() => {
+    triggerCaptureRef.current = null;
+    prevTriggerVoltRef.current = null;
+  }, []);
+
+  const toggleColorPicker = useCallback((netId: number) => {
+    setPickingColorForNetId((current) => (current === netId ? null : netId));
+  }, []);
+
+  const pickChannelColor = useCallback(
+    (netId: number, color: string) => {
+      updateChannelColor(netId, color);
+      setPickingColorForNetId(null);
+    },
+    [updateChannelColor],
+  );
+
+  useEffect(() => {
+    if (!pickingColorForNetId) return;
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('[data-color-picker-root]')) {
+        setPickingColorForNetId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', onDocumentMouseDown);
+  }, [pickingColorForNetId]);
+
+  useEffect(() => {
+    if (!triggerEnabled) {
+      triggerCaptureRef.current = null;
+      prevTriggerVoltRef.current = null;
+    }
+  }, [triggerEnabled, channels]);
+
+  const cursorOverlayX = cursorReadout?.x ??
+    (cursor1Ref.current != null
+      ? MARGIN.left + cursor1Ref.current * (PANEL_WIDTH - MARGIN.left - MARGIN.right)
+      : cursor2Ref.current != null
+        ? MARGIN.left + cursor2Ref.current * (PANEL_WIDTH - MARGIN.left - MARGIN.right)
+        : null);
+  const hasAnyCursor = hasCursor1 || hasCursor2;
+  const showCursorReadout = cursorReadout != null || cursorsReadout != null;
+
   channelsRef.current = channels;
   autoScaleRef.current = autoScale;
 
@@ -227,14 +432,14 @@ export default function Oscilloscope({
     const id = setInterval(() => {
       const next: typeof statsMap = {};
       for (const ch of channels) {
-        const s = getSamples(ch.netId);
+        const s = getDisplaySamples(ch.netId);
         next[ch.netId] = computeStats(s);
       }
       setStatsMap(next);
     }, 500);
 
     return () => clearInterval(id);
-  }, [channels]);
+  }, [channels, getDisplaySamples]);
 
   useEffect(() => {
     if (!open) return;
@@ -270,17 +475,35 @@ export default function Oscilloscope({
 
       let yMin = DEFAULT_Y_MIN;
       let yMax = DEFAULT_Y_MAX;
+      const hasTrigger = triggerEnabled && channelsRef.current.length > 0;
+
+      if (hasTrigger) {
+        const triggerNetId = channelsRef.current[0]?.netId;
+        const triggerSample = triggerNetId != null ? voltages[triggerNetId] : null;
+        const prevValue = prevTriggerVoltRef.current;
+        if (triggerCaptureRef.current == null && Number.isFinite(triggerSample) && prevValue != null) {
+          const risingCrossing = triggerEdge === 'rising'
+            ? prevValue < triggerLevel && (triggerSample ?? 0) >= triggerLevel
+            : prevValue > triggerLevel && (triggerSample ?? 0) <= triggerLevel;
+          if (risingCrossing) {
+            const captured = new Map<number, Float32Array>();
+            for (const channel of channelsRef.current) {
+              captured.set(channel.netId, new Float32Array(getDisplaySamples(channel.netId)));
+            }
+            triggerCaptureRef.current = captured;
+          }
+        }
+        if (Number.isFinite(triggerSample)) {
+          prevTriggerVoltRef.current = triggerSample;
+        }
+      }
 
       if (autoScaleRef.current && channelsRef.current.length > 0) {
         let min = Number.POSITIVE_INFINITY;
         let max = Number.NEGATIVE_INFINITY;
 
         for (const channel of channelsRef.current) {
-          const rawSamples = getSamples(channel.netId);
-          const samples =
-            rawSamples.length > timeWindowRef.current
-              ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
-              : rawSamples;
+          const samples = getWindowedSamples(channel.netId);
           for (let i = 0; i < samples.length; i++) {
             const value = samples[i];
             if (value < min) min = value;
@@ -320,11 +543,7 @@ export default function Oscilloscope({
 
       // draw traces
       for (const channel of channelsRef.current) {
-        const rawSamples = getSamples(channel.netId);
-        const samples =
-          rawSamples.length > timeWindowRef.current
-            ? rawSamples.subarray(rawSamples.length - timeWindowRef.current)
-            : rawSamples;
+        const samples = getWindowedSamples(channel.netId);
         if (samples.length === 0) continue;
 
         const xStep = samples.length > 1 ? plot.width / (samples.length - 1) : plot.width;
@@ -343,11 +562,83 @@ export default function Oscilloscope({
         ctx.stroke();
       }
 
-      // Cursor vertical line
+      if (triggerEnabled) {
+        ctx.save();
+        const triggerY = valueToPixel(triggerLevel, yMin, yMax, plot);
+        ctx.strokeStyle = 'rgba(255, 180, 50, 0.7)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(plot.left, triggerY);
+        ctx.lineTo(plot.left + plot.width, triggerY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Cursor lines
+      const cursor1X = cursor1Ref.current;
+      if (cursor1X != null) {
+        const x = plot.left + cursor1X * plot.width;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,100,0.85)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, plot.top);
+        ctx.lineTo(x, plot.top + plot.height);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const cursor2X = cursor2Ref.current;
+      if (cursor2X != null) {
+        const x = plot.left + cursor2X * plot.width;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(100,200,255,0.85)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, plot.top);
+        ctx.lineTo(x, plot.top + plot.height);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (cursor1Ref.current != null && cursor2Ref.current != null) {
+        const firstChannel = channelsRef.current[0];
+        if (firstChannel != null) {
+          const channelSamples = getWindowedSamples(firstChannel.netId);
+          if (channelSamples.length > 0) {
+            const v1 = sampleAtFraction(channelSamples, cursor1Ref.current);
+            const v2 = sampleAtFraction(channelSamples, cursor2Ref.current);
+            const dt = Math.abs(cursor2Ref.current - cursor1Ref.current) * timeWindowRef.current;
+            const dv = Math.abs(v2 - v1);
+            setCursorsReadout((previous) => {
+              const next = { dt, dv, freq: dt > 0 ? 1000 / dt : 0 };
+              if (
+                previous &&
+                previous.dt === next.dt &&
+                previous.dv === next.dv &&
+                previous.freq === next.freq
+              ) {
+                return previous;
+              }
+              return next;
+            });
+          } else {
+            setCursorsReadout(null);
+          }
+        } else {
+          setCursorsReadout(null);
+        }
+      } else {
+        setCursorsReadout(null);
+      }
+
       const cursorX = cursorXRef.current;
       if (cursorX != null) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.65)';
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
@@ -377,7 +668,7 @@ export default function Oscilloscope({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [open, frozen]);
+  }, [open, frozen, triggerEnabled, triggerEdge, triggerLevel, getWindowedSamples, getDisplaySamples]);
 
   if (!open) return null;
 
@@ -389,7 +680,10 @@ export default function Oscilloscope({
         height={PANEL_HEIGHT}
         className="h-full w-full block cursor-crosshair"
         onMouseMove={handleCanvasMouseMove}
+        onMouseDown={handleCanvasMouseDown}
+        onMouseUp={handleCanvasMouseUp}
         onMouseLeave={handleCanvasMouseLeave}
+        onContextMenu={handleCanvasContextMenu}
       />
       <div className="absolute left-0 right-0 bottom-0 z-10 text-[9px] font-mono text-white/25 text-center mt-0.5 pointer-events-none">
         {timeWindow < 1000 ? `${timeWindow}ms` : `${timeWindow / 1000}s`} window ·{' '}
@@ -402,15 +696,39 @@ export default function Oscilloscope({
           const liveVoltage = liveV[i];
           const stats = statsMap[channel.netId];
           return (
-            <div key={channel.netId} className="flex flex-col gap-0.5">
+            <div key={channel.netId} className="flex flex-col gap-0.5 relative">
               <div className="flex items-center gap-1">
-                <span
+                <button
+                  type="button"
+                  onClick={() => toggleColorPicker(channel.netId)}
+                  data-color-picker-root
                   className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm"
                   style={{ color: channel.color, background: `${channel.color}22` }}
+                  title="Choose channel color"
                 >
                   {label}
-                </span>
-                <span className="text-[9px] font-mono text-white/65 tabular-nums">
+                </button>
+                {pickingColorForNetId === channel.netId && (
+                  <div
+                    className="absolute left-0 top-6 z-20 flex gap-1 rounded border border-white/20 bg-[#121520] p-1"
+                    data-color-picker-root
+                  >
+                    {PICKER_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => pickChannelColor(channel.netId, color)}
+                        title={`Set ${label} color`}
+                        aria-label={`Set ${label} color ${color}`}
+                        className="w-4 h-4 rounded-full border border-white/20"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <span
+                  className="text-[9px] font-mono text-white/65 tabular-nums"
+                >
                   {liveVoltage !== undefined ? `${liveVoltage.toFixed(2)}V` : ''}
                 </span>
                 <button
@@ -435,22 +753,28 @@ export default function Oscilloscope({
         })}
       </div>
 
-      {cursorReadout && (
+      {showCursorReadout && cursorOverlayX != null && (
         <div
           className="absolute z-10 pointer-events-none flex flex-col gap-0.5 rounded border border-white/15 bg-black/80 px-1.5 py-1"
           style={{
             // Flip to left of cursor when near right edge
-            ...(cursorReadout.x > PANEL_WIDTH - 90
-              ? { right: PANEL_WIDTH - cursorReadout.x + 4 }
-              : { left: cursorReadout.x + 4 }),
+            ...(cursorOverlayX > PANEL_WIDTH - 90
+              ? { right: PANEL_WIDTH - cursorOverlayX + 4 }
+              : { left: cursorOverlayX + 4 }),
             bottom: 22,
           }}
         >
-          {cursorReadout.readings.map((r) => (
+          {cursorReadout?.readings.map((r) => (
             <span key={r.netId} className="text-[9px] font-mono whitespace-nowrap" style={{ color: r.color }}>
               Net {r.netId}: {Math.abs(r.voltage) < 0.001 ? '0.000' : r.voltage.toFixed(3)} V
             </span>
           ))}
+          {cursorsReadout && (
+            <span className="text-[9px] font-mono whitespace-nowrap text-white/75">
+              C1→C2: ΔT={cursorsReadout.dt.toFixed(1)}ms ΔV={cursorsReadout.dv.toFixed(2)}V f=
+              {cursorsReadout.freq.toFixed(0)}Hz
+            </span>
+          )}
         </div>
       )}
 
@@ -466,6 +790,61 @@ export default function Oscilloscope({
         >
           {frozen ? '▶' : '⏸'}
         </button>
+        {hasAnyCursor && (
+          <button
+            type="button"
+            onClick={clearCursors}
+            className="text-[10px] px-1.5 py-0.5 rounded-sm border border-red-400/40 text-red-300/80 hover:text-red-200 hover:border-red-300/80"
+            title="Clear both cursors"
+          >
+            × cursors
+          </button>
+        )}
+        <button
+          onClick={toggleTrigger}
+          className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${
+            triggerEnabled
+              ? 'border-emerald-300/60 text-emerald-200'
+              : 'border-white/20 text-white/65 hover:text-white/90'
+          }`}
+          title={triggerEnabled ? 'Disable trigger capture' : 'Enable trigger capture'}
+        >
+          Trig
+        </button>
+        {triggerEnabled && (
+          <>
+            <input
+              type="number"
+              min={-15}
+              max={15}
+              step={0.1}
+              value={triggerLevel}
+              onChange={(event) => {
+                const value = Number.parseFloat(event.target.value);
+                if (Number.isFinite(value)) {
+                  setTriggerLevel(value);
+                }
+              }}
+              className="w-12 h-4 rounded-sm border border-white/20 bg-[#131720] text-[10px] px-1 text-white"
+            />
+            <button
+              type="button"
+              className="w-5 h-5 rounded-sm border border-white/20 text-[12px] text-white/80 hover:text-white hover:border-white/40"
+              onClick={() => setTriggerEdge((curr) => (curr === 'rising' ? 'falling' : 'rising'))}
+              title={`Trigger on ${triggerEdge === 'rising' ? 'falling' : 'rising'} edge`}
+            >
+              {triggerEdge === 'rising' ? '↑' : '↓'}
+            </button>
+            <button
+              type="button"
+              onClick={rearmTrigger}
+              className="text-[10px] px-1.5 py-0.5 rounded-sm border border-white/20 text-white/70 hover:text-white hover:border-white/40"
+              title="Re-arm trigger capture"
+            >
+              Re-arm
+            </button>
+          </>
+        )}
         {[50, 200, 1000, 4000].map((ms) => (
           <button
             key={ms}
@@ -545,6 +924,15 @@ export default function Oscilloscope({
           title="Close scope"
         >
           ×
+        </button>
+        <button
+          type="button"
+          onClick={handleExportCSV}
+          disabled={channels.length === 0}
+          title="Download scope capture as CSV"
+          className={`h-4 px-1.5 rounded-sm border text-[10px] ${channels.length === 0 ? 'border-white/8 text-white/30' : 'border-white/20 text-white/65 hover:text-white/80 hover:border-white/40'}`}
+        >
+          ↓ CSV
         </button>
         <button
           type="button"
