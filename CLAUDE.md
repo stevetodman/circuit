@@ -60,9 +60,67 @@ Custom MNA (Modified Nodal Analysis) solver in `simulation/mna/MNASolver.ts`:
 - Motor state (angular velocity, direction) preserved across netlist updates — selective clear removes only motors absent from the new netlist
 - Non-convergence of Newton-Raphson posts `SIM_NR_FAIL` → `simStatus: 'warn'` (amber dot in StatusBar) + toast; `SIM_OK` clears warn back to 'running'
 
+## Shared Utilities
+
+**`lib/engineering.ts`** — `parseEngValue(raw: string): number | null`
+Parses engineering shorthand into a number: `"10k"→10000`, `"4.7u"→4.7e-6`, `"100n"→1e-7`, `"1M"→1e6`, `"2.2m"→0.0022`. Import this — never reimplement it locally.
+
+---
+
+## Type Safety Reminders (SPEC authors / Codex agents)
+
+These mistakes appear in every sprint. Check before committing:
+
+**1. `component.props.*` is `string | number` — not `number`**
+Always narrow before passing to a numeric function:
+```ts
+// ❌ wrong
+formatValue(component.props.resistance)
+
+// ✅ correct
+const r = Number(component.props.resistance);
+if (Number.isFinite(r)) formatValue(r);
+```
+
+**2. Array spread creates `number[]`, not `Vec3`**
+`Vec3` is a `[number, number, number]` tuple — TypeScript won't accept `number[]` where `Vec3` is required:
+```ts
+// ❌ wrong
+const pos = [...otherVec3];               // inferred as number[]
+const snapped = [x, y, z];               // inferred as number[]
+
+// ✅ correct
+const pos: Vec3 = [x, y, z];             // explicit tuple type
+const snapped = [...otherVec3] as Vec3;  // cast when spreading
+```
+
+**3. Zustand: individual selectors only — never inline objects**
+Inline object selectors create a new object every render → infinite re-render loop:
+```ts
+// ❌ crashes
+const { a, b } = useStore(s => ({ a: s.a, b: s.b }));
+
+// ✅ correct
+const a = useStore(s => s.a);
+const b = useStore(s => s.b);
+// OR use useShallow from zustand/react/shallow when grouping is required
+```
+
+**4. Never reimplement `parseEngValue` — import from `@/lib/engineering`**
+```ts
+import { parseEngValue } from '@/lib/engineering';
+```
+
+**5. Three.js imports only under `components/canvas/`**
+`Scene.tsx`, `DragManager.tsx`, `Pin.tsx`, `Wire.tsx` etc. are SSR-excluded. Never import Three.js in sidebar components, stores, or `app/`.
+
+---
+
 ## Directory Layout
 
 ```
+lib/
+  engineering.ts        parseEngValue — shared engineering notation parser
 app/
   page.tsx              Root: <SimController> <Toast> <HelpOverlay> <KeyboardShortcuts>
                         <Sidebar> <Scene> + <CanvasOverlay> + <Oscilloscope> + <SchematicView>

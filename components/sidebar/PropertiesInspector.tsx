@@ -87,28 +87,7 @@ function engNotation(value: number, unit: string): string {
   return `${value.toFixed(1)}${baseUnit}`;
 }
 
-function parseEngValue(raw: string): number | null {
-  const s = raw.trim().replace(',', '.');
-  if (s === '') return null;
-  const m = s.match(/^([+-]?\d*\.?\d+)\s*([kKmMuUnNpP]?)$/);
-  if (!m) return null;
-
-  const base = parseFloat(m[1]);
-  if (!Number.isFinite(base)) return null;
-
-  const suffix = m[2];
-  if (suffix === 'M') return base * 1e6;
-
-  const multipliers: Record<string, number> = {
-    k: 1e3, K: 1e3,
-    m: 1e-3,
-    u: 1e-6, U: 1e-6,
-    n: 1e-9, N: 1e-9,
-    p: 1e-12, P: 1e-12,
-  };
-
-  return base * (multipliers[suffix] ?? 1);
-}
+import { parseEngValue } from '@/lib/engineering';
 
 const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
