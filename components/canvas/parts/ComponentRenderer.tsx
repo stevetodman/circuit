@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { Text } from '@react-three/drei';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { ComponentType, PlacedComponent, Vec3 } from '@/types/circuit';
 import { PITCH } from '@/constants/breadboard';
@@ -73,6 +73,17 @@ function formatComponentValue(comp: PlacedComponent): string {
   }
 }
 
+const PRIMARY_VALUE_KEY: Partial<Record<ComponentType | 'dcVoltage', string>> = {
+  resistor: 'resistance',
+  capacitor: 'capacitance',
+  inductor: 'inductance',
+  battery: 'voltage',
+  potentiometer: 'resistance',
+  zener: 'voltage',
+  timer555: 'r1',
+  dcVoltage: 'voltage',
+};
+
 function FallbackPart({ pinOffsets = [], selected, onClick }: {
   pinOffsets?: Vec3[];
   selected?: boolean;
@@ -138,6 +149,7 @@ export default function ComponentRenderer({
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const multiSelectRingRef = useRef<THREE.MeshStandardMaterial>(null);
   const selectedRingRef = useRef<THREE.MeshStandardMaterial>(null);
+  const { camera, gl } = useThree();
 
   useFrame(({ clock }) => {
     if (overloadMaterialRef.current) {
@@ -190,6 +202,32 @@ export default function ComponentRenderer({
     if (onClick) {
       onClick(event);
     }
+  };
+
+  const handleDoubleClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+
+    const {
+      contextMenu,
+      canvasMenu,
+      wireMenu,
+      editingNoteId,
+      showHelp,
+    } = useUIStore.getState();
+
+    if (contextMenu || canvasMenu || wireMenu || editingNoteId || showHelp) return;
+    if (!PRIMARY_VALUE_KEY[type]) return;
+
+    const vec = new THREE.Vector3(anchorPos[0], anchorPos[1], anchorPos[2]);
+    vec.project(camera);
+
+    if (!Number.isFinite(vec.x) || !Number.isFinite(vec.y) || !Number.isFinite(vec.z)) return;
+    if (vec.z < -1 || vec.z > 1) return;
+
+    const rect = gl.domElement.getBoundingClientRect();
+    const sx = ((vec.x + 1) / 2) * rect.width + rect.left;
+    const sy = ((-vec.y + 1) / 2) * rect.height + rect.top;
+    useUIStore.getState().openInlineEdit(componentId, sx, sy);
   };
 
   let inner: React.ReactNode;
@@ -372,6 +410,7 @@ export default function ComponentRenderer({
       rotation={[0, rotYRad, 0]}
       userData={{ componentId }}
       onContextMenu={onContextMenu}
+      onDoubleClick={handleDoubleClick}
     >
       {inner}
       {showDesignators && !dragging && designator && (
