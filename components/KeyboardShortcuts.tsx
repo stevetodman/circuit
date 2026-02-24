@@ -44,6 +44,7 @@ export default function KeyboardShortcuts() {
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
   const toggleWireVoltageColors = useUIStore((s) => s.toggleWireVoltageColors);
+  const toggleWireRouting = useUIStore((s) => s.toggleWireRouting);
   const toggleValueLabels = useUIStore((s) => s.toggleValueLabels);
   const closeContextMenu    = useUIStore((s) => s.closeContextMenu);
   const clearBoxSelect      = useUIStore((s) => s.clearBoxSelect);
@@ -230,6 +231,12 @@ export default function KeyboardShortcuts() {
         return;
       }
 
+      if (!meta && key === 'q') {
+        e.preventDefault();
+        toggleWireRouting();
+        return;
+      }
+
       if (key === 'h') {
         e.preventDefault();
         useUIStore.getState().toggleVoltageHeatmap();
@@ -286,6 +293,7 @@ export default function KeyboardShortcuts() {
     toggleValueLabels, closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
     components,
+    toggleWireRouting,
   ]);
 
   return null;

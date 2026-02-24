@@ -21,6 +21,7 @@ interface UIState {
   mouseY: number;
   wireValidationStatus: 'clean' | 'short' | null;
   wireValidationMessage: string | null;
+  wireRoutingMode: 'curve' | 'orthogonal';
   simStatus: 'idle' | 'running' | 'error' | 'warn';
   simError: string | null;
   simErrorDismissed: boolean;
@@ -80,6 +81,7 @@ interface UIState {
   toggleVoltageHeatmap: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
   toggleWireVoltageColors: () => void;
+  toggleWireRouting: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
   toggleHelp:          () => void;
   toggleSidebar:       () => void;
@@ -138,6 +140,7 @@ export const useUIStore = create<UIState>()(
   showWireVoltageColors: true,
   showValueLabels: true,
   showCurrentThickness: false,
+  wireRoutingMode: 'curve',
   showVoltageHeatmap: false,
   sab:           null,
   showHelp:      false,
@@ -188,6 +191,7 @@ export const useUIStore = create<UIState>()(
   toggleSidebar:  () => set((s) => ({ showSidebar: !s.showSidebar })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
+  toggleWireRouting: () => set((state) => ({ wireRoutingMode: state.wireRoutingMode === 'curve' ? 'orthogonal' : 'curve' })),
   toggleCurrentThickness: () => set((state) => ({ showCurrentThickness: !state.showCurrentThickness })),
   toggleVoltageHeatmap: () => set((state) => ({ showVoltageHeatmap: !state.showVoltageHeatmap })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
@@ -239,6 +243,7 @@ export const useUIStore = create<UIState>()(
       showValueLabels: state.showValueLabels,
       showCurrentLabels: state.showCurrentLabels,
       showVoltageHeatmap: state.showVoltageHeatmap,
+      wireRoutingMode: state.wireRoutingMode,
       recentlyUsedTypes: state.recentlyUsedTypes,
       showCurrentThickness: state.showCurrentThickness,
     }),

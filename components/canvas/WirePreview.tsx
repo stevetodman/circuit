@@ -10,6 +10,29 @@ import { BOARD_TOP_Y } from '@/constants/breadboard';
 // Horizontal plane at board surface — cursor is always projected here
 const BOARD_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP_Y);
 
+function getOrthogonalPoints(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+  const dx = Math.abs(to.x - from.x);
+  const dz = Math.abs(to.z - from.z);
+  if (dx >= dz) {
+    const corner = new THREE.Vector3(to.x, from.y + 0.03, from.z);
+    return [from, corner, to];
+  }
+  const corner = new THREE.Vector3(from.x, from.y + 0.03, to.z);
+  return [from, corner, to];
+}
+
+function buildCurvePoints(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+  const flatDist = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
+  const arcHeight = 0.15 + 0.04 * flatDist;
+  const mid = new THREE.Vector3(
+    (from.x + to.x) / 2,
+    Math.max(from.y, to.y) + arcHeight,
+    (from.z + to.z) / 2,
+  );
+
+  return [from, mid, to];
+}
+
 /**
  * Live preview wire drawn from the selected (start) pin to the cursor.
  * Rendered only while a node is selected (wiring mode started).
@@ -19,6 +42,7 @@ export default function WirePreview() {
   const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
   const nodes = useCircuitStore((s) => s.nodes);
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
+  const wireRoutingMode = useUIStore((s) => s.wireRoutingMode);
   const wireValidationStatus = useUIStore((s) => s.wireValidationStatus);
   const setWireValidationStatus = useUIStore((s) => s.setWireValidationStatus);
   const { raycaster, pointer, camera } = useThree();
@@ -83,18 +107,13 @@ export default function WirePreview() {
       to.y = BOARD_TOP_Y; // keep on board surface
     }
 
-    // Build arc geometry (same formula as Wire.tsx)
     const from = new THREE.Vector3(...startNode.worldPos);
-
-    const flatDist = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
-    const arcHeight = 0.15 + 0.04 * flatDist;
-    const mid = new THREE.Vector3(
-      (from.x + to.x) / 2,
-      Math.max(from.y, to.y) + arcHeight,
-      (from.z + to.z) / 2,
-    );
-
-    const curve = new THREE.CatmullRomCurve3([from, mid, to]);
+    const points = wireRoutingMode === 'orthogonal'
+      ? getOrthogonalPoints(from, to)
+      : buildCurvePoints(from, to);
+    const curve = wireRoutingMode === 'orthogonal'
+      ? new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0)
+      : new THREE.CatmullRomCurve3(points);
     const newGeom = new THREE.TubeGeometry(curve, 20, 0.018, 6, false);
 
     // P1-17: assign before dispose so the mesh never holds a disposed geometry reference

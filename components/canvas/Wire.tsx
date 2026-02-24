@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Vec3, Wire as WireModel } from '@/types/circuit';
+import type { Wire as WireModel } from '@/types/circuit';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { branchCurrents, voltages } from '@/simulation/SimBridge';
@@ -18,9 +18,18 @@ const WIRE_TUBES = {
 const CURRENT_THICKNESS_MAX_RADIUS = 0.040;
 const CURRENT_THICKNESS_GAIN = 0.022;
 
-function buildWirePoints(fromPos: Vec3, toPos: Vec3): THREE.Vector3[] {
-  const from = new THREE.Vector3(fromPos[0], fromPos[1], fromPos[2]);
-  const to = new THREE.Vector3(toPos[0], toPos[1], toPos[2]);
+function getOrthogonalPoints(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+  const dx = Math.abs(to.x - from.x);
+  const dz = Math.abs(to.z - from.z);
+  if (dx >= dz) {
+    const corner = new THREE.Vector3(to.x, from.y + 0.03, from.z);
+    return [from, corner, to];
+  }
+  const corner = new THREE.Vector3(from.x, from.y + 0.03, to.z);
+  return [from, corner, to];
+}
+
+function buildCurvePoints(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
   const flatDistance = from.distanceTo(new THREE.Vector3(to.x, from.y, to.z));
   const arcHeight = 0.3 + 0.05 * flatDistance;
   const mid = new THREE.Vector3(
@@ -55,6 +64,7 @@ export default function Wire({ wire, branchIndex }: WireProps) {
   const currentThicknessRef = useRef(WIRE_TUBES.radius);
   const fromNetId = useCircuitStore((s) => s.nodes[wire.fromNodeId]?.netId ?? -1);
   const netLabels = useCircuitStore((s) => s.netLabels);
+  const wireRoutingMode = useUIStore((s) => s.wireRoutingMode);
   const hoveredNodeId = useUIStore((s) => s.hoveredNodeId);
   const hoveredNetId = useCircuitStore((s) =>
     hoveredNodeId ? (s.nodes[hoveredNodeId]?.netId ?? -1) : -1,
@@ -68,10 +78,20 @@ export default function Wire({ wire, branchIndex }: WireProps) {
 
   const points = useMemo(() => {
     if (!fromPos || !toPos) return null;
-    return buildWirePoints(fromPos, toPos);
-  }, [fromPos, toPos]);
+    const from = new THREE.Vector3(fromPos[0], fromPos[1], fromPos[2]);
+    const to = new THREE.Vector3(toPos[0], toPos[1], toPos[2]);
+    return wireRoutingMode === 'orthogonal'
+      ? getOrthogonalPoints(from, to)
+      : buildCurvePoints(from, to);
+  }, [fromPos, toPos, wireRoutingMode]);
 
-  const curve = useMemo(() => (points ? new THREE.CatmullRomCurve3(points) : null), [points]);
+  const curve = useMemo(() => {
+    if (!points) return null;
+    if (wireRoutingMode === 'orthogonal') {
+      return new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0);
+    }
+    return new THREE.CatmullRomCurve3(points);
+  }, [points, wireRoutingMode]);
 
   const geometry = useMemo(() => {
     if (!curve) return null;

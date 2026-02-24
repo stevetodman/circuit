@@ -72,7 +72,7 @@ export default function Toolbar() {
     }))
   );
 
-  const {
+    const {
     showDesignators,
     toggleDesignators,
     showCurrentLabels,
@@ -83,6 +83,8 @@ export default function Toolbar() {
     toggleWireVoltageColors,
     showCurrentThickness,
     toggleCurrentThickness,
+    wireRoutingMode,
+    toggleWireRouting,
   } = useUIStore(
     useShallow((s) => ({
       showDesignators: s.showDesignators,
@@ -95,6 +97,8 @@ export default function Toolbar() {
       toggleWireVoltageColors: s.toggleWireVoltageColors,
       showCurrentThickness: s.showCurrentThickness,
       toggleCurrentThickness: s.toggleCurrentThickness,
+      wireRoutingMode: s.wireRoutingMode,
+      toggleWireRouting: s.toggleWireRouting,
     }))
   );
   const showVoltageHeatmap = useUIStore((s) => s.showVoltageHeatmap);
@@ -207,6 +211,17 @@ export default function Toolbar() {
       >
         ~ Width
       </ToolbarBtn>
+      <button
+        onClick={toggleWireRouting}
+        title={`Wire routing: ${wireRoutingMode} (Q)`}
+        className={`px-2 py-1 rounded text-[11px] transition-colors ${
+          wireRoutingMode === 'orthogonal'
+            ? 'bg-white/15 text-white'
+            : 'text-white/50 hover:text-white/75'
+        }`}
+      >
+        {wireRoutingMode === 'orthogonal' ? '⌐ Ortho' : '⌒ Curve'}
+      </button>
       <ToolbarBtn
         onClick={toggleVoltageHeatmap}
         title="Toggle voltage heatmap (H)"

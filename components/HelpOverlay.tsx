@@ -29,6 +29,7 @@ const SECTIONS = [
       ['W', 'Toggle component value labels (Ω, µF, V)'],
       ['V', 'Toggle wire voltage colours'],
       ['T', 'Toggle wire thickness by current'],
+      ['Q', 'Toggle wire routing (curve / orthogonal)'],
       ['H', 'Toggle voltage heatmap on breadboard'],
       ['F', 'Zoom to fit'],
       ['D', 'Toggle Bode plot (AC frequency sweep)'],
