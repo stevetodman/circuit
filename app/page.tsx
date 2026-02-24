@@ -35,6 +35,7 @@ import ModuleValidator from '@/components/ModuleValidator';
 import { WireValidationTooltip } from '@/components/canvas/WirePreview';
 
 const BodePlot = dynamic(() => import('@/features/bode/BodePlot'), { ssr: false });
+const OnboardingTooltip = dynamic(() => import('@/components/OnboardingTooltip'), { ssr: false });
 
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
@@ -196,6 +197,7 @@ export default function Home() {
     >
       <SimController />
       <Toast />
+      <OnboardingTooltip />
       <CanvasContextMenu />
       <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
       <HelpOverlay />
