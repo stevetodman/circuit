@@ -142,7 +142,8 @@ export default function CanvasSearch() {
   const results = normalizedQuery
     ? allComponents.filter((component) => {
       const label = TYPE_LABELS[component.type]?.toLowerCase() ?? component.type;
-      return label.includes(normalizedQuery) || component.type.toLowerCase().includes(normalizedQuery);
+      const designator = getDesignator(component.id).toLowerCase();
+      return label.includes(normalizedQuery) || component.type.toLowerCase().includes(normalizedQuery) || designator.includes(normalizedQuery);
     })
     : allComponents;
   const maxCursor = Math.max(0, results.length - 1);
