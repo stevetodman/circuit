@@ -31,17 +31,22 @@ export default function StepCard() {
   const startModule = useModuleStore((s) => s.startModule);
   const skipStep = useModuleStore((s) => s.skipStep);
   const [hintVisible, setHintVisible] = useState(false);
+  const [hintPulse, setHintPulse] = useState(false);
   const [confirmSkip, setConfirmSkip] = useState(false);
   const [completedModuleTitle, setCompletedModuleTitle] = useState<string | null>(null);
 
   useEffect(() => {
     setHintVisible(false);
     setConfirmSkip(false);
+    setHintPulse(false);
   }, [activeModuleId, activeStepIndex]);
 
   useEffect(() => {
     if (!activeStep?.hint) return;
-    const timer = setTimeout(() => setHintVisible(true), 15_000);
+    const timer = setTimeout(() => {
+      setHintVisible(true);
+      setHintPulse(true);
+    }, 5_000);
     return () => clearTimeout(timer);
   }, [activeModuleId, activeStepIndex, activeStep?.hint]);
 
@@ -160,8 +165,11 @@ export default function StepCard() {
             <button
               type="button"
               onClick={() => setHintVisible((v) => !v)}
-              className="text-white/55 hover:text-white/85 text-[11px] transition-colors"
+              className={`text-white/55 hover:text-white/85 text-[11px] transition-colors relative ${hintPulse && !hintVisible ? 'text-amber-400/80' : ''}`}
             >
+              {hintPulse && !hintVisible && (
+                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+              )}
               Need a hint?
             </button>
             <div className={`overflow-hidden transition-all duration-200 ${hintVisible ? 'max-h-40 opacity-100 mt-1.5' : 'max-h-0 opacity-0'}`}>
@@ -170,9 +178,13 @@ export default function StepCard() {
           </div>
         )}
 
-        {validationFailed && step.failHint && (
+        {validationFailed && (
           <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
-            <p className="text-amber-300/80 text-[11px] leading-snug">Not quite — {step.failHint}</p>
+            <p className="text-amber-300/80 text-[11px] leading-snug">
+              {step.failHint
+                ? `Not quite — ${step.failHint}`
+                : 'Not quite — check your circuit and try again'}
+            </p>
           </div>
         )}
 

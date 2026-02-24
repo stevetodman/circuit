@@ -40,6 +40,7 @@ export const MODULES: Module[] = [
         hint: 'The default battery is 9V. The simulation is already running — nothing to connect yet.',
         spotlightTarget: 'properties',
         highlightComponent: 'battery',
+        failHint: 'Drag a Battery from the Parts panel (left sidebar) and place it on the breadboard.',
         validate: (s) => hasComponent(s, 'battery'),
       },
     ],
