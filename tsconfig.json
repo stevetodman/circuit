@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "three-stdlib": ["./node_modules/.pnpm/three-stdlib@2.36.1_three@0.183.1/node_modules/three-stdlib"]
     }
   },
   "include": [

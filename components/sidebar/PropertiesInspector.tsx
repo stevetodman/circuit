@@ -8,6 +8,7 @@ import type { ComponentType, PlacedComponent } from '@/types/circuit';
 import { runAudit } from '@/features/audit/circuitAudit';
 import { useScopeStore } from '@/store/scopeStore';
 import { COMPONENT_INFO } from '@/constants/componentInfo';
+import { parseEngValue } from '@/lib/engineering';
 
 // ── Property field definitions per component type ─────────────────────────────
 interface NumericField {
@@ -89,8 +90,6 @@ function engNotation(value: number, unit: string): string {
 
   return `${value.toFixed(1)}${baseUnit}`;
 }
-
-import { parseEngValue } from '@/lib/engineering';
 
 const seenTypes = new Set<string>();
 
