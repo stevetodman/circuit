@@ -499,6 +499,230 @@ export const MODULES: Module[] = [
       },
     ],
   },
+  {
+    id: 'm16-hbridge',
+    title: '16. H-Bridge Motor Control',
+    subtitle: 'H-bridge control and polarity reversal',
+    concept:
+      'An H-bridge lets you control a DC motor\'s direction and speed using transistors. Four switches form a bridge that reverses polarity to the motor.',
+    prerequisiteId: 'zener-regulator-module',
+    autoLoadId: 'm16-hbridge',
+    steps: [
+      {
+        id: 'place-hbridge-parts',
+        instruction: 'Place a motor, 4 resistors, and 2 batteries.',
+        hint: 'Each resistor will act as a bridge leg for the first wiring pass.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'motor',
+        failHint: 'Drop a motor, two batteries, and four resistors only. No switches or diodes needed for this step.',
+        validate: (s) =>
+          hasComponent(s, 'motor') && hasNComponents(s, 'resistor', 4) && hasNComponents(s, 'battery', 2),
+      },
+      {
+        id: 'connect-hbridge-topology',
+        instruction: 'Build the H-bridge topology with the motor between opposing legs.',
+        hint: 'Connect opposite motor terminals to the opposite supply rails through resistor pairs.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'resistor',
+        failHint:
+          'Use both battery pairs and all four resistors to form two cross-connect paths to the motor terminals.',
+        validate: (s) => hasCurrentFlow(s) && hasNComponents(s, 'resistor', 4),
+      },
+      {
+        id: 'observe-motor-direction',
+        instruction: 'Power the bridge and watch the motor direction change when inputs are toggled.',
+        hint: 'Use switches/transistor controls in the next step to reverse polarity and spin direction.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'motor',
+        failHint: 'Power the completed bridge. The motor should run when one polarity path is complete.',
+        validate: (s) => hasComponent(s, 'motor') && hasCurrentFlow(s),
+      },
+    ],
+  },
+  {
+    id: 'm17-arduino-blink',
+    title: '17. Arduino Blink',
+    subtitle: 'Digital output code control',
+    concept:
+      'Microcontrollers run programs that can toggle digital outputs. The classic \'Blink\' sketch turns an LED on and off repeatedly.',
+    prerequisiteId: 'm16-hbridge',
+    autoLoadId: 'm17-arduino-blink',
+    steps: [
+      {
+        id: 'place-arduino-led-resistor',
+        instruction: 'Place an Arduino Uno, one LED, and a resistor.',
+        hint: 'Use a digital output pin-capable Arduino and a current-limiting resistor on the LED anode.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'arduino',
+        failHint: 'Drag an Arduino Uno, an LED, and a resistor onto the breadboard.',
+        validate: (s) =>
+          hasComponent(s, 'arduino') && hasComponent(s, 'led') && hasNComponents(s, 'resistor', 1),
+      },
+      {
+        id: 'wire-led-to-pin13',
+        instruction: 'Wire LED anode to Arduino pin 13 through the resistor.',
+        hint: 'Pin 13 is already configured for built-in onboard behavior in many boards.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'resistor',
+        failHint: 'Connect D13 → resistor → LED anode, with LED cathode returned to Arduino GND.',
+        validate: (s) => hasComponent(s, 'arduino') && hasCurrentLimitingResistor(s) && areConnected(s, 'arduino', 'led'),
+      },
+      {
+        id: 'upload-blink',
+        instruction: 'Open the Arduino panel and upload the Blink sketch.',
+        hint: 'Use the built-in Blink example so pin 13 toggles every 500 ms.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'arduino',
+        failHint: 'Open the Arduino panel, select the Blink sketch, and click Upload.',
+        validate: (s) => hasComponent(s, 'arduino') && isLEDLit(s),
+      },
+    ],
+  },
+  {
+    id: 'm18-arduino-pot',
+    title: '18. Arduino + Potentiometer (analogRead)',
+    subtitle: 'Voltage from a variable resistor',
+    concept:
+      'Analog sensors output variable voltages. analogRead() converts 0–5V to 0–1023. A potentiometer is a simple variable resistor you can dial.',
+    prerequisiteId: 'm17-arduino-blink',
+    autoLoadId: 'm18-arduino-pot',
+    steps: [
+      {
+        id: 'place-arduino-pot',
+        instruction: 'Place an Arduino Uno and a potentiometer.',
+        hint: 'The potentiometer terminals will be your divider endpoints; use the wiper for signal output.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'arduino',
+        failHint: 'Drop both the Arduino Uno and a potentiometer onto the board.',
+        validate: (s) => hasComponent(s, 'arduino') && hasComponent(s, 'potentiometer'),
+      },
+      {
+        id: 'wire-wiper-to-a0',
+        instruction: 'Wire the potentiometer wiper to A0 and complete the divider to VCC/GND.',
+        hint: 'A0 expects a mid-point analog voltage around 0–5V.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'potentiometer',
+        failHint:
+          'Connect terminal A to 5V and terminal B to GND, then connect the wiper node to A0.',
+        validate: (s) => hasComponent(s, 'arduino') && hasComponent(s, 'potentiometer') && areConnected(s, 'arduino', 'potentiometer'),
+      },
+      {
+        id: 'observe-serial-monitor',
+        instruction: 'Upload a sketch with analogRead() and open Serial Monitor.',
+        hint: 'Rotate the potentiometer and watch values move between 0 and 1023.',
+        spotlightTarget: 'properties',
+        highlightComponent: 'potentiometer',
+        failHint: 'Open the Serial Monitor and run a sketch that prints analogRead(A0). Move the knob.',
+        validate: (s) => hasComponent(s, 'arduino') && hasComponent(s, 'potentiometer') && potIsAdjusted(s),
+      },
+    ],
+  },
+  {
+    id: 'm19-pwm-led',
+    title: '19. PWM LED Brightness',
+    subtitle: 'Duty cycle and perceived brightness',
+    concept:
+      'Pulse-Width Modulation switches a signal on/off very fast. The ratio of on-time to off-time (duty cycle) controls perceived brightness.',
+    prerequisiteId: 'm18-arduino-pot',
+    autoLoadId: 'm19-pwm-led',
+    steps: [
+      {
+        id: 'place-arduino-pwm-led',
+        instruction: 'Place an Arduino Uno, LED, and resistor.',
+        hint: 'Use pin 9 so the board can output PWM.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'arduino',
+        failHint:
+          'Place an Arduino Uno, a single LED, and a resistor in the workspace.',
+        validate: (s) =>
+          hasComponent(s, 'arduino') && hasComponent(s, 'led') && hasNComponents(s, 'resistor', 1),
+      },
+      {
+        id: 'wire-led-to-pwm-pin',
+        instruction: 'Wire LED anode to Arduino pin 9 through a resistor.',
+        hint: 'The resistor should remain in series; cathode should return to GND.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'resistor',
+        failHint: 'Connect D9 → resistor → LED anode, and LED cathode to ground.',
+        validate: (s) => hasComponent(s, 'arduino') && hasCurrentLimitingResistor(s) && areConnected(s, 'arduino', 'led'),
+      },
+      {
+        id: 'upload-analogwrite',
+        instruction: 'Upload an analogWrite() sketch to change duty cycle at pin 9.',
+        hint: 'Use a loop that writes values from 0 to 255.',
+        spotlightTarget: 'sidebar-parts',
+        failHint:
+          'Open Arduino IDE panel, select analogWrite on pin 9, and upload the PWM example.',
+        validate: (s) => hasComponent(s, 'arduino') && hasCurrentFlow(s),
+      },
+      {
+        id: 'adjust-duty-cycle',
+        instruction: 'Adjust the duty cycle and observe LED brightness transitions.',
+        hint: 'Try values near 0, 64, 128, and 255.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'led',
+        failHint:
+          'The LED should visibly dim/brighten smoothly as duty cycle changes, not jump in binary on/off steps.',
+        validate: (s) => hasComponent(s, 'arduino') && hasComponent(s, 'led') && hasCurrentFlow(s),
+      },
+    ],
+  },
+  {
+    id: 'm20-logic-gates',
+    title: '20. Digital Logic Gates (BJT inverter)',
+    subtitle: 'Transistors as logic primitives',
+    concept:
+      'Logic gates are the building blocks of digital circuits. An NPN transistor with appropriate biasing acts as a NOT gate (inverter).',
+    prerequisiteId: 'm19-pwm-led',
+    autoLoadId: 'm20-logic-gates',
+    steps: [
+      {
+        id: 'place-inverter-components',
+        instruction: 'Place an NPN transistor, 2 resistors, a battery, switch, and LED.',
+        hint: 'One resistor is a pull-up/load, and the other drives the base.',
+        spotlightTarget: 'sidebar-parts',
+        highlightComponent: 'bjt',
+        failHint:
+          'Use one NPN transistor (BJT), two resistors, a battery, a switch, and an LED.',
+        validate: (s) =>
+          hasComponent(s, 'bjt') &&
+          hasNComponents(s, 'resistor', 2) &&
+          hasComponent(s, 'battery') &&
+          hasComponent(s, 'tactileSwitch') &&
+          hasComponent(s, 'led'),
+      },
+      {
+        id: 'connect-base-inverter',
+        instruction: 'Wire the base resistor to battery through the switch.',
+        hint: 'When the switch is closed the transistor base is driven, turning it on.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'tactileSwitch',
+        failHint:
+          'Connect: Battery+ → switch → base resistor → transistor base; transistor collector via resistor to Battery+, emitter to Battery−, LED on collector path.',
+        validate: (s) =>
+          hasComponent(s, 'tactileSwitch') &&
+          hasNComponents(s, 'resistor', 2) &&
+          hasComponent(s, 'bjt') &&
+          hasComponent(s, 'battery') &&
+          areConnected(s, 'battery', 'tactileSwitch') &&
+          areConnected(s, 'battery', 'bjt'),
+      },
+      {
+        id: 'observe-inversion',
+        instruction: 'Toggle the switch and observe that LED state inverts.',
+        hint: 'Input high should drive the transistor on, which pulls the LED output low (off). Input low should let LED turn on.',
+        spotlightTarget: 'breadboard',
+        highlightComponent: 'led',
+        failHint:
+          'With this topology, the LED should be opposite the switch state: ON when switch is open, OFF when closed.',
+        validate: (s) =>
+          hasComponent(s, 'bjt') &&
+          hasComponent(s, 'tactileSwitch') &&
+          hasComponent(s, 'led') &&
+          (switchIsClosed(s) ? !isLEDLit(s) : isLEDLit(s)),
+      },
+    ],
+  },
 ];
 
 export const getModuleById = (id: string): Module | undefined => MODULES.find((m) => m.id === id);
