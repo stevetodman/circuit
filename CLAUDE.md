@@ -154,8 +154,10 @@ components/
     ExportPanel.tsx     SPICE .cir download + Save/Load JSON + Copy share link + New Circuit button
     ScopeButton.tsx     Open oscilloscope shortcut
     StatusBar.tsx       Sim status dot + power + mode chip + hovered pin + parts/nets count + sim time
-  ContextMenu.tsx       Right-click: component menu (delete/rotate/duplicate/properties) + WireContextMenu
+  ContextMenu.tsx       Right-click: component menu (delete/rotate/duplicate/swapType/properties) + WireContextMenu
                         (7 color swatches + delete wire); both are viewport-clamped
+  SwapTypeMenu.tsx      Floating type-picker opened by "Swap type" context menu item; shows pin-compatible types
+  CanvasSearch.tsx      Ctrl+F component search overlay: filter by type name, arrow-key navigate, Enter to zoom
   ErrorBoundary.tsx     Wraps Sidebar, Oscilloscope, SchematicView in page.tsx
   HelpOverlay.tsx       ? key modal — full keyboard shortcut reference
   KeyboardShortcuts.tsx Global keyboard handler (mount once in page.tsx)
@@ -168,7 +170,7 @@ constants/
 features/
   modules/
     types.ts            ModuleStep (spotlightTarget, highlightComponent), Module, ValidatorState
-    definitions.ts      11 guided modules with autoLoadId, step validators, spotlight hints
+    definitions.ts      20 guided modules with autoLoadId, step validators, spotlight hints
   oscilloscope/
     Oscilloscope.tsx    4-channel overlay: Y-axis labels, auto-scale, live voltage, Vpp/Vmin/Vmax/freq
                         stats per channel, time-window selector, clear-all button
@@ -178,7 +180,7 @@ features/
     SchematicLayout.ts  elkjs ELK layered layout: netlist → {x,y,w,h} per component + cache
     symbols/index.tsx   IEEE SVG symbols for all 14 component types
   examples/
-    circuits.ts         11 pre-built starter circuits (one per module + extras)
+    circuits.ts         pre-built starter circuits (one per module)
     ExampleLoader.tsx   Expandable card gallery; ?autoload=N URL param supported
   export/
     exportNetlist.ts    Circuit topology → SPICE .cir string (covers all 14 component types)
@@ -198,7 +200,10 @@ store/
                         showValueLabels, arduinoTabRequested, zoom requests (fit/in/out),
                         showDesignators, showCurrentLabels, showPolarityLabels,
                         showWireVoltageColors, overloadIds, circuitHealthWarning,
-                        power, contextMenu, wireMenu, boxSelect
+                        power, contextMenu, wireMenu, boxSelect,
+                        clickToPlaceType, inlineEditComponentId, inlineEditScreenPos,
+                        swapTypeMenuId, swapTypeMenuPos, canvasSearchOpen,
+                        recentlyUsedTypes, showCurrentThickness, wireRoutingMode
   moduleStore.ts        Zustand persist: activeModuleId, activeStepIndex, completedModuleIds,
                         resetProgress(); persisted to localStorage as 'circuit-modules'
   scopeStore.ts         Oscilloscope channels + open/close + clearChannels()
@@ -242,7 +247,7 @@ types/
 
 **Polarity labels** — `<Text>` from `@react-three/drei` rendered at pin positions; gated by `showPolarityLabels`. Colors: `#ff6b6b` for `+`, `#6b9fff` for `−`. Implemented in LED, Battery, Capacitor, Diode.
 
-**Module system** — `features/modules/definitions.ts` defines 11 guided modules. Each `ModuleStep` has: `instruction`, optional `hint`, `spotlightTarget` (drives directional hint in StepCard), `highlightComponent` (drives pulse ring on ComponentTile), `autoLoadId` (loads a starter circuit), and a `validate()` function. `moduleStore` persists progress to localStorage via Zustand `persist`.
+**Module system** — `features/modules/definitions.ts` defines 20 guided modules (M1–M20). Each `ModuleStep` has: `instruction`, optional `hint`, `failHint` (shown on failed validation), `spotlightTarget` (drives directional hint in StepCard), `highlightComponent` (drives pulse ring on ComponentTile), `autoLoadId` (loads a starter circuit), and a `validate()` function. `moduleStore` persists progress to localStorage via Zustand `persist`. Steps can be skipped with a "skip" button (marked yellow rather than green).
 
 **Canvas overlay** — `CanvasOverlay.tsx` is a plain React component (not R3F) rendered as an absolute overlay on the canvas. Use `pointer-events-none` on the container, `pointer-events-auto` only on interactive children. Contains zoom +/−/fit buttons, a component counter, a **screenshot button** (grabs `canvas.toDataURL('image/png')` — requires `gl={{ preserveDrawingBuffer: true }}` on `<Canvas>`), and a **fullscreen button** (`document.documentElement.requestFullscreen()`).
 
@@ -278,7 +283,29 @@ types/
 
 **Parts category filter** — `Sidebar.tsx` has `'all' | 'passive' | 'active' | 'power' | 'ic'` chip row above the parts list. `PART_CATEGORIES` maps each `ComponentType` to a category. Chips are mutually exclusive; `'all'` is the default.
 
-**Zoom controls** — `uiStore` has `zoomInRequested` / `zoomOutRequested` counters (increment to trigger). `Scene.tsx` listens with `useEffect` and moves the camera via OrbitControls ref. `CanvasOverlay` buttons call `requestZoomIn` / `requestZoomOut` / `requestZoomToFit`.
+**Zoom controls** — `uiStore` has `zoomInRequested` / `zoomOutRequested` counters (increment to trigger). `Scene.tsx` listens with `useEffect` and moves the camera via OrbitControls ref. `CanvasOverlay` buttons call `requestZoomIn` / `requestZoomOut` / `requestZoomToFit`. `requestZoomToComponent(id)` zooms to a specific placed component (used by Ctrl+F search).
+
+**Click-to-place** — `uiStore.clickToPlaceType` + `clickToPlaceRotation`. When set, clicking the canvas places that component type. `R` rotates, `Escape` cancels. Set by clicking a part tile; toggled off after each placement.
+
+**Inline value editor** — `InlineValueEditor.tsx` opens on double-click of a component (or after "Swap type"). Reads/writes primary prop (resistance, capacitance, etc.) via `parseEngValue` from `@/lib/engineering`. Commits on Enter/blur.
+
+**Swap type** — Right-click → "Swap type" opens `SwapTypeMenu.tsx` with pin-compatible types (2-pin group / 3-pin group). Calls `circuitStore.swapComponentType(id, newType)` which keeps anchorPos + rotationY, resets props to {}, re-runs net analysis. Auto-opens inline editor if new type has a primary value.
+
+**Multi-component drag** — When `selectedComponentIds.length > 1`, pointer-down on any selected component in Scene.tsx starts a group drag. On pointer-up, calls `circuitStore.moveComponents(moves)` to batch-move all selected components maintaining relative positions. Single-select drag uses Scene.tsx pointer handlers unchanged.
+
+**Canvas search** — `CanvasSearch.tsx` opened by Ctrl+F. Filters placed components by type name, navigates with arrow keys, Enter zooms to selected. Uses `requestZoomToComponent` in uiStore.
+
+**Smart defaults** — `circuitStore.addComponent()` calls `getSmartDefaultProps(type, components)` to inherit the most-recently-placed same-type component's primary value. Falls back to empty props if no existing component of that type.
+
+**Wire routing** — `uiStore.wireRoutingMode: 'curve' | 'orthogonal'`. Toggled with Q key. Orthogonal mode renders wires as axis-aligned L-shapes. Stored in localStorage via uiStore partialize.
+
+**Onboarding tooltip** — First-visit tooltip overlay (dismissed to localStorage). Explains drag-to-place, wiring, and simulation start.
+
+**Net labels** — `circuitStore.netLabels: Record<number, string>`. Right-click wire → "Name net" → typed in wire context menu. Displayed in Wire.tsx tooltips and schematic. Stored in circuit JSON.
+
+**Component lock** — `locked?: boolean` on `PlacedComponent`. `moveComponent()` / `removeComponent()` no-op if locked. Shown as 🔒 badge on 3D model. Toggle via right-click → Lock/Unlock.
+
+**Annotations** — `circuitStore.notes: CircuitNote[]`. Add via right-click → "Add note". Render as `<Text>` in Scene.tsx. Double-click to edit in-place. Included in JSON save/load.
 
 ## Stores at a Glance
 
@@ -319,6 +346,10 @@ types/
 | `Delete/Backspace` | Delete wire (when wire context menu is open), else delete selected |
 | `Escape` | Close open overlay (scope/schematic/help) first, then deselect / cancel |
 | `F11` | Toggle fullscreen |
+| `Ctrl+F` | Open component search overlay |
+| `Q` | Toggle orthogonal wire routing |
+| `Ctrl+N` | New circuit (with confirmation) |
+| `Arrow keys` | Nudge selected component (0.254 mm / 1 pitch per press) |
 
 ## Copy / Paste / Multi-Select
 
@@ -331,6 +362,10 @@ types/
 - `loadFromJSON()` — clears `componentClipboard` to prevent stale clipboard surviving a circuit load
 - `deleteSelected()` — deletes all `selectedComponentIds` (or falls back to `selectedComponentId`), then also deletes any wire connected to `selectedNodeId`
 - `rotateComponent(id)` — rotates component and calls `runNetAnalysis` so net IDs update immediately
+- `nudgeComponent(id, dx, dz)` — moves component by delta (arrow key nudge, 1 pitch = 0.254)
+- `moveComponent(id, newAnchorPos)` — moves component to absolute world position with pin re-snap
+- `moveComponents(moves)` — batch-move multiple components (multi-drag); moves processed atomically
+- `swapComponentType(id, newType)` — replaces component type in-place; keeps pos/rotation; resets props; toasts undo hint
 - `newCircuit()` — clears nodes/components/wires/name, resets undo history
 
 ## Known Limitations / Future Work
