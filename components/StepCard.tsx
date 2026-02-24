@@ -5,10 +5,17 @@ import { MODULES } from '@/features/modules/definitions';
 import { useModuleStore } from '@/store/moduleStore';
 
 const SPOTLIGHT_LABELS = {
-  'sidebar-parts': '← Add a component from the Parts panel',
-  'breadboard': '↑ Place it on the breadboard',
+  'sidebar-parts': 'Use the Parts panel on the left',
+  'breadboard': 'Work on the breadboard above',
   'oscilloscope': 'Open the oscilloscope (key O)',
-  'properties': '← Check the Properties inspector',
+  'properties': 'Check the Properties panel on the left',
+} as const;
+
+const SPOTLIGHT_ARROWS = {
+  'sidebar-parts': '←',
+  'breadboard': '↑',
+  'oscilloscope': '◎',
+  'properties': '←',
 } as const;
 
 export default function StepCard() {
@@ -16,16 +23,20 @@ export default function StepCard() {
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
   const activeStepIndex = useModuleStore((s) => s.activeStepIndex);
   const activeStep = useModuleStore((s) => s.activeStep);
+  const skippedStepIndices = useModuleStore((s) => s.skippedStepIndices);
   const justCompleted = useModuleStore((s) => s.justCompleted);
   const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
   const exitModule = useModuleStore((s) => s.exitModule);
   const validationFailed = useModuleStore((s) => s.validationFailed);
   const startModule = useModuleStore((s) => s.startModule);
+  const skipStep = useModuleStore((s) => s.skipStep);
   const [hintVisible, setHintVisible] = useState(false);
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const [completedModuleTitle, setCompletedModuleTitle] = useState<string | null>(null);
 
   useEffect(() => {
     setHintVisible(false);
+    setConfirmSkip(false);
   }, [activeModuleId, activeStepIndex]);
 
   useEffect(() => {
@@ -91,11 +102,10 @@ export default function StepCard() {
           {activeModule.steps.map((_, i) => (
             <div
               key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i < activeStepIndex ? 'bg-[#7c6fff]' :
-                  i === activeStepIndex ? 'bg-[#7c6fff]/70' :
-                    'bg-white/10'
-              }`}
+              className={`h-1 flex-1 rounded-full transition-colors ${i < activeStepIndex
+                ? skippedStepIndices.includes(i) ? 'bg-amber-400' : 'bg-[#7c6fff]'
+                : i === activeStepIndex ? 'bg-[#7c6fff]/70'
+                  : 'bg-white/10'}`}
             />
           ))}
           <span className="text-white/30 text-[10px] font-mono ml-2 shrink-0">
@@ -104,8 +114,44 @@ export default function StepCard() {
         </div>
 
         <p className="text-white/90 text-sm font-medium mb-1">{step.instruction}</p>
+        {!confirmSkip ? (
+          <button
+            type="button"
+            onClick={() => setConfirmSkip(true)}
+            className="text-white/20 hover:text-amber-400/60 text-[10px] transition-colors mt-1"
+          >
+            Skip this step
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[10px] text-white/40">Skip this step?</span>
+            <button
+              type="button"
+              onClick={() => {
+                skipStep();
+                setConfirmSkip(false);
+              }}
+              className="text-[10px] px-2 py-0.5 rounded bg-amber-900/40 text-amber-300 hover:bg-amber-800/50"
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmSkip(false)}
+              className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {step.spotlightTarget && (
-          <div className="mt-1.5 inline-flex items-center gap-1 bg-[#7c6fff]/10 border border-[#7c6fff]/20 rounded-full px-2.5 py-0.5">
+          <div className="mt-2 flex items-center gap-2">
+            <div className="relative flex items-center justify-center w-6 h-6 shrink-0">
+              <div className="absolute inset-0 rounded-full bg-[#7c6fff]/15 animate-ping" />
+              <span className="relative text-[#7c6fff] text-sm leading-none animate-bounce">
+                {SPOTLIGHT_ARROWS[step.spotlightTarget]}
+              </span>
+            </div>
             <span className="text-[#7c6fff]/80 text-[10px]">{SPOTLIGHT_LABELS[step.spotlightTarget]}</span>
           </div>
         )}

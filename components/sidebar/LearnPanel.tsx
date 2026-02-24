@@ -4,6 +4,27 @@ import { useState } from 'react';
 import { useModuleStore } from '@/store/moduleStore';
 import { MODULES, isModuleUnlocked } from '@/features/modules/definitions';
 
+const COMPONENT_DISPLAY_NAMES: Record<string, string> = {
+  battery: 'Battery',
+  resistor: 'Resistor',
+  led: 'LED',
+  capacitor: 'Capacitor',
+  diode: 'Diode',
+  bjt: 'NPN BJT',
+  pnp: 'PNP BJT',
+  mosfet: 'MOSFET',
+  switch: 'Switch',
+  tactileSwitch: 'Tactile Switch',
+  potentiometer: 'Potentiometer',
+  motor: 'Motor',
+  timer555: '555 Timer',
+  inductor: 'Inductor',
+  arduino: 'Arduino',
+  schottky: 'Schottky Diode',
+  zener: 'Zener Diode',
+  opamp: 'Op-Amp',
+};
+
 export default function LearnPanel() {
   const completedModuleIds = useModuleStore((s) => s.completedModuleIds);
   const activeModuleId = useModuleStore((s) => s.activeModuleId);
@@ -39,6 +60,14 @@ export default function LearnPanel() {
         const unlocked = isModuleUnlocked(mod.id, completedModuleIds);
         const expanded = expandedModuleId === mod.id;
         const actionLabel = active ? 'Continue →' : 'Start →';
+        const usedComponents = [...new Set(
+          mod.steps
+            .map((s) => s.highlightComponent)
+            .filter((c): c is NonNullable<typeof c> => Boolean(c)),
+        )];
+        const prerequisiteTitle = mod.prerequisiteId
+          ? MODULES.find((m) => m.id === mod.prerequisiteId)?.title ?? mod.prerequisiteId
+          : null;
 
         return (
           <div
@@ -54,9 +83,7 @@ export default function LearnPanel() {
             )}
             <button
               type="button"
-              disabled={!unlocked}
               onClick={() => {
-                if (!unlocked) return;
                 toggleExpanded(mod.id);
               }}
               className={`
@@ -65,7 +92,7 @@ export default function LearnPanel() {
                 ${active ? 'bg-[#7c6fff]/20 border border-[#7c6fff]/40' :
                   done ? 'bg-white/[0.04] border border-white/[0.06]' :
                     unlocked ? 'hover:bg-white/[0.06] border border-transparent' :
-                      'opacity-30 cursor-not-allowed border border-transparent'}
+                      'opacity-40 hover:opacity-60 border border-transparent'}
               `}
             >
               <span className="mt-0.5 shrink-0 text-[11px]">
@@ -81,16 +108,43 @@ export default function LearnPanel() {
             {expanded && (
               <div className="px-2.5 pb-2 pt-1 space-y-2">
                 <p className="text-white/45 text-[10px] leading-relaxed">{mod.concept}</p>
+                {(() => {
+                  if (usedComponents.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-[9px] text-white/25 self-center">Uses:</span>
+                      {usedComponents.map((c) => (
+                        <span
+                          key={c}
+                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.06] text-white/50 border border-white/[0.08]"
+                        >
+                          {COMPONENT_DISPLAY_NAMES[c] ?? c}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+                <div className="flex items-center gap-3 text-[9px] text-white/25">
+                  <span>{mod.steps.length} steps</span>
+                  {mod.prerequisiteId && !isModuleUnlocked(mod.id, completedModuleIds) && (
+                    <span>Requires: {prerequisiteTitle}</span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
-                    if (!active) {
+                    if (unlocked && !active) {
                       startModule(mod.id);
                     }
                   }}
-                  className="text-[11px] tracking-wide text-[#8ea4ff] hover:text-[#aebcff] font-medium"
+                  disabled={!unlocked}
+                  className={`text-[11px] tracking-wide font-medium transition-colors ${
+                    unlocked
+                      ? 'text-[#8ea4ff] hover:text-[#aebcff]'
+                      : 'text-white/20 cursor-not-allowed'
+                  }`}
                 >
-                  {actionLabel}
+                  {!unlocked ? '🔒 Complete previous module first' : actionLabel}
                 </button>
               </div>
             )}
