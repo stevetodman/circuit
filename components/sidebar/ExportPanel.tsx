@@ -3,6 +3,7 @@
 import { useMemo, useRef, type ChangeEvent } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { exportSPICE } from '@/features/export/exportNetlist';
+import { exportBreadboardSVG } from '@/features/export/exportBreadboardSVG';
 import { useToastStore } from '@/store/toastStore';
 import { CIRCUIT_NAME_PARAM, CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
 
@@ -38,6 +39,21 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
 
     anchor.href = url;
     anchor.download = `${safeFilename(circuitName)}.cir`;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
+  const onExportSVG = () => {
+    const svg = exportBreadboardSVG(nodes, components, wires, circuitName);
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `${safeFilename(circuitName)}-layout.svg`;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();
@@ -111,6 +127,12 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
         className="w-full text-[10px] py-1.5 rounded bg-[#22cc66]/20 text-[#22cc66] hover:bg-[#22cc66]/30 transition-colors"
       >
         Export .cir
+      </button>
+      <button
+        onClick={onExportSVG}
+        className="w-full text-[10px] py-1.5 rounded bg-[#ff6b6b]/15 text-[#ffaaaa] hover:bg-[#ff6b6b]/25 transition-colors"
+      >
+        Download SVG layout
       </button>
       <button
         onClick={onSaveJSON}
