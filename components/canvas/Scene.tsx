@@ -12,7 +12,7 @@ import WireLayer from './WireLayer';
 import WirePreview from './WirePreview';
 import DragManager from './DragManager';
 import ComponentRenderer from './parts/ComponentRenderer';
-import { useCircuitStore } from '@/store/circuitStore';
+import { BOARD_TOP_Y, useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useDragStore } from '@/store/dragStore';
 import { PIN_TEMPLATES, type CircuitNote, type Vec3 } from '@/types/circuit';
@@ -165,6 +165,7 @@ function SceneInteractions() {
   const startBoxSelect = useUIStore((state) => state.startBoxSelect);
   const updateBoxSelect = useUIStore((state) => state.updateBoxSelect);
   const clearBoxSelect = useUIStore((state) => state.clearBoxSelect);
+  const endPlacedDrag = useUIStore((state) => state.endPlacedDrag);
   const setMousePos     = useUIStore((state) => state.setMousePos);
   const requestZoomToComponent = useUIStore((state) => state.requestZoomToComponent);
   const openCanvasMenu = useUIStore((state) => state.openCanvasMenu);
@@ -176,6 +177,20 @@ function SceneInteractions() {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const point = new THREE.Vector3();
+    const worldPos = new THREE.Vector3();
+    const boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP_Y);
+
+    const clientToBoardPos = (clientX: number, clientY: number): Vec3 | null => {
+      const rect = gl.domElement.getBoundingClientRect();
+      pointer.set(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.ray.intersectPlane(boardPlane, worldPos);
+      if (!hit) return null;
+      return [worldPos.x, worldPos.y, worldPos.z];
+    };
 
     const projectPointer = (clientX: number, clientY: number) => {
       const rect = gl.domElement.getBoundingClientRect();
@@ -244,6 +259,11 @@ function SceneInteractions() {
 
     const onPointerMove = (event: PointerEvent) => {
       setMousePos(event.clientX, event.clientY);
+      const activePlacedDrag = useUIStore.getState().placedDrag;
+      if (activePlacedDrag?.dragging) {
+        clientToBoardPos(event.clientX, event.clientY);
+        return;
+      }
 
       if (longPressStartPos.current) {
         const dx = event.clientX - longPressStartPos.current.x;
@@ -260,6 +280,22 @@ function SceneInteractions() {
 
     const onPointerUp = (event: PointerEvent) => {
       clearLongPress();
+      const activePlacedDrag = useUIStore.getState().placedDrag;
+      if (activePlacedDrag?.dragging && activePlacedDrag.startAnchorPositions) {
+        const worldPos = clientToBoardPos(event.clientX, event.clientY);
+        const deltaX = worldPos ? worldPos[0] - (activePlacedDrag.startWorldPos?.x ?? 0) : 0;
+        const deltaZ = worldPos ? worldPos[2] - (activePlacedDrag.startWorldPos?.z ?? 0) : 0;
+        const moves = Object.entries(activePlacedDrag.startAnchorPositions).map(([id, pos]) => ({
+          id,
+          newAnchorPos: [pos[0] + deltaX, pos[1], pos[2] + deltaZ] as Vec3,
+        }));
+        useCircuitStore.getState().moveComponents(moves);
+        endPlacedDrag();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
       const active = useUIStore.getState().boxSelect;
       if (!active) return;
 
@@ -315,7 +351,7 @@ function SceneInteractions() {
       gl.domElement.removeEventListener('dblclick', onDblClick);
       gl.domElement.removeEventListener('contextmenu', onContextMenu);
     };
-  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent, openCanvasMenu]);
+  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent, openCanvasMenu, endPlacedDrag]);
 
   useEffect(() => {
     return () => {
@@ -477,9 +513,11 @@ function NoteObject({ note, onRemove }: { note: CircuitNote; onRemove: () => voi
 export default function Scene() {
   const selectedComponentId  = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
+  const wiringMode = useCircuitStore((s) => s.wiringMode);
   const getDesignator       = useCircuitStore((s) => s.getDesignator);
   const selectComponent     = useCircuitStore((s) => s.selectComponent);
   const setProperty         = useCircuitStore((s) => s.setProperty);
+  const startPlacedDrag     = useUIStore((s) => s.startPlacedDrag);
   const openContextMenu     = useUIStore((s) => s.openContextMenu);
   const toggleSelectedComponent = useCircuitStore((s) => s.toggleSelectedComponent);
   const componentsMap        = useCircuitStore((s) => s.components);
@@ -545,6 +583,21 @@ export default function Scene() {
                   event.nativeEvent.preventDefault();
                   event.nativeEvent.stopImmediatePropagation();
                   openContextMenu(component.id, event.nativeEvent.clientX, event.nativeEvent.clientY);
+                }}
+                onPointerDown={(event) => {
+                  if (event.nativeEvent.button !== 0) return;
+                  if (wiringMode) return;
+                  if (useUIStore.getState().boxSelect) return;
+                  const ids = selectedComponentIds;
+                  if (ids.length < 2 || !ids.includes(component.id)) return;
+                  event.stopPropagation();
+                  event.nativeEvent.stopPropagation();
+                  const positions: Record<string, Vec3> = {};
+                  for (const id of ids) {
+                    const c = useCircuitStore.getState().components[id];
+                    if (c) positions[id] = [...c.anchorPos] as Vec3;
+                  }
+                  startPlacedDrag(component.id, event.point.x, event.point.z, positions);
                 }}
                 componentProps={component.props}
                 onClick={(event) => {

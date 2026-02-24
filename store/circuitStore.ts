@@ -96,6 +96,8 @@ interface CircuitState extends TopologyState {
   toggleComponentLock(id: string): void;
   swapComponentType(id: string, newType: ComponentType): void;
   nudgeComponent(id: string, dx: number, dz: number): void;
+  moveComponent(id: string, newAnchorPos: Vec3): void;
+  moveComponents(moves: Array<{ id: string; newAnchorPos: Vec3 }>): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
   updateWireColor: (id: string, color: string) => void;
@@ -165,6 +167,24 @@ function nearestNodeId(nodes: Record<string, CircuitNode>, point: Vec3): string 
     if (d < bestDist) { bestDist = d; nearest = node.id; }
   }
   return nearest;
+}
+
+function snapToNode(x: number, z: number, nodes: Record<string, CircuitNode>): string | null {
+  let bestNodeId: string | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  for (const node of Object.values(nodes)) {
+    const dx = node.worldPos[0] - x;
+    const dz = node.worldPos[2] - z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestDist) {
+      bestDist = d2;
+      bestNodeId = node.id;
+    }
+  }
+
+  if (!bestNodeId) return null;
+  return bestDist <= SNAP_THRESHOLD * SNAP_THRESHOLD ? bestNodeId : null;
 }
 
 function clonePinsForPaste(
@@ -442,6 +462,54 @@ export const useCircuitStore = create<CircuitState>()(
               pins,
             },
           };
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes };
+        });
+      },
+
+      moveComponent(id, newAnchorPos) {
+        set((state) => {
+          const comp = state.components[id];
+          if (!comp || comp.locked) return state;
+          const pinTemplates = PIN_TEMPLATES[comp.type] ?? [];
+          const pins = pinTemplates.map((t, i) => {
+            const rotated = rotateOffset(t.offset, comp.rotationY);
+            const wx = newAnchorPos[0] + rotated[0];
+            const wz = newAnchorPos[2] + rotated[2];
+            const nodeId = snapToNode(wx, wz, state.nodes);
+            return { name: t.name, nodeId: nodeId ?? comp.pins[i]?.nodeId ?? '' };
+          });
+
+          const components = {
+            ...state.components,
+            [id]: { ...comp, anchorPos: newAnchorPos, pins },
+          };
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes };
+        });
+      },
+
+      moveComponents(moves) {
+        set((state) => {
+          let components = { ...state.components };
+          for (const { id, newAnchorPos } of moves) {
+            const comp = components[id];
+            if (!comp || comp.locked) continue;
+
+            const pinTemplates = PIN_TEMPLATES[comp.type] ?? [];
+            const pins = pinTemplates.map((t, i) => {
+              const rotated = rotateOffset(t.offset, comp.rotationY);
+              const wx = newAnchorPos[0] + rotated[0];
+              const wz = newAnchorPos[2] + rotated[2];
+              const nodeId = snapToNode(wx, wz, state.nodes);
+              return { name: t.name, nodeId: nodeId ?? comp.pins[i]?.nodeId ?? '' };
+            });
+
+            components = {
+              ...components,
+              [id]: { ...comp, anchorPos: newAnchorPos, pins },
+            };
+          }
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
         });
