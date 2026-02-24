@@ -34,6 +34,19 @@ export interface CircuitNote {
   position: Vec3;
 }
 
+export interface CircuitBlockComponent {
+  type: ComponentType;
+  relativePos: Vec3;
+  rotationY: number;
+  props: Record<string, number | string>;
+}
+
+export interface CircuitBlock {
+  id: string;
+  name: string;
+  components: CircuitBlockComponent[];
+}
+
 export interface PinConnection {
   name: string;
   nodeId: string;

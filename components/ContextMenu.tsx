@@ -21,11 +21,13 @@ export default function ContextMenu() {
   const removeComponent = useCircuitStore((s) => s.removeComponent);
   const toggleComponentLock = useCircuitStore((s) => s.toggleComponentLock);
   const components = useCircuitStore((s) => s.components);
+  const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
   const rotateComponent = useCircuitStore((s) => s.rotateComponent);
   const copySelected = useCircuitStore((s) => s.copySelected);
   const pasteClipboard = useCircuitStore((s) => s.pasteClipboard);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
   const addNote = useCircuitStore((s) => s.addNote);
+  const openSaveBlockPrompt = useUIStore((s) => s.openSaveBlockPrompt);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +60,10 @@ export default function ContextMenu() {
 
   // F10.5: clamp so menu never overflows viewport
   const MENU_W = 160;
-  const MENU_H = (MENU_ITEMS.length + 1) * 33 + 4;
+  const menuItems = selectedComponentIds.length >= 2
+    ? [...MENU_ITEMS, { key: 'saveBlock', label: 'Save as block', kbd: null } as const]
+    : MENU_ITEMS;
+  const MENU_H = (menuItems.length + 1) * 33 + 4;
   const PAD = 8;
   const cx = Math.min(x, window.innerWidth  - MENU_W - PAD);
   const cy = Math.min(y, window.innerHeight - MENU_H - PAD);
@@ -110,6 +115,10 @@ export default function ContextMenu() {
       });
       return;
     }
+    if (key === 'saveBlock') {
+      run(() => openSaveBlockPrompt());
+      return;
+    }
   };
 
   return (
@@ -133,7 +142,7 @@ export default function ContextMenu() {
       >
         {isLocked ? '🔓 Unlock' : '🔒 Lock'}
       </button>
-      {MENU_ITEMS.filter((item) => item.key !== 'swapType' || !isUnsupportedSwapType).map((item) => (
+      {menuItems.filter((item) => item.key !== 'swapType' || !isUnsupportedSwapType).map((item) => (
         <button
           key={item.key}
           type="button"

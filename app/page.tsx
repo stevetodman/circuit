@@ -35,6 +35,7 @@ import CanvasOverlay from '@/components/CanvasOverlay';
 import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
 import { WireValidationTooltip } from '@/components/canvas/WirePreview';
+import SaveBlockPrompt from '@/components/SaveBlockPrompt';
 
 const BodePlot = dynamic(() => import('@/features/bode/BodePlot'), { ssr: false });
 const OnboardingTooltip = dynamic(() => import('@/components/OnboardingTooltip'), { ssr: false });
@@ -154,8 +155,10 @@ export default function Home() {
   const showSidebar = useUIStore((s) => s.showSidebar);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
   const circuitName = useCircuitStore((state) => state.circuitName);
+  const circuitBlocks = useCircuitStore((state) => state.circuitBlocks);
   const activeModuleId = useModuleStore((state) => state.activeModuleId);
   const clickToPlaceType = useUIStore((s) => s.clickToPlaceType);
+  const clickToPlaceBlockId = useUIStore((s) => s.clickToPlaceBlockId);
 
   useEffect(() => {
     if (!activeModuleId) return;
@@ -194,6 +197,11 @@ export default function Home() {
       : 'Circuit Sandbox';
   }, [circuitName]);
 
+  const placingBlock = clickToPlaceBlockId
+    ? circuitBlocks.find((block) => block.id === clickToPlaceBlockId)
+    : null;
+  const placingLabel = clickToPlaceType || placingBlock?.name || 'block';
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
@@ -211,6 +219,7 @@ export default function Home() {
       <NoteEditOverlay />
       <KeyboardShortcuts />
       <InlineValueEditor />
+      <SaveBlockPrompt />
       <ModuleIntroOverlay />
       <ModuleValidator />
       {!showSidebar && (
@@ -235,12 +244,15 @@ export default function Home() {
           <Scene />
           <CanvasOverlay />
           <EmptyStateGallery />
-          {clickToPlaceType && (
+          {(clickToPlaceType || clickToPlaceBlockId) && (
             <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
               style={{ animation: 'toastIn 0.2s ease-out both' }}>
               <div className="bg-[#18181c]/90 border border-[#7c6fff]/40 rounded-lg px-3 py-1.5 text-[12px] text-[#b8b0ff]">
-                Click breadboard to place <span className="font-semibold capitalize">{clickToPlaceType}</span>
-                <span className="text-white/40 ml-2">· R to rotate · Esc to cancel</span>
+                Click breadboard to place{' '}
+                <span className="font-semibold capitalize">
+                  {placingLabel}
+                </span>
+                <span className="text-white/40 ml-2">· Esc to cancel{clickToPlaceType ? ' · R to rotate' : ''}</span>
               </div>
             </div>
           )}
