@@ -44,19 +44,34 @@ Simulation data flows through a `SharedArrayBuffer` directly into Three.js `useF
 - Schematic view — ELK-laid-out SVG overlay with IEEE symbols; press S
 
 **UX**
-- Guided learning system — 11 step-by-step modules with spotlight hints and progress tracking
-- 11 example circuits loadable from sidebar
-- SPICE `.cir` export (all 14 component types with model definitions)
+- Guided learning system — 20 step-by-step modules with spotlight hints, failure hints, skip option, and progress tracking
+- Example circuits loadable from sidebar; one per module
+- SPICE `.cir` export (all 14 component types with model definitions); SVG breadboard export
 - JSON save/load; shareable URL (deflate-raw base64 encoded circuit state)
 - Auto-save to `localStorage` on every change (500 ms debounce)
 - Collapsible sidebar (B key or › button); parts filter by category (passive/active/power/IC)
 - Serial monitor for Arduino sketch output
 - Canvas screenshot — one-click PNG download of the 3D scene (preserveDrawingBuffer enabled)
 - Fullscreen mode (F11 or overlay button)
-- Wiring validation — self-wire and same-net guards with descriptive toasts
+- Wiring validation — self-wire and same-net guards with descriptive toasts; wire preview shows net info + short warning
 - Delete undo hint — every deletion shows "Deleted — Ctrl+Z to undo"
 - Tactile switch: click the 3D dome to toggle open/closed instantly
 - Potentiometer: scroll wheel on the knob adjusts wiper position; shaft rotates to reflect value
+- Component lock — right-click → Lock to prevent accidental moves/deletes (🔒 badge shown)
+- Net labels — right-click wire → "Name net" → label shown in tooltips and schematic
+- Wire thickness by current — thicker wires for higher current (toggle in toolbar)
+- Orthogonal wire routing — Q toggles L-shaped wire paths
+- Click-to-place mode — click a part tile once to enter placement mode; click canvas to place
+- Inline value edit — double-click any component to edit its primary value in-place (supports 10k, 100n, 4.7u)
+- Smart defaults — new components inherit the primary value from the most-recently-placed same-type component
+- Swap type — right-click → "Swap type" replaces component in-place with any pin-compatible type
+- Multi-component drag — box-select or Shift+click multiple components, then drag as a group
+- Ctrl+F component search — filter placed components by type name, arrow-navigate, Enter to zoom
+- Component annotations — right-click → "Add note" places editable floating text labels
+- Arrow key nudge — move selected component 1 pin at a time
+- Pin tooltips — hover a pin to see net ID + live voltage
+- Snap preview — green highlight shows snap target while dragging
+- Canvas right-click → quick-add menu with recently-used parts
 
 ---
 
@@ -128,6 +143,10 @@ pnpm start
 | `+` / `-` | Zoom in / out |
 | `1` / `2` | Camera: perspective / top-down |
 | `?` | Show / hide help |
+| `Ctrl+F` | Open component search overlay |
+| `Q` | Toggle orthogonal wire routing |
+| `Ctrl+N` | New circuit |
+| `Arrow keys` | Nudge selected component 1 pin |
 
 ---
 
