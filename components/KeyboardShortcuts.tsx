@@ -16,6 +16,7 @@ import { useUIStore } from '@/store/uiStore';
  *  R                         → rotate selected component
  *  O                         → toggle oscilloscope
  *  P                         → toggle polarity labels
+ *  T                         → toggle wire thickness by current
  *  S                         → toggle schematic view
  *  F                         → zoom to fit
  *  1 / 2                     → camera presets
@@ -212,6 +213,12 @@ export default function KeyboardShortcuts() {
       if (key === 'v') {
         e.preventDefault();
         toggleWireVoltageColors();
+        return;
+      }
+
+      if (key === 't') {
+        e.preventDefault();
+        useUIStore.getState().toggleCurrentThickness();
         return;
       }
 

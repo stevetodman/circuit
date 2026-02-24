@@ -72,6 +72,8 @@ export default function Toolbar() {
     setShowPolarityLabels,
     showWireVoltageColors,
     toggleWireVoltageColors,
+    showCurrentThickness,
+    toggleCurrentThickness,
   } = useUIStore(
     useShallow((s) => ({
       showDesignators: s.showDesignators,
@@ -82,6 +84,8 @@ export default function Toolbar() {
       setShowPolarityLabels: s.setShowPolarityLabels,
       showWireVoltageColors: s.showWireVoltageColors,
       toggleWireVoltageColors: s.toggleWireVoltageColors,
+      showCurrentThickness: s.showCurrentThickness,
+      toggleCurrentThickness: s.toggleCurrentThickness,
     }))
   );
   const showValueLabels = useUIStore((s) => s.showValueLabels);
@@ -169,6 +173,13 @@ export default function Toolbar() {
         active={showWireVoltageColors}
       >
         V Voltage
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleCurrentThickness}
+        title="Toggle wire thickness by current (T)"
+        active={showCurrentThickness}
+      >
+        ~ Width
       </ToolbarBtn>
       <ToolbarBtn
         onClick={toggleValueLabels}

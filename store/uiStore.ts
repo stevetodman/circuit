@@ -30,6 +30,7 @@ interface UIState {
   showPolarityLabels: boolean;
   showWireVoltageColors: boolean;
   showValueLabels: boolean;
+  showCurrentThickness: boolean;
   sab: SharedArrayBuffer | null;
   showHelp: boolean;
   showSidebar: boolean;
@@ -66,6 +67,7 @@ interface UIState {
   toggleSimPaused: () => void;
   setOverloadIds:      (ids: string[]) => void;
   toggleCurrentLabels: () => void;
+  toggleCurrentThickness: () => void;
   setShowPolarityLabels: (showPolarityLabels: boolean) => void;
   toggleWireVoltageColors: () => void;
   setSAB:              (sab: SharedArrayBuffer) => void;
@@ -118,6 +120,7 @@ export const useUIStore = create<UIState>()(
   showPolarityLabels: true,
   showWireVoltageColors: true,
   showValueLabels: true,
+  showCurrentThickness: false,
   sab:           null,
   showHelp:      false,
   showSidebar:   true,
@@ -160,6 +163,7 @@ export const useUIStore = create<UIState>()(
   toggleSidebar:  () => set((s) => ({ showSidebar: !s.showSidebar })),
   toggleDesignators: () => set((state) => ({ showDesignators: !state.showDesignators })),
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
+  toggleCurrentThickness: () => set((state) => ({ showCurrentThickness: !state.showCurrentThickness })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
   openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
@@ -200,6 +204,7 @@ export const useUIStore = create<UIState>()(
       showWireVoltageColors: state.showWireVoltageColors,
       showValueLabels: state.showValueLabels,
       showCurrentLabels: state.showCurrentLabels,
+      showCurrentThickness: state.showCurrentThickness,
     }),
   },
 ));
