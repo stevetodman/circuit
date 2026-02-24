@@ -2013,4 +2013,191 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
     ],
     wires: [],
   },
+  {
+    id: 'diode-forward-bias',
+    name: 'Diode Forward Bias',
+    description: 'Battery, resistor, and diode placed — wire them to see forward voltage',
+    components: [
+      {
+        id: 'ex-diode-fb-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(5, 2) },
+          { name: 'neg', nodeId: topNodeId(6, 2) },
+        ],
+        props: {},
+      },
+      {
+        id: 'ex-diode-fb-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(15, 2) },
+          { name: 'p2', nodeId: topNodeId(16, 2) },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'ex-diode-fb-diode',
+        type: 'diode',
+        anchorPos: midpoint(topNodePos(20, 2), topNodePos(21, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: topNodeId(20, 2) },
+          { name: 'cathode', nodeId: topNodeId(21, 2) },
+        ],
+        props: {},
+      },
+    ],
+    wires: [],
+  },
+  {
+    id: 'rc-filter-starter',
+    name: 'RC Filter Starter',
+    description: 'Battery, 10kΩ resistor, and 100µF capacitor placed — wire them',
+    components: [
+      {
+        id: 'ex-rc-filt-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(5, 2) },
+          { name: 'neg', nodeId: topNodeId(6, 2) },
+        ],
+        props: {},
+      },
+      {
+        id: 'ex-rc-filt-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(15, 2) },
+          { name: 'p2', nodeId: topNodeId(16, 2) },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'ex-rc-filt-capacitor',
+        type: 'capacitor',
+        anchorPos: midpoint(topNodePos(20, 2), topNodePos(21, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(20, 2) },
+          { name: 'neg', nodeId: topNodeId(21, 2) },
+        ],
+        props: { capacitance: 100 },
+      },
+    ],
+    wires: [],
+  },
+  {
+    id: 'mosfet-starter',
+    name: 'MOSFET Switch Starter',
+    description: 'MOSFET, gate resistor, LED, and battery placed — wire them',
+    components: [
+      {
+        id: 'ex-mosfet-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(5, 2) },
+          { name: 'neg', nodeId: topNodeId(6, 2) },
+        ],
+        props: {},
+      },
+      {
+        id: 'ex-mosfet-gate-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(13, 0), topNodePos(14, 0)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(13, 0) },
+          { name: 'p2', nodeId: topNodeId(14, 0) },
+        ],
+        props: { resistance: 10000 },
+      },
+      {
+        id: 'ex-mosfet-mosfet',
+        type: 'mosfet',
+        anchorPos: topNodePos(20, 1),
+        rotationY: 0,
+        pins: [
+          { name: 'gate', nodeId: topNodeId(14, 0) },
+          { name: 'drain', nodeId: topNodeId(20, 0) },
+          { name: 'source', nodeId: topNodeId(20, 2) },
+        ],
+        props: {},
+      },
+      {
+        id: 'ex-mosfet-led-res',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(25, 2), topNodePos(26, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(25, 2) },
+          { name: 'p2', nodeId: topNodeId(26, 2) },
+        ],
+        props: { resistance: 220 },
+      },
+      {
+        id: 'ex-mosfet-led',
+        type: 'led',
+        anchorPos: midpoint(topNodePos(28, 2), topNodePos(29, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'anode', nodeId: topNodeId(28, 2) },
+          { name: 'cathode', nodeId: topNodeId(29, 2) },
+        ],
+        props: { color: 'red' },
+      },
+    ],
+    wires: [],
+  },
+  {
+    id: 'zener-regulator-starter',
+    name: 'Zener Regulator Starter',
+    description: '12V battery, 1kΩ resistor, and 5.1V Zener placed — wire them',
+    components: [
+      {
+        id: 'ex-zener-battery',
+        type: 'battery',
+        anchorPos: midpoint(topNodePos(5, 2), topNodePos(6, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'pos', nodeId: topNodeId(5, 2) },
+          { name: 'neg', nodeId: topNodeId(6, 2) },
+        ],
+        props: { voltage: 12 },
+      },
+      {
+        id: 'ex-zener-resistor',
+        type: 'resistor',
+        anchorPos: midpoint(topNodePos(15, 2), topNodePos(16, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'p1', nodeId: topNodeId(15, 2) },
+          { name: 'p2', nodeId: topNodeId(16, 2) },
+        ],
+        props: { resistance: 1000 },
+      },
+      {
+        id: 'ex-zener-diode',
+        type: 'zener',
+        anchorPos: midpoint(topNodePos(21, 2), topNodePos(22, 2)),
+        rotationY: 0,
+        pins: [
+          { name: 'cathode', nodeId: topNodeId(21, 2) },
+          { name: 'anode', nodeId: topNodeId(22, 2) },
+        ],
+        props: { breakdownVoltage: 5.1 },
+      },
+    ],
+    wires: [],
+  },
 ];

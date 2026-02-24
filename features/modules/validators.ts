@@ -86,3 +86,33 @@ export function switchIsClosed(state: ValidatorState): boolean {
 export function bjtSwitchWorks(state: ValidatorState): boolean {
   return hasComponent(state, 'bjt') && isLEDLit(state);
 }
+
+/** True if a standard diode has forward voltage drop > 0.3V */
+export function isDiodeForwardBiased(state: ValidatorState): boolean {
+  for (const comp of Object.values(state.components)) {
+    if (comp.type !== 'diode') continue;
+    const anodePin = comp.pins.find((p) => p.name === 'anode');
+    const cathodePin = comp.pins.find((p) => p.name === 'cathode');
+    if (!anodePin || !cathodePin) continue;
+    const va = state.nodes[anodePin.nodeId]?.netId;
+    const vc = state.nodes[cathodePin.nodeId]?.netId;
+    if (va == null || vc == null) continue;
+    if ((state.voltages[va] ?? 0) - (state.voltages[vc] ?? 0) > 0.3) return true;
+  }
+  return false;
+}
+
+/** True if diode is present but NOT forward conducting */
+export function isDiodeBlocking(state: ValidatorState): boolean {
+  return hasComponent(state, 'diode') && !isDiodeForwardBiased(state);
+}
+
+/** True if MOSFET is in the circuit */
+export function hasMosfet(state: ValidatorState): boolean {
+  return hasComponent(state, 'mosfet');
+}
+
+/** True if Zener diode is in the circuit */
+export function hasZener(state: ValidatorState): boolean {
+  return hasComponent(state, 'zener');
+}
