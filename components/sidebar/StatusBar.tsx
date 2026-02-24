@@ -46,6 +46,22 @@ function formatSimTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
 }
 
+function translateHealthWarning(msg: string): string {
+  if (msg.includes('Floating node') || msg.includes('floating node')) {
+    return "Some pins aren't connected — the circuit may not simulate correctly";
+  }
+  if (msg.includes('No ground') || msg.includes('no ground')) {
+    return 'Add a wire to the ground (−) rail to complete the circuit';
+  }
+  if (msg.includes('singular') || msg.includes('Singular')) {
+    return 'Circuit has disconnected nodes — check all component pins are wired';
+  }
+  if (msg.includes('convergence') || msg.includes('Newton')) {
+    return 'Simulation is having trouble converging — simplify the circuit or check values';
+  }
+  return msg;
+}
+
 function computePowerBreakdown(
   components: Record<string, PlacedComponent>,
   nodes: Record<string, { netId: number | null }>,
@@ -368,9 +384,14 @@ export default function StatusBar() {
       {circuitHealthWarning && !healthWarningDismissed && (
         <div className="mx-3 mb-2 flex items-center gap-2 rounded border border-amber-500/35 bg-amber-900/25 px-2 py-1.5 min-h-0">
           <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-          <span className="text-[11px] leading-tight text-amber-200/90 font-mono min-w-0 break-words flex-1">
-            {circuitHealthWarning}
-          </span>
+          {circuitHealthWarning && (
+            <span
+              className="text-[10px] text-amber-400/90 font-mono truncate"
+              title={circuitHealthWarning}
+            >
+              ⚠ {translateHealthWarning(circuitHealthWarning)}
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setHealthWarningDismissed(true)}

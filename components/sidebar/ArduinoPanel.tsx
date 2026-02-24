@@ -10,7 +10,7 @@
  * Rules-of-Hooks note: ALL hooks are declared before any conditional return.
  * The `isArduino` flag gates side effects and the rendered output.
  */
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
 import { useToastStore } from '@/store/toastStore';
@@ -48,6 +48,148 @@ function formatCycles(n: number): string {
   return String(n);
 }
 
+function PinMapDiagram({ connectedPins }: { connectedPins: Set<number> }) {
+  // Digital pins D0-D13 and analog A0-A5
+  // Left column: D0-D9 (10 pins), right column: D10-D13 + A0-A5 (10 pins)
+  const leftPins = [
+    { num: 0, label: 'D0/RX' },
+    { num: 1, label: 'D1/TX' },
+    { num: 2, label: 'D2' },
+    { num: 3, label: 'D3~' },
+    { num: 4, label: 'D4' },
+    { num: 5, label: 'D5~' },
+    { num: 6, label: 'D6~' },
+    { num: 7, label: 'D7' },
+    { num: 8, label: 'D8' },
+    { num: 9, label: 'D9~' },
+  ];
+  const rightPins = [
+    { num: 10, label: 'D10~' },
+    { num: 11, label: 'D11~' },
+    { num: 12, label: 'D12' },
+    { num: 13, label: 'D13' },
+    { num: 14, label: 'A0' },
+    { num: 15, label: 'A1' },
+    { num: 16, label: 'A2' },
+    { num: 17, label: 'A3' },
+    { num: 18, label: 'A4' },
+    { num: 19, label: 'A5' },
+  ];
+
+  const ROW_H = 14;
+  const PIN_R = 3.5;
+  const LABEL_W = 32;
+  const CHIP_W = 36;
+  const totalH = leftPins.length * ROW_H + 8;
+  const svgW = LABEL_W * 2 + CHIP_W + PIN_R * 4 + 4;
+
+  return (
+    <svg
+      width={svgW}
+      height={totalH}
+      viewBox={`0 0 ${svgW} ${totalH}`}
+      className="w-full"
+      style={{ maxWidth: 220 }}
+    >
+      {/* Chip body */}
+      <rect
+        x={LABEL_W + PIN_R * 2}
+        y={4}
+        width={CHIP_W}
+        height={totalH - 8}
+        rx={3}
+        fill="#1a1a2e"
+        stroke="#3a3a5a"
+        strokeWidth={1}
+      />
+      <text
+        x={LABEL_W + PIN_R * 2 + CHIP_W / 2}
+        y={totalH / 2 + 4}
+        textAnchor="middle"
+        fontSize={6}
+        fill="#5555aa"
+        fontFamily="monospace"
+      >
+        ATmega
+      </text>
+
+      {/* Left pins */}
+      {leftPins.map((pin, i) => {
+        const cy = 4 + i * ROW_H + ROW_H / 2;
+        const cx = LABEL_W + PIN_R;
+        const connected = connectedPins.has(pin.num);
+        return (
+          <g key={pin.num}>
+            <line
+              x1={0}
+              y1={cy}
+              x2={cx - PIN_R}
+              y2={cy}
+              stroke={connected ? '#22cc66' : '#333355'}
+              strokeWidth={1}
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={PIN_R}
+              fill={connected ? '#22cc66' : '#2a2a44'}
+              stroke={connected ? '#22cc66' : '#3a3a5a'}
+              strokeWidth={0.5}
+            />
+            <text
+              x={cx - PIN_R - 2}
+              y={cy + 3}
+              textAnchor="end"
+              fontSize={6}
+              fill={connected ? '#88ffaa' : '#555577'}
+              fontFamily="monospace"
+            >
+              {pin.label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Right pins */}
+      {rightPins.map((pin, i) => {
+        const cy = 4 + i * ROW_H + ROW_H / 2;
+        const cx = LABEL_W + PIN_R * 2 + CHIP_W + PIN_R;
+        const connected = connectedPins.has(pin.num);
+        return (
+          <g key={pin.num}>
+            <circle
+              cx={cx}
+              cy={cy}
+              r={PIN_R}
+              fill={connected ? '#22cc66' : '#2a2a44'}
+              stroke={connected ? '#22cc66' : '#3a3a5a'}
+              strokeWidth={0.5}
+            />
+            <line
+              x1={cx + PIN_R}
+              y1={cy}
+              x2={svgW}
+              y2={cy}
+              stroke={connected ? '#22cc66' : '#333355'}
+              strokeWidth={1}
+            />
+            <text
+              x={cx + PIN_R + 2}
+              y={cy + 3}
+              textAnchor="start"
+              fontSize={6}
+              fill={connected ? '#88ffaa' : '#555577'}
+              fontFamily="monospace"
+            >
+              {pin.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function ArduinoPanel() {
   // ── All hooks declared unconditionally (Rules of Hooks) ───────────────────
   const selectedId  = useCircuitStore((s) => s.selectedComponentId);
@@ -70,6 +212,18 @@ export default function ArduinoPanel() {
   // Derive whether we are looking at an Arduino component
   const component = selectedId ? components[selectedId] : null;
   const isArduino = component?.type === 'arduino';
+
+  const connectedPins = useMemo<Set<number>>(() => {
+    if (!component || !isArduino) return new Set();
+    const result = new Set<number>();
+    for (const pin of component.pins) {
+      const pinNum = PIN_NAME_TO_NUM[pin.name];
+      if (pinNum == null) continue;
+      const node = nodes[pin.nodeId];
+      if (node?.netId != null) result.add(pinNum);
+    }
+    return result;
+  }, [component, nodes, isArduino]);
 
   // Build pin → SAB net-index map from the component's pin connections
   const buildPinMap = useCallback((): Record<number, number> => {
@@ -295,6 +449,17 @@ export default function ArduinoPanel() {
             ↓ latest
           </button>
         )}
+      </div>
+
+      {/* Pin map diagram */}
+      <div className="space-y-1.5">
+        <p className="text-[9px] text-white/25 uppercase tracking-widest">Pin Map</p>
+        <div className="flex justify-center">
+          <PinMapDiagram connectedPins={connectedPins} />
+        </div>
+        <p className="text-[9px] text-white/20 text-center">
+          {connectedPins.size} pin{connectedPins.size !== 1 ? 's' : ''} connected
+        </p>
       </div>
     </div>
   );
