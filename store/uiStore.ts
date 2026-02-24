@@ -51,6 +51,11 @@ interface UIState {
     x: number;
     y: number;
   } | null;
+  swapTypeMenuId: string | null;
+  swapTypeMenuPos: {
+    x: number;
+    y: number;
+  } | null;
   canvasMenu: {
     x: number;
     y: number;
@@ -94,6 +99,8 @@ interface UIState {
   toggleValueLabels:  () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
   closeContextMenu:    () => void;
+  openSwapTypeMenu:   (id: string, x: number, y: number) => void;
+  closeSwapTypeMenu:  () => void;
   openCanvasMenu:     (x: number, y: number) => void;
   closeCanvasMenu:    () => void;
   addRecentlyUsedType: (type: string) => void;
@@ -162,6 +169,8 @@ export const useUIStore = create<UIState>()(
   cameraPreset:  null,
   serialOutput:  '',
   contextMenu:    null,
+  swapTypeMenuId: null,
+  swapTypeMenuPos: null,
   canvasMenu:     null,
   wireMenu:       null,
   boxSelect:      null,
@@ -209,6 +218,8 @@ export const useUIStore = create<UIState>()(
   toggleVoltageHeatmap: () => set((state) => ({ showVoltageHeatmap: !state.showVoltageHeatmap })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openSwapTypeMenu: (id, x, y) => set({ swapTypeMenuId: id, swapTypeMenuPos: { x, y } }),
+  closeSwapTypeMenu: () => set({ swapTypeMenuId: null, swapTypeMenuPos: null }),
   openCanvasMenu: (x, y) => set({ canvasMenu: { x, y } }),
   closeCanvasMenu: () => set({ canvasMenu: null }),
   addRecentlyUsedType: (type) =>

@@ -94,6 +94,7 @@ interface CircuitState extends TopologyState {
   addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
   removeComponent(id: string): void;
   toggleComponentLock(id: string): void;
+  swapComponentType(id: string, newType: ComponentType): void;
   nudgeComponent(id: string, dx: number, dz: number): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
@@ -290,6 +291,21 @@ export const useCircuitStore = create<CircuitState>()(
             },
           };
         });
+      },
+
+      swapComponentType(id, newType) {
+        const comp = get().components[id];
+        if (!comp || comp.locked) return;
+
+        set((state) => {
+          const components = {
+            ...state.components,
+            [id]: { ...comp, type: newType, props: {} } as PlacedComponent,
+          };
+          const nodes = runNetAnalysis(state.nodes, state.wires, components);
+          return { components, nodes };
+        });
+        useToastStore.getState().addToast(`Swapped to ${newType} — Ctrl+Z to undo`, 'info');
       },
 
       addWire(fromId, toId, color = WIRE_COLORS[wireColorIdx++ % WIRE_COLORS.length]) {

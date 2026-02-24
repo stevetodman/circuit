@@ -9,6 +9,7 @@ const MENU_ITEMS = [
   { key: 'delete',     label: 'Delete',     kbd: 'Del'  },
   { key: 'rotate',     label: 'Rotate 90°', kbd: 'R'    },
   { key: 'duplicate',  label: 'Duplicate',  kbd: '⌘D'   },
+  { key: 'swapType',   label: 'Swap type',  kbd: null   },
   { key: 'properties', label: 'Properties', kbd: null   },
   { key: 'addNote',    label: 'Add note',   kbd: null   },
 ] as const;
@@ -16,7 +17,7 @@ const MENU_ITEMS = [
 export default function ContextMenu() {
   const contextMenu = useUIStore((s) => s.contextMenu);
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
-
+  const openSwapTypeMenu = useUIStore((s) => s.openSwapTypeMenu);
   const removeComponent = useCircuitStore((s) => s.removeComponent);
   const toggleComponentLock = useCircuitStore((s) => s.toggleComponentLock);
   const components = useCircuitStore((s) => s.components);
@@ -49,9 +50,11 @@ export default function ContextMenu() {
   }, [contextMenu, closeContextMenu]);
 
   if (!contextMenu) return null;
-
+  const menuComponent = components[contextMenu.componentId];
+  const isLocked = menuComponent?.locked ?? false;
+  const isUnsupportedSwapType = !menuComponent || menuComponent.type === 'timer555' || menuComponent.type === 'arduino' || menuComponent.type === 'opamp';
+  const noSwapType = isLocked || isUnsupportedSwapType;
   const { componentId, x, y } = contextMenu;
-  const isLocked = components[componentId]?.locked ?? false;
 
   // F10.5: clamp so menu never overflows viewport
   const MENU_W = 160;
@@ -84,6 +87,13 @@ export default function ContextMenu() {
     }
     if (key === 'properties') {
       run(() => selectComponent(componentId));
+      return;
+    }
+    if (key === 'swapType') {
+      run(() => {
+        const menuPos = useUIStore.getState().contextMenu;
+        if (menuPos && !noSwapType) openSwapTypeMenu(componentId, menuPos.x, menuPos.y);
+      });
       return;
     }
     if (key === 'addNote') {
@@ -123,12 +133,16 @@ export default function ContextMenu() {
       >
         {isLocked ? '🔓 Unlock' : '🔒 Lock'}
       </button>
-      {MENU_ITEMS.map((item) => (
+      {MENU_ITEMS.filter((item) => item.key !== 'swapType' || !isUnsupportedSwapType).map((item) => (
         <button
           key={item.key}
           type="button"
-          className="w-full px-3 py-2 text-left text-xs text-white/75 hover:bg-white/[0.08] hover:text-white/90 transition-colors flex items-center justify-between gap-3"
-          onClick={() => itemLabelToAction(item.key)}
+          className={`w-full px-3 py-2 text-left text-xs transition-colors flex items-center justify-between gap-3 ${item.key === 'swapType' && noSwapType ? 'text-white/35 cursor-not-allowed' : 'text-white/75 hover:bg-white/[0.08] hover:text-white/90'}`}
+          disabled={item.key === 'swapType' && noSwapType}
+          onClick={() => {
+            if (item.key === 'swapType' && noSwapType) return;
+            itemLabelToAction(item.key);
+          }}
         >
           <span>{item.label}</span>
           {item.kbd && (
