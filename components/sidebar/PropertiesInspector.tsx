@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { useCircuitStore, pausePropertyUndo, resumePropertyUndo } from '@/store/circuitStore';
+import { useUIStore } from '@/store/uiStore';
 import { voltageView } from '@/simulation/SimBridge';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
+import { runAudit } from '@/features/audit/circuitAudit';
 import { useScopeStore } from '@/store/scopeStore';
 import { COMPONENT_INFO } from '@/constants/componentInfo';
 
@@ -905,6 +907,98 @@ function ComponentInfoSection({ type }: { type: string }) {
   );
 }
 
+function CircuitOverview() {
+  const components = useCircuitStore((s) => s.components);
+  const nodes = useCircuitStore((s) => s.nodes);
+  const getDesignator = useCircuitStore((s) => s.getDesignator);
+  const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const openCircuitAudit = useUIStore((s) => s.openCircuitAudit);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const comp of Object.values(components)) {
+      counts[comp.type] = (counts[comp.type] ?? 0) + 1;
+    }
+    return counts;
+  }, [components]);
+
+  const TYPE_LABEL: Record<string, string> = {
+    resistor: 'Resistor', capacitor: 'Capacitor', inductor: 'Inductor',
+    battery: 'Battery', led: 'LED', diode: 'Diode', zener: 'Zener',
+    schottky: 'Schottky', bjt: 'NPN BJT', pnp: 'PNP BJT', mosfet: 'MOSFET',
+    potentiometer: 'Pot', timer555: '555 Timer', arduino: 'Arduino',
+    opamp: 'Op-Amp', motor: 'Motor', tactileSwitch: 'Switch',
+    voltageRegulator: 'Volt Reg',
+  };
+
+  const countLine = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, n]) => `${n}× ${TYPE_LABEL[type] ?? type}`)
+    .join(' · ');
+
+  const issues = useMemo(
+    () => runAudit(components, nodes, getDesignator),
+    [components, nodes, getDesignator],
+  );
+  const SEVERITY_ICON: Record<string, string> = { error: '⛔', warn: '⚠️', info: 'ℹ️' };
+  const shown = issues.slice(0, 3);
+  const extra = issues.length - shown.length;
+
+  return (
+    <div className="px-4 py-3 space-y-3">
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-white/20 mb-1">
+          Circuit
+        </p>
+        <p className="text-[11px] text-white/55 leading-relaxed">
+          {Object.keys(components).length} component{Object.keys(components).length !== 1 ? 's' : ''}
+        </p>
+        {countLine && (
+          <p className="text-[10px] text-white/35 leading-relaxed mt-0.5">{countLine}</p>
+        )}
+      </div>
+
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-white/20 mb-1">
+          Health
+        </p>
+        {issues.length === 0 ? (
+          <p className="text-[11px] text-[#00e676]">✓ No issues</p>
+        ) : (
+          <div className="space-y-1.5">
+            {shown.map((issue) => (
+              <div key={issue.id} className="flex items-start gap-1.5">
+                <span className="text-[11px] shrink-0 mt-px">{SEVERITY_ICON[issue.severity] ?? '⚠️'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-white/55 leading-snug">{issue.message}</p>
+                  {issue.componentId && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-[#7c6fff] hover:text-[#a89fff] mt-0.5"
+                      onClick={() => selectComponent(issue.componentId!)}
+                    >
+                      Select {issue.componentLabel}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {extra > 0 && (
+              <button
+                type="button"
+                className="text-[10px] text-white/35 hover:text-white/60 transition-colors"
+                onClick={openCircuitAudit}
+              >
+                … and {extra} more →
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 export default function PropertiesInspector() {
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
@@ -926,12 +1020,12 @@ export default function PropertiesInspector() {
   }
 
   if (!selectedComponentId) {
-    return (
+    return hasAny ? (
+      <CircuitOverview />
+    ) : (
       <div className="border-t border-white/[0.06] px-4 py-4">
         <p className="text-[10px] text-white/20 italic leading-relaxed">
-          {hasAny
-            ? 'Click a component to inspect its properties.'
-            : 'Drag a part from the panel above onto the breadboard to get started.'}
+          Drag a part from the panel above onto the breadboard to get started.
         </p>
       </div>
     );
