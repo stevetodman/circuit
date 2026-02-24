@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
@@ -8,6 +8,7 @@ import { useSchematicStore } from '@/store/schematicStore';
 import { useDragStore } from '@/store/dragStore';
 import { useScopeStore } from '@/store/scopeStore';
 import { simTimestamp, voltages } from '@/simulation/SimBridge';
+import type { PlacedComponent } from '@/types/circuit';
 
 // ── Mode indicator ─────────────────────────────────────────────────────────────
 function ModeChip({ label, color }: { label: string; color: string }) {
@@ -45,12 +46,63 @@ function formatSimTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
 }
 
+function computePowerBreakdown(
+  components: Record<string, PlacedComponent>,
+  nodes: Record<string, { netId: number | null }>,
+): Array<{ id: string; power: number }> {
+  const breakdown: Array<{ id: string; power: number }> = [];
+  for (const [id, component] of Object.entries(components)) {
+    const pin0 = component.pins[0];
+    const pin1 = component.pins[1];
+    if (!pin0 || !pin1) continue;
+
+    const netId0 = nodes[pin0.nodeId]?.netId ?? null;
+    const netId1 = nodes[pin1.nodeId]?.netId ?? null;
+    if (netId0 == null && netId1 == null) continue;
+
+    const p = component.props as Record<string, number | string>;
+    const v0 = voltages[netId0 ?? -1] ?? 0;
+    const v1 = voltages[netId1 ?? -1] ?? 0;
+    const dv = v0 - v1;
+
+    let power = 0;
+    switch (component.type) {
+      case 'resistor':
+        power = (dv * dv) / (typeof p.resistance === 'number' ? p.resistance : 1000);
+        break;
+      case 'motor':
+        power = (dv * dv) / (typeof p.resistance === 'number' ? p.resistance : 10);
+        break;
+      case 'led':
+      {
+        const vf = typeof p.forwardVoltage === 'number' ? p.forwardVoltage : 2.0;
+        const current = Math.max(0, (Math.abs(dv) - vf) / 100);
+        power = Math.abs(dv) * current;
+        break;
+      }
+      case 'battery':
+        continue;
+      default:
+        continue;
+    }
+
+    if (power < 0.0001) continue;
+    breakdown.push({ id, power });
+  }
+  breakdown.sort((a, b) => b.power - a.power);
+  return breakdown;
+}
+
 export default function StatusBar() {
   const wiringMode = useCircuitStore((s) => s.wiringMode);
   const dragging = useDragStore((s) => s.dragging);
   const selectedNodeId = useCircuitStore((s) => s.selectedNodeId);
   const selectedComponentId = useCircuitStore((s) => s.selectedComponentId);
   const selectedComponentIds = useCircuitStore((s) => s.selectedComponentIds);
+  const componentsMap = useCircuitStore((s) => s.components);
+  const nodes = useCircuitStore((s) => s.nodes);
+  const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const getDesignator = useCircuitStore((s) => s.getDesignator);
 
   const {
     simStatus,
@@ -87,6 +139,7 @@ export default function StatusBar() {
   const setSimSpeed = useUIStore((s) => s.setSimSpeed);
   const simPaused = useUIStore((s) => s.simPaused);
   const toggleSimPaused = useUIStore((s) => s.toggleSimPaused);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [simTimeS, setSimTimeS] = useState(0);
   const [healthWarningDismissed, setHealthWarningDismissed] = useState(false);
 
@@ -107,7 +160,7 @@ export default function StatusBar() {
     }`;
 
   // Count non-null distinct nets (for net count display)
-  const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
+  const componentCount = Object.keys(componentsMap).length;
   const netCount = useCircuitStore((s) => {
     const ids = new Set<number>();
     for (const n of Object.values(s.nodes)) {
@@ -125,6 +178,11 @@ export default function StatusBar() {
   else if (selectedComponentId) { modeLabel = 'Select'; modeColor = '#44bb88'; }
 
   const dot = SIM_DOT[simStatus];
+  const breakdown = useMemo(() => {
+    if (!showBreakdown) return [];
+    return computePowerBreakdown(componentsMap, nodes);
+  }, [componentsMap, nodes, showBreakdown]);
+  const totalPower = power;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -167,8 +225,49 @@ export default function StatusBar() {
           />
           <span className="font-medium text-white">{dot.label}</span>
         </span>
-        <span className="text-[10px] font-mono text-white/50">⚡ {formatPower(power)}</span>
+        <span className="flex items-center">
+          <span className="text-[10px] font-mono text-white/50">⚡ {formatPower(power)}</span>
+          <button
+            type="button"
+            onClick={() => setShowBreakdown((v) => !v)}
+            className="text-[10px] text-white/30 hover:text-white/60 font-mono px-1 ml-1"
+            title="Toggle power breakdown"
+          >
+            {showBreakdown ? '▲' : '▼'}
+          </button>
+        </span>
       </div>
+
+      {showBreakdown && (
+        <div className="mt-1 flex flex-col gap-0.5 max-h-28 overflow-y-auto w-full px-1">
+          {breakdown.length === 0 && (
+            <span className="text-[9px] text-white/20 font-mono">No power data</span>
+          )}
+          {breakdown.map(({ id, power }) => {
+            const designator = getDesignator(id);
+            const fraction = totalPower > 0 ? power / totalPower : 0;
+            return (
+              <div
+                key={id}
+                className="flex items-center gap-1 cursor-pointer group"
+                onClick={() => selectComponent(id)}
+                title={`${designator}: ${formatPower(power)}`}
+              >
+                <span className="text-[9px] font-mono text-white/50 w-6 shrink-0 text-right">{designator}</span>
+                <div className="flex-1 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-orange-400 rounded-full group-hover:bg-orange-300 transition-all"
+                    style={{ width: `${Math.round(fraction * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] font-mono text-white/40 w-8 text-right shrink-0">
+                  {formatPower(power)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex items-center gap-1 px-3 pb-1">
         <button
