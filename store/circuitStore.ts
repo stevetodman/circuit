@@ -157,6 +157,7 @@ let wireColorIdx = 0;
 // ── Copy/paste clipboard (module-level, not persisted) ───────────────────────
 type ClipboardComponent = Omit<PlacedComponent, 'id'>;
 let componentClipboard: ClipboardComponent[] = [];
+let clipboardWires: Array<{ fromCompIdx: number; fromPinIdx: number; toCompIdx: number; toPinIdx: number; color: string }> = [];
 
 const PRIMARY_PROP: Partial<Record<ComponentType, string>> = {
   resistor: 'resistance',
@@ -608,6 +609,32 @@ export const useCircuitStore = create<CircuitState>()(
             return { type: c.type, anchorPos: [...c.anchorPos] as Vec3, rotationY: c.rotationY, pins: c.pins.map((p) => ({ ...p })), props: { ...c.props } };
           })
           .filter((c): c is ClipboardComponent => c != null);
+
+        // Build pin -> (clipboard component index, pin index) reverse lookup map
+        const pinNodeToRef = new Map<string, { compIdx: number; pinIdx: number }>();
+        for (let ci = 0; ci < componentClipboard.length; ci++) {
+          const clipComp = componentClipboard[ci];
+          for (let pi = 0; pi < clipComp.pins.length; pi++) {
+            pinNodeToRef.set(clipComp.pins[pi].nodeId, { compIdx: ci, pinIdx: pi });
+          }
+        }
+
+        // Capture wires that connect selected components only
+        clipboardWires = [];
+        for (const wire of Object.values(state.wires)) {
+          const fromRef = pinNodeToRef.get(wire.fromNodeId);
+          const toRef = pinNodeToRef.get(wire.toNodeId);
+          if (fromRef && toRef) {
+            clipboardWires.push({
+              fromCompIdx: fromRef.compIdx,
+              fromPinIdx: fromRef.pinIdx,
+              toCompIdx: toRef.compIdx,
+              toPinIdx: toRef.pinIdx,
+              color: wire.color ?? '#60a5fa',
+            });
+          }
+        }
+
         set({ clipboardLength: componentClipboard.length });
       },
 
@@ -617,14 +644,34 @@ export const useCircuitStore = create<CircuitState>()(
           const offsetX = offsetCols * PITCH;
           const components = { ...state.components };
           const pasted: string[] = [];
+          const pastedComponentIds: string[] = [];
           for (const tmpl of componentClipboard) {
             const id = crypto.randomUUID();
             const anchorPos: Vec3 = [tmpl.anchorPos[0] + offsetX, tmpl.anchorPos[1], tmpl.anchorPos[2]];
             components[id] = { id, type: tmpl.type, anchorPos, rotationY: tmpl.rotationY, pins: clonePinsForPaste(tmpl, anchorPos, state.nodes), props: { ...tmpl.props } };
-            pasted.push(id);
+            pastedComponentIds.push(id);
           }
-          const nodes = runNetAnalysis(state.nodes, state.wires, components);
-          return { components, nodes, selectedComponentId: pasted[0] ?? null, selectedComponentIds: pasted };
+
+          const wires = { ...state.wires };
+          const pastedCompObjs = pastedComponentIds.map((id) => components[id]);
+          for (const wRef of clipboardWires) {
+            const fromComp = pastedCompObjs[wRef.fromCompIdx];
+            const toComp = pastedCompObjs[wRef.toCompIdx];
+            if (!fromComp || !toComp) continue;
+            const fromPin = fromComp.pins[wRef.fromPinIdx];
+            const toPin = toComp.pins[wRef.toPinIdx];
+            if (!fromPin || !toPin) continue;
+            const wireId = crypto.randomUUID();
+            wires[wireId] = {
+              id: wireId,
+              fromNodeId: fromPin.nodeId,
+              toNodeId: toPin.nodeId,
+              color: wRef.color,
+            };
+          }
+
+          const nodes = runNetAnalysis(state.nodes, wires, components);
+          return { components, nodes, wires, selectedComponentId: pastedComponentIds[0] ?? null, selectedComponentIds: pastedComponentIds };
         });
       },
 
@@ -716,8 +763,27 @@ export const useCircuitStore = create<CircuitState>()(
             };
             pasted.push(id);
           }
-          const nodes = runNetAnalysis(state.nodes, state.wires, components);
-          return { components, nodes, selectedComponentId: pasted[0] ?? null, selectedComponentIds: pasted };
+
+          const wires = { ...state.wires };
+          const pastedCompObjs = pasted.map((id) => components[id]);
+          for (const wRef of clipboardWires) {
+            const fromComp = pastedCompObjs[wRef.fromCompIdx];
+            const toComp = pastedCompObjs[wRef.toCompIdx];
+            if (!fromComp || !toComp) continue;
+            const fromPin = fromComp.pins[wRef.fromPinIdx];
+            const toPin = toComp.pins[wRef.toPinIdx];
+            if (!fromPin || !toPin) continue;
+            const wireId = crypto.randomUUID();
+            wires[wireId] = {
+              id: wireId,
+              fromNodeId: fromPin.nodeId,
+              toNodeId: toPin.nodeId,
+              color: wRef.color,
+            };
+          }
+
+          const nodes = runNetAnalysis(state.nodes, wires, components);
+          return { components, nodes, wires, selectedComponentId: pasted[0] ?? null, selectedComponentIds: pasted };
         });
       },
       addNote(attachedTo, position) {
@@ -853,6 +919,7 @@ export const useCircuitStore = create<CircuitState>()(
           : (data as { name?: string }).name;
         const nodes = runNetAnalysis(payload.nodes, payload.wires, payload.components);
         componentClipboard = []; // clear stale clipboard from previous circuit
+        clipboardWires = [];
         set({
           clipboardLength: 0,
           nodes,
