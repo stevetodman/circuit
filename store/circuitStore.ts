@@ -79,6 +79,7 @@ interface CircuitState extends TopologyState {
 
   addComponent(type: ComponentType, pos: Vec3, pins?: PinConnection[], rotationY?: number): void;
   removeComponent(id: string): void;
+  toggleComponentLock(id: string): void;
   addWire(fromId: string, toId: string, color?: string): void;
   removeWire(id: string): void;
   updateWireColor: (id: string, color: string) => void;
@@ -235,12 +236,30 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       removeComponent(id) {
+        const comp = get().components[id];
+        if (comp?.locked) {
+          useToastStore.getState().addToast('Component is locked — unlock to delete', 'warn');
+          return;
+        }
         set((state) => {
           const { [id]: _removed, ...components } = state.components;
           const nodes = runNetAnalysis(state.nodes, state.wires, components);
           return { components, nodes };
         });
         useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info');
+      },
+
+      toggleComponentLock(id) {
+        set((state) => {
+          const component = state.components[id];
+          if (!component) return state;
+          return {
+            components: {
+              ...state.components,
+              [id]: { ...component, locked: !component.locked },
+            },
+          };
+        });
       },
 
       addWire(fromId, toId, color = WIRE_COLORS[wireColorIdx++ % WIRE_COLORS.length]) {
@@ -298,6 +317,7 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       rotateComponent(componentId) {
+        if (get().components[componentId]?.locked) return;
         set((state) => {
           const component = state.components[componentId];
           if (!component) return state;
@@ -402,15 +422,20 @@ export const useCircuitStore = create<CircuitState>()(
       },
 
       deleteSelected() {
+        const idsToDelete: string[] = get().selectedComponentIds.length > 0
+          ? get().selectedComponentIds
+          : (get().selectedComponentId ? [get().selectedComponentId as string] : []);
+        const safeIds = idsToDelete.filter((id) => !get().components[id]?.locked);
+        if (safeIds.length !== idsToDelete.length) {
+          useToastStore.getState().addToast('Some components are locked — unlock to delete', 'warn');
+        }
+        const deletedAny = safeIds.length > 0;
         set((state) => {
           let wires = state.wires;
           let components = state.components;
 
           // Delete all multi-selected components (or fall back to single selection)
-          const idsToDelete = state.selectedComponentIds.length > 0
-            ? state.selectedComponentIds
-            : (state.selectedComponentId ? [state.selectedComponentId] : []);
-          for (const id of idsToDelete) {
+          for (const id of safeIds) {
             const { [id]: _c, ...rest } = components;
             components = rest;
           }
@@ -425,7 +450,9 @@ export const useCircuitStore = create<CircuitState>()(
           const nodes = runNetAnalysis(state.nodes, wires, components);
           return { components, wires, nodes, selectedComponentId: null, selectedComponentIds: [], selectedNodeId: null };
         });
-        useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info');
+        if (deletedAny) {
+          useToastStore.getState().addToast('Deleted — Ctrl+Z to undo', 'info');
+        }
       },
 
       setWireBranchIndices(indices) {

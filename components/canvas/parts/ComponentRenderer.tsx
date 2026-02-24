@@ -132,6 +132,7 @@ export default function ComponentRenderer({
     props: componentProps ?? {},
   } as PlacedComponent);
   const isOverloaded = overloadIds.includes(componentId);
+  const locked = useCircuitStore((state) => state.components[componentId]?.locked ?? false);
   const overloadMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
@@ -368,6 +369,18 @@ export default function ComponentRenderer({
           anchorY="middle"
         >
           {componentValueLabel}
+        </Text>
+      )}
+      {locked && (
+        <Text
+          position={[0, 0.30, 0]}
+          fontSize={0.12}
+          color="#ffcc44"
+          anchorX="center"
+          anchorY="middle"
+          depthOffset={-1}
+        >
+          🔒
         </Text>
       )}
       {isOverloaded && (

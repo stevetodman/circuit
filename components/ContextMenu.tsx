@@ -16,6 +16,8 @@ export default function ContextMenu() {
   const closeContextMenu = useUIStore((s) => s.closeContextMenu);
 
   const removeComponent = useCircuitStore((s) => s.removeComponent);
+  const toggleComponentLock = useCircuitStore((s) => s.toggleComponentLock);
+  const components = useCircuitStore((s) => s.components);
   const rotateComponent = useCircuitStore((s) => s.rotateComponent);
   const copySelected = useCircuitStore((s) => s.copySelected);
   const pasteClipboard = useCircuitStore((s) => s.pasteClipboard);
@@ -46,10 +48,11 @@ export default function ContextMenu() {
   if (!contextMenu) return null;
 
   const { componentId, x, y } = contextMenu;
+  const isLocked = components[componentId]?.locked ?? false;
 
   // F10.5: clamp so menu never overflows viewport
   const MENU_W = 160;
-  const MENU_H = MENU_ITEMS.length * 33 + 4;
+  const MENU_H = (MENU_ITEMS.length + 1) * 33 + 4;
   const PAD = 8;
   const cx = Math.min(x, window.innerWidth  - MENU_W - PAD);
   const cy = Math.min(y, window.innerHeight - MENU_H - PAD);
@@ -89,6 +92,16 @@ export default function ContextMenu() {
       style={{ left: `${cx}px`, top: `${cy}px` }}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <button
+        type="button"
+        className="w-full px-3 py-2 text-left text-xs text-white/85 hover:bg-white/10"
+        onClick={() => {
+          toggleComponentLock(componentId);
+          closeContextMenu();
+        }}
+      >
+        {isLocked ? '🔓 Unlock' : '🔒 Lock'}
+      </button>
       {MENU_ITEMS.map((item) => (
         <button
           key={item.key}
