@@ -13,6 +13,8 @@ const COLOR_SELECTED    = new THREE.Color('#ff6b2b');   // wiring start pin
 const COLOR_NET_PEER    = new THREE.Color('#22ccee');   // same-net peers on hover
 const COLOR_NET_ACTIVE  = new THREE.Color('#ffaa00');   // same-net as selected pin
 const COLOR_SNAP_TARGET = new THREE.Color('#00ff88');   // drag snap preview
+const COLOR_WIRE_VALID   = new THREE.Color('#00e676');  // valid wire target
+const COLOR_WIRE_INVALID = new THREE.Color('#2a3340');  // invalid wire target
 
 export default function PinGrid() {
   const nodes      = useCircuitStore((s) => s.nodes);
@@ -69,6 +71,7 @@ export default function PinGrid() {
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
+    const wiringMode = selectedId != null;
 
     nodeList.forEach((node, i) => {
       let col: THREE.Color;
@@ -79,6 +82,12 @@ export default function PinGrid() {
         col = COLOR_HOVER;
       } else if (node.id === selectedId) {
         col = COLOR_SELECTED;
+      } else if (wiringMode) {
+        if (selectedNetId != null && node.netId === selectedNetId) {
+          col = COLOR_WIRE_INVALID;
+        } else {
+          col = COLOR_WIRE_VALID;
+        }
       } else if (selectedNetId != null && node.netId === selectedNetId) {
         // Net peers of the wiring start pin glow amber
         col = COLOR_NET_ACTIVE;
