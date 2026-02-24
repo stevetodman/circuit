@@ -43,6 +43,7 @@ export default function KeyboardShortcuts() {
   const requestZoomToFit    = useUIStore((s) => s.requestZoomToFit);
   const requestZoomIn       = useUIStore((s) => s.requestZoomIn);
   const requestZoomOut      = useUIStore((s) => s.requestZoomOut);
+  const openCanvasSearch    = useUIStore((s) => s.openCanvasSearch);
   const requestCameraPreset = useUIStore((s) => s.requestCameraPreset);
   const toggleDesignators   = useUIStore((s) => s.toggleDesignators);
   const toggleWireVoltageColors = useUIStore((s) => s.toggleWireVoltageColors);
@@ -58,6 +59,14 @@ export default function KeyboardShortcuts() {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
+
+      if ((e.ctrlKey || e.metaKey) && key === 'f') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isInputFocused()) return;
+        openCanvasSearch();
+        return;
+      }
 
       // P1-9: check input focus before all shortcuts (including undo/redo)
       // so browser-native text undo (Ctrl+Z in inputs) is not intercepted
@@ -320,6 +329,7 @@ export default function KeyboardShortcuts() {
     deleteSelected, dragging, rotateComponent, rotateDrag, selectedComponentId,
     selectNode, selectComponent, cancelDrag, toggleSchematic,
     requestZoomToFit, requestZoomIn, requestZoomOut, requestCameraPreset,
+    openCanvasSearch,
     toggleDesignators, toggleWireVoltageColors,
     toggleValueLabels, closeContextMenu, clearBoxSelect, toggleCurrentLabels, showPolarityLabels, setShowPolarityLabels,
     copySelected, pasteClipboard, selectAll,
