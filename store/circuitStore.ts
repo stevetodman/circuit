@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
-import { PIN_TEMPLATES, type CircuitNode, type PlacedComponent, type Wire, type ComponentType, type Vec3, type PinConnection } from '@/types/circuit';
+import {
+  PIN_TEMPLATES,
+  type CircuitNode,
+  type PlacedComponent,
+  type CircuitNote,
+  type Wire,
+  type ComponentType,
+  type Vec3,
+  type PinConnection,
+} from '@/types/circuit';
 import { runNetAnalysis } from './netAnalysis';
 import { useToastStore } from './toastStore';
 import type { ExampleCircuit } from '@/features/examples/circuits';
@@ -21,6 +30,7 @@ type SavedCircuitJSON = {
   components: Record<string, PlacedComponent>;
   wires: Record<string, Wire>;
   netLabels: Record<number, string>;
+  notes?: Record<string, CircuitNote>;
   name?: string;
 };
 
@@ -63,7 +73,9 @@ interface TopologyState {
   components: Record<string, PlacedComponent>;
   wires: Record<string, Wire>;
   netLabels: Record<number, string>;
+  notes: Record<string, CircuitNote>;
 }
+type TopologyStateForHistory = Omit<TopologyState, 'notes'>;
 
 // ── Full store interface ──────────────────────────────────────────────────────
 interface CircuitState extends TopologyState {
@@ -103,6 +115,9 @@ interface CircuitState extends TopologyState {
   newCircuit(): void;
   setNetLabel: (netId: number, label: string) => void;
   removeNetLabel: (netId: number) => void;
+  addNote: (attachedTo: string | null, position: Vec3) => string;
+  updateNote: (id: string, text: string) => void;
+  removeNote: (id: string) => void;
 }
 
 const WIRE_COLORS = ['#cc2222', '#1a1a1a', '#cccc00', '#2255cc', '#22aa22', '#eeeeee'];
@@ -176,7 +191,9 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
     if (!isRecord(parsed)) return null;
     const { version, nodes, components, wires } = parsed as Partial<Record<keyof SavedCircuitJSON, unknown>>;
     const rawNetLabels = (parsed as Record<string, unknown>).netLabels;
+    const rawNotes = (parsed as Record<string, unknown>).notes;
     const netLabels = isRecord(rawNetLabels) ? rawNetLabels : {};
+    const notes = isRecord(rawNotes) ? rawNotes : {};
     if (version !== 1) return null;
     if (!isRecord(nodes) || !isRecord(components) || !isRecord(wires)) return null;
     return {
@@ -185,6 +202,7 @@ function parseCircuitJSON(json: string): SavedCircuitJSON | null {
       components: components as Record<string, PlacedComponent>,
       wires: wires as Record<string, Wire>,
       netLabels: netLabels as Record<number, string>,
+      notes: notes as Record<string, CircuitNote>,
     };
   } catch { return null; }
 }
@@ -198,6 +216,7 @@ function exampleCircuitToPayload(example: ExampleCircuit): SavedCircuitJSON {
     components,
     wires,
     netLabels: {},
+    notes: {},
   };
 }
 
@@ -223,6 +242,7 @@ export const useCircuitStore = create<CircuitState>()(
       components: {},
       wires: {},
       netLabels: {},
+      notes: {},
       selectedNodeId: null,
       selectedComponentId: null,
       selectedComponentIds: [],
@@ -400,6 +420,29 @@ export const useCircuitStore = create<CircuitState>()(
         });
       },
 
+      addNote(attachedTo, position) {
+        const id = `note-${Date.now()}`;
+        set((state) => ({
+          notes: { ...state.notes, [id]: { id, text: 'Note', attachedTo, position } },
+        }));
+        return id;
+      },
+
+      updateNote(id, text) {
+        set((state) => {
+          const note = state.notes[id];
+          if (!note) return state;
+          return { notes: { ...state.notes, [id]: { ...note, text } } };
+        });
+      },
+
+      removeNote(id) {
+        set((state) => {
+          const { [id]: _removed, ...notes } = state.notes;
+          return { notes };
+        });
+      },
+
       selectAll() {
         set((state) => {
           const ids = Object.keys(state.components);
@@ -410,7 +453,16 @@ export const useCircuitStore = create<CircuitState>()(
       loadCircuit(components, wires) {
         set((state) => {
           const nodes = runNetAnalysis(state.nodes, wires, components);
-          return { components, wires, nodes, netLabels: {}, selectedComponentId: null, selectedComponentIds: [], selectedNodeId: null };
+          return {
+            components,
+            wires,
+            nodes,
+            notes: {},
+            netLabels: {},
+            selectedComponentId: null,
+            selectedComponentIds: [],
+            selectedNodeId: null,
+          };
         });
       },
 
@@ -425,6 +477,7 @@ export const useCircuitStore = create<CircuitState>()(
           components: Object.fromEntries(circuit.components.map((component) => [component.id, component])),
           wires: Object.fromEntries(circuit.wires.map((wire) => [wire.id, wire])),
           nodes: runNetAnalysis(state.nodes, wireMap, componentMap),
+          notes: {},
           selectedComponentId: null,
           selectedNodeId: null,
           netLabels: {},
@@ -485,6 +538,7 @@ export const useCircuitStore = create<CircuitState>()(
           components: state.components,
           wires: state.wires,
           netLabels: state.netLabels,
+          notes: state.notes,
         } satisfies SavedCircuitJSON);
       },
 
@@ -504,6 +558,7 @@ export const useCircuitStore = create<CircuitState>()(
           components: payload.components,
           wires: payload.wires,
           netLabels: payload.netLabels ?? {},
+          notes: payload.notes ?? {},
           circuitName: payloadName ?? '',
           selectedComponentId: null,
           selectedNodeId: null,
@@ -518,6 +573,7 @@ export const useCircuitStore = create<CircuitState>()(
           components: {},
           wires: {},
           netLabels: {},
+          notes: {},
           circuitName: '',
           selectedComponentId: null,
           selectedComponentIds: [],
@@ -548,7 +604,7 @@ export const useCircuitStore = create<CircuitState>()(
     }),
     {
       // Only snapshot topology + net labels for undo — not UI cursor state
-      partialize: (state): TopologyState => ({
+      partialize: (state): TopologyStateForHistory => ({
         nodes: state.nodes,
         components: state.components,
         wires: state.wires,
@@ -567,7 +623,8 @@ if (typeof window !== 'undefined') {
       state.nodes === prev.nodes &&
       state.components === prev.components &&
       state.wires === prev.wires &&
-      state.netLabels === prev.netLabels
+      state.netLabels === prev.netLabels &&
+      state.notes === prev.notes
     ) return;
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => {

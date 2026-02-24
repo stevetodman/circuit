@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { useUIStore } from '@/store/uiStore';
+import type { CircuitNote, Vec3 } from '@/types/circuit';
 
 const MENU_ITEMS = [
   { key: 'delete', label: 'Delete' },
   { key: 'rotate', label: 'Rotate 90°' },
   { key: 'duplicate', label: 'Duplicate' },
   { key: 'properties', label: 'Properties' },
+  { key: 'addNote', label: 'Add note' },
 ] as const;
 
 export default function ContextMenu() {
@@ -22,6 +24,7 @@ export default function ContextMenu() {
   const copySelected = useCircuitStore((s) => s.copySelected);
   const pasteClipboard = useCircuitStore((s) => s.pasteClipboard);
   const selectComponent = useCircuitStore((s) => s.selectComponent);
+  const addNote = useCircuitStore((s) => s.addNote);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +84,20 @@ export default function ContextMenu() {
     }
     if (key === 'properties') {
       run(() => selectComponent(componentId));
+      return;
+    }
+    if (key === 'addNote') {
+      run(() => {
+        const comp = components[componentId];
+        if (comp) {
+          const pos: Vec3 = [comp.anchorPos[0] + 0.5, comp.anchorPos[1] + 0.5, comp.anchorPos[2]];
+          const noteTemplate: Pick<CircuitNote, 'attachedTo' | 'position'> = {
+            attachedTo: componentId,
+            position: pos,
+          };
+          addNote(noteTemplate.attachedTo, noteTemplate.position);
+        }
+      });
       return;
     }
   };
