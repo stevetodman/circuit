@@ -34,6 +34,8 @@ import StepCard from '@/components/StepCard';
 import ModuleValidator from '@/components/ModuleValidator';
 import { WireValidationTooltip } from '@/components/canvas/WirePreview';
 
+const BodePlot = dynamic(() => import('@/features/bode/BodePlot'), { ssr: false });
+
 // Dynamic import with ssr:false keeps Three.js entirely off the server bundle
 const Scene = dynamic(() => import('@/components/canvas/Scene'), {
   ssr: false,
@@ -236,6 +238,7 @@ export default function Home() {
               onRemoveChannel={removeChannel}
             />
           </ErrorBoundary>
+          <ErrorBoundary><BodePlot /></ErrorBoundary>
           <ErrorBoundary><SchematicView visible={schematicOpen} /></ErrorBoundary>
           <StepCard />
         </div>

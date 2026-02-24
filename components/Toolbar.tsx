@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useCircuitHistory, useCircuitStore } from '@/store/circuitStore';
 import { useSchematicStore } from '@/store/schematicStore';
 import { useUIStore } from '@/store/uiStore';
+import { useBodeStore } from '@/store/bodeStore';
 
 function ToolbarBtn({
   onClick,
@@ -103,6 +104,8 @@ export default function Toolbar() {
   const { open: schematicOpen, toggle: toggleSchematic } = useSchematicStore(
     useShallow((s) => ({ open: s.open, toggle: s.toggle }))
   );
+  const bodeOpen = useBodeStore((s) => s.open);
+  const toggleBode = useBodeStore((s) => s.toggle);
 
   const noSelection = !selectedComponentId && selectedComponentIds.length === 0;
 
@@ -223,6 +226,14 @@ export default function Toolbar() {
         kbd="S"
       >
         S Schematic
+      </ToolbarBtn>
+      <ToolbarBtn
+        onClick={toggleBode}
+        title="Bode Plot (D)"
+        active={bodeOpen}
+        kbd="D"
+      >
+        ≈ Bode
       </ToolbarBtn>
     </div>
   );
