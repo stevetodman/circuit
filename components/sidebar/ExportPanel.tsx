@@ -4,17 +4,24 @@ import { useMemo, useRef, type ChangeEvent } from 'react';
 import { useCircuitStore } from '@/store/circuitStore';
 import { exportSPICE } from '@/features/export/exportNetlist';
 import { useToastStore } from '@/store/toastStore';
-import { CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
+import { CIRCUIT_NAME_PARAM, CIRCUIT_URL_PARAM, compressCircuit } from '@/features/sharing/circuitUrl';
 
 type ExportPanelProps = {
   showNetlist: boolean;
   onToggleNetlist: () => void;
 };
 
+function safeFilename(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return 'circuit';
+  return trimmed.replace(/[^a-zA-Z0-9_\-\s]/g, '').replace(/\s+/g, '-').slice(0, 64) || 'circuit';
+}
+
 export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPanelProps) {
   const nodes = useCircuitStore((state) => state.nodes);
   const components = useCircuitStore((state) => state.components);
   const wires = useCircuitStore((state) => state.wires);
+  const circuitName = useCircuitStore((state) => state.circuitName);
   const saveToJSON = useCircuitStore((state) => state.saveToJSON);
   const loadFromJSON = useCircuitStore((state) => state.loadFromJSON);
   const addToast = useToastStore((state) => state.addToast);
@@ -30,7 +37,7 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
     const anchor = document.createElement('a');
 
     anchor.href = url;
-    anchor.download = 'circuit.cir';
+    anchor.download = `${safeFilename(circuitName)}.cir`;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();
@@ -45,7 +52,7 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
     const anchor = document.createElement('a');
 
     anchor.href = url;
-    anchor.download = 'circuit.json';
+    anchor.download = `${safeFilename(circuitName)}.json`;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();
@@ -61,7 +68,9 @@ export default function ExportPanel({ showNetlist, onToggleNetlist }: ExportPane
     const json = saveToJSON();
     try {
       const encoded = await compressCircuit(json);
-      const url = `${window.location.origin}${window.location.pathname}?${CIRCUIT_URL_PARAM}=${encoded}`;
+      const name = circuitName.trim();
+      const nameParam = name ? `&${CIRCUIT_NAME_PARAM}=${encodeURIComponent(name)}` : '';
+      const url = `${window.location.origin}${window.location.pathname}?${CIRCUIT_URL_PARAM}=${encoded}${nameParam}`;
       await navigator.clipboard.writeText(url);
       addToast('Circuit link copied to clipboard!', 'info');
     } catch {

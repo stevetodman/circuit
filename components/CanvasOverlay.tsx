@@ -4,11 +4,18 @@ import { useEffect, useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useCircuitStore } from '@/store/circuitStore';
 
+function safeFilename(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return 'circuit';
+  return trimmed.replace(/[^a-zA-Z0-9_\-\s]/g, '').replace(/\s+/g, '-').slice(0, 64) || 'circuit';
+}
+
 export default function CanvasOverlay() {
   const requestZoomIn = useUIStore((s) => s.requestZoomIn);
   const requestZoomOut = useUIStore((s) => s.requestZoomOut);
   const requestZoomToFit = useUIStore((s) => s.requestZoomToFit);
   const componentCount = useCircuitStore((s) => Object.keys(s.components).length);
+  const circuitName = useCircuitStore((s) => s.circuitName);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -24,7 +31,7 @@ export default function CanvasOverlay() {
     const url = (canvas as HTMLCanvasElement).toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'circuit.png';
+    a.download = `${safeFilename(circuitName)}.png`;
     a.click();
   };
 
