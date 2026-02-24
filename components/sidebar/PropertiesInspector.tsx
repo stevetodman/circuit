@@ -5,6 +5,7 @@ import { useCircuitStore, pausePropertyUndo, resumePropertyUndo } from '@/store/
 import { voltageView } from '@/simulation/SimBridge';
 import type { ComponentType, PlacedComponent } from '@/types/circuit';
 import { useScopeStore } from '@/store/scopeStore';
+import { COMPONENT_INFO } from '@/constants/componentInfo';
 
 // ── Property field definitions per component type ─────────────────────────────
 interface NumericField {
@@ -88,6 +89,8 @@ function engNotation(value: number, unit: string): string {
 }
 
 import { parseEngValue } from '@/lib/engineering';
+
+const seenTypes = new Set<string>();
 
 const PROP_DEFS: Partial<Record<ComponentType, PropOrLogField[]>> = {
   resistor: [
@@ -849,6 +852,55 @@ function Inspector({ component }: { component: PlacedComponent }) {
         </div>
       )}
       <LiveReadings componentId={component.id} />
+      <ComponentInfoSection type={component.type} />
+    </div>
+  );
+}
+
+function ComponentInfoSection({ type }: { type: string }) {
+  const info = COMPONENT_INFO[type];
+  const [expanded, setExpanded] = useState(() => {
+    if (!seenTypes.has(type)) {
+      seenTypes.add(type);
+      return true;
+    }
+    return false;
+  });
+
+  if (!info) return null;
+
+  const typeName = type.charAt(0).toUpperCase() + type.slice(1).replace(/([A-Z])/g, ' $1');
+
+  return (
+    <div className="border-t border-white/[0.04] mt-1">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full px-4 py-2 flex items-center justify-between text-[10px] text-white/30 hover:text-white/50 transition-colors"
+      >
+        <span>About {typeName}</span>
+        <span>{expanded ? '▾' : '▸'}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2">
+          <p className="text-[10px] text-white/50 leading-relaxed">{info.summary}</p>
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-white/20 mb-1">How to use</p>
+            <ul className="space-y-0.5">
+              {info.howTo.map((tip, i) => (
+                <li key={i} className="text-[10px] text-white/40 flex gap-1.5">
+                  <span className="text-white/20 shrink-0">·</span>
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="px-2 py-1.5 rounded bg-amber-500/8 border border-amber-500/15">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-amber-400/40 mb-0.5">Common mistake</p>
+            <p className="text-[10px] text-amber-200/50 leading-relaxed">{info.mistake}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
