@@ -24,6 +24,7 @@ import Oscilloscope from '@/features/oscilloscope/Oscilloscope';
 import SchematicView from '@/features/schematic/SchematicView';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Toast from '@/components/Toast';
+import CanvasSearch from '@/components/CanvasSearch';
 import { MODULES } from '@/features/modules/definitions';
 import { EXAMPLE_CIRCUITS } from '@/features/examples/circuits';
 import { CIRCUIT_URL_PARAM } from '@/features/sharing/circuitUrl';
@@ -230,6 +231,7 @@ export default function Home() {
         <div className="absolute inset-0 top-[36px]">
           <WiringBanner />
           <PinTooltip />
+          <CanvasSearch />
           <Scene />
           <CanvasOverlay />
           <EmptyStateGallery />

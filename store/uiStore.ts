@@ -45,6 +45,7 @@ interface UIState {
   zoomInRequested: number;
   zoomOutRequested: number;
   cameraPreset: 'default' | 'top' | null;
+  canvasSearchOpen: boolean;
   serialOutput: string;
   contextMenu: {
     componentId: string;
@@ -115,6 +116,8 @@ interface UIState {
   requestZoomToFit:    () => void;
   requestArduinoTab:   () => void;
   clearZoomToFit:      () => void;
+  openCanvasSearch:    () => void;
+  closeCanvasSearch:   () => void;
   requestZoomIn:       () => void;
   requestZoomOut:      () => void;
   requestCameraPreset: (preset: 'default' | 'top') => void;
@@ -175,6 +178,7 @@ export const useUIStore = create<UIState>()(
   zoomInRequested: 0,
   zoomOutRequested: 0,
   cameraPreset:  null,
+  canvasSearchOpen: false,
   serialOutput:  '',
   contextMenu:    null,
   swapTypeMenuId: null,
@@ -241,6 +245,8 @@ export const useUIStore = create<UIState>()(
   requestZoomToFit:    () => set({ zoomToFit: true }),
   requestArduinoTab:   () => set((s) => ({ arduinoTabRequested: s.arduinoTabRequested + 1 })),
   clearZoomToFit:      () => set({ zoomToFit: false }),
+  openCanvasSearch:    () => set({ canvasSearchOpen: true }),
+  closeCanvasSearch:   () => set({ canvasSearchOpen: false }),
   requestZoomIn:       () => set((s) => ({ zoomInRequested: s.zoomInRequested + 1 })),
   requestZoomOut:      () => set((s) => ({ zoomOutRequested: s.zoomOutRequested + 1 })),
   requestCameraPreset: (preset) => set({ cameraPreset: preset }),
