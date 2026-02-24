@@ -10,6 +10,7 @@ import { useModuleStore } from '@/store/moduleStore';
 import { useDragStore } from '@/store/dragStore';
 import { useUIStore } from '@/store/uiStore';
 import Sidebar from '@/components/sidebar/Sidebar';
+import CanvasContextMenu from '@/components/CanvasContextMenu';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import EmptyStateGallery from '@/components/canvas/EmptyStateGallery';
 import Toolbar from '@/components/Toolbar';
@@ -154,6 +155,7 @@ export default function Home() {
     >
       <SimController />
       <Toast />
+      <CanvasContextMenu />
       <WelcomeOverlay autoLoaded={showWelcomeOverlay} />
       <HelpOverlay />
       <ContextMenu />

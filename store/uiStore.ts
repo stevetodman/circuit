@@ -45,6 +45,11 @@ interface UIState {
     x: number;
     y: number;
   } | null;
+  canvasMenu: {
+    x: number;
+    y: number;
+  } | null;
+  recentlyUsedTypes: string[];
   wireMenu: {
     wireId: string;
     x: number;
@@ -75,6 +80,9 @@ interface UIState {
   toggleValueLabels:  () => void;
   openContextMenu:     (componentId: string, x: number, y: number) => void;
   closeContextMenu:    () => void;
+  openCanvasMenu:     (x: number, y: number) => void;
+  closeCanvasMenu:    () => void;
+  addRecentlyUsedType: (type: string) => void;
   openWireMenu:       (wireId: string, x: number, y: number) => void;
   closeWireMenu:      () => void;
   requestZoomToFit:    () => void;
@@ -129,6 +137,7 @@ export const useUIStore = create<UIState>()(
   cameraPreset:  null,
   serialOutput:  '',
   contextMenu:    null,
+  canvasMenu:     null,
   wireMenu:       null,
   boxSelect:      null,
   boxSelectRect:  null,
@@ -136,6 +145,7 @@ export const useUIStore = create<UIState>()(
   snapTargetNodeIds: [],
   zoomToComponentId: null,
 
+  recentlyUsedTypes: [],
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setMousePos:    (x, y) => set({ mouseX: x, mouseY: y }),
   setSimStatus:   (status, error = undefined) => set({
@@ -162,6 +172,13 @@ export const useUIStore = create<UIState>()(
   toggleValueLabels: () => set((state) => ({ showValueLabels: !state.showValueLabels })),
   openContextMenu: (componentId, x, y) => set({ contextMenu: { componentId, x, y } }),
   closeContextMenu: () => set({ contextMenu: null }),
+  openCanvasMenu: (x, y) => set({ canvasMenu: { x, y } }),
+  closeCanvasMenu: () => set({ canvasMenu: null }),
+  addRecentlyUsedType: (type) =>
+    set((state) => {
+      const filtered = state.recentlyUsedTypes.filter((t) => t !== type);
+      return { recentlyUsedTypes: [type, ...filtered].slice(0, 5) };
+    }),
   openWireMenu: (wireId, x, y) => set({ wireMenu: { wireId, x, y } }),
   closeWireMenu: () => set({ wireMenu: null }),
   requestZoomToFit:    () => set({ zoomToFit: true }),
@@ -200,6 +217,7 @@ export const useUIStore = create<UIState>()(
       showWireVoltageColors: state.showWireVoltageColors,
       showValueLabels: state.showValueLabels,
       showCurrentLabels: state.showCurrentLabels,
+      recentlyUsedTypes: state.recentlyUsedTypes,
     }),
   },
 ));

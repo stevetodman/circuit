@@ -160,6 +160,7 @@ function SceneInteractions() {
   const clearBoxSelect = useUIStore((state) => state.clearBoxSelect);
   const setMousePos     = useUIStore((state) => state.setMousePos);
   const requestZoomToComponent = useUIStore((state) => state.requestZoomToComponent);
+  const openCanvasMenu = useUIStore((state) => state.openCanvasMenu);
   const setSelectedComponentIds = useCircuitStore((state) => state.setSelectedComponentIds);
 
   useEffect(() => {
@@ -246,6 +247,14 @@ function SceneInteractions() {
       if (componentId) requestZoomToComponent(componentId);
     };
 
+    const onContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      const componentId = findComponentAtPointer(event.clientX, event.clientY);
+      if (!componentId) {
+        openCanvasMenu(event.clientX, event.clientY);
+      }
+    };
+
     gl.domElement.addEventListener('pointerdown', onPointerDown, true);
     gl.domElement.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointermove', onPointerMove);
@@ -254,6 +263,7 @@ function SceneInteractions() {
     gl.domElement.addEventListener('pointercancel', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
     gl.domElement.addEventListener('dblclick', onDblClick);
+    gl.domElement.addEventListener('contextmenu', onContextMenu);
 
     return () => {
       gl.domElement.removeEventListener('pointerdown', onPointerDown, true);
@@ -264,8 +274,9 @@ function SceneInteractions() {
       gl.domElement.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
       gl.domElement.removeEventListener('dblclick', onDblClick);
+      gl.domElement.removeEventListener('contextmenu', onContextMenu);
     };
-  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent]);
+  }, [camera, gl, scene, startBoxSelect, updateBoxSelect, clearBoxSelect, setMousePos, setSelectedComponentIds, requestZoomToComponent, openCanvasMenu]);
 
   return null;
 }
