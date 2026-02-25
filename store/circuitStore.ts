@@ -287,17 +287,22 @@ function exampleCircuitToPayload(example: ExampleCircuit): SavedCircuitJSON {
   };
 }
 
+// Module-level cache: rebuilt only when `components` object reference changes
+let _designatorCacheSource: Record<string, PlacedComponent> = {};
+let _designatorCache: Record<string, string> = {};
+
 function getDesignatorFromState(components: Record<string, PlacedComponent>, componentId: string): string {
-  const component = components[componentId];
-  if (!component) return '';
-  const prefix = DESIGNATOR_PREFIX[component.type] ?? 'X';
-  let count = 0;
-  for (const [id, candidate] of Object.entries(components)) {
-    if (candidate.type !== component.type) continue;
-    count += 1;
-    if (id === componentId) return `${prefix}${count}`;
+  if (components !== _designatorCacheSource) {
+    _designatorCacheSource = components;
+    const counts: Record<string, number> = {};
+    _designatorCache = {};
+    for (const [id, comp] of Object.entries(components)) {
+      const prefix = DESIGNATOR_PREFIX[comp.type] ?? 'X';
+      counts[prefix] = (counts[prefix] ?? 0) + 1;
+      _designatorCache[id] = `${prefix}${counts[prefix]}`;
+    }
   }
-  return `${prefix}${count || 1}`;
+  return _designatorCache[componentId] ?? '';
 }
 
 // ── Store with temporal (undo/redo) middleware ────────────────────────────────
@@ -720,30 +725,38 @@ export const useCircuitStore = create<CircuitState>()(
         const block = state.circuitBlocks.find((candidate) => candidate.id === blockId);
         if (!block) return;
 
+        // Build all new component objects locally, then apply in ONE set() + ONE runNetAnalysis
+        const newComponents: Record<string, PlacedComponent> = {};
         const newComponentIds: string[] = [];
-        for (const component of block.components) {
-          const before = new Set(Object.keys(get().components));
+
+        for (const comp of block.components) {
+          const id = crypto.randomUUID();
           const worldPos: Vec3 = [
-            anchorPos[0] + component.relativePos[0],
-            anchorPos[1] + component.relativePos[1],
-            anchorPos[2] + component.relativePos[2],
+            anchorPos[0] + comp.relativePos[0],
+            anchorPos[1] + comp.relativePos[1],
+            anchorPos[2] + comp.relativePos[2],
           ] as Vec3;
-
-          useCircuitStore.getState().addComponent(component.type, worldPos, [], component.rotationY);
-          const after = new Set(Object.keys(get().components));
-          const added = [...after].find((id) => !before.has(id));
-
-          if (!added) continue;
-          newComponentIds.push(added);
-
-          for (const [key, value] of Object.entries(component.props)) {
-            useCircuitStore.getState().setProperty(added, key, value);
-          }
+          newComponents[id] = {
+            id,
+            type: comp.type,
+            anchorPos: worldPos,
+            rotationY: comp.rotationY,
+            pins: [],
+            props: { ...comp.props },
+          };
+          newComponentIds.push(id);
         }
 
-        if (newComponentIds.length > 0) {
-          set({ selectedComponentId: newComponentIds[0], selectedComponentIds: newComponentIds });
-        }
+        set((s) => {
+          const components = { ...s.components, ...newComponents };
+          const nodes = runNetAnalysis(s.nodes, s.wires, components);
+          return {
+            components,
+            nodes,
+            selectedComponentId: newComponentIds[0] ?? null,
+            selectedComponentIds: newComponentIds,
+          };
+        });
       },
 
       pasteClipboardAt(worldPos) {
@@ -970,7 +983,7 @@ export const useCircuitStore = create<CircuitState>()(
 
       newCircuit() {
         set({
-          nodes: {},
+          nodes: seedBreadboardNodes(),
           components: {},
           wires: {},
           circuitBlocks: [],

@@ -240,6 +240,14 @@ export default function StatusBar() {
             style={{ background: dot.color, boxShadow: simStatus === 'running' ? `0 0 6px ${dot.color}` : 'none' }}
           />
           <span className="font-medium text-white">{dot.label}</span>
+          <button
+            type="button"
+            onClick={toggleHelp}
+            className="text-white/25 hover:text-white/60 text-[11px] leading-none transition-colors"
+            title="Approximate simulation — see Help (?) for accuracy notes"
+          >
+            ℹ
+          </button>
         </span>
         <span className="flex items-center">
           <span className="text-[10px] font-mono text-white/50">⚡ {formatPower(power)}</span>

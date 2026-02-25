@@ -445,7 +445,7 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | Re
   try {
     astableState          = new Map();
     monoState             = new Map();
-    simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
+    // simTimeMs is intentionally NOT reset here — time should be continuous across netlist updates
     lastOverloadPostMs    = 0;
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
 
