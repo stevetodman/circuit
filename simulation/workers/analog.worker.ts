@@ -124,7 +124,7 @@ function gatherOverloadViolations(
         violations.push({
           id: element.id,
           kind: 'resistor',
-          value: branchCurrent * 1000,
+          value: branchCurrent,
           limit: Math.sqrt(RESISTOR_POWER_LIMIT_W / Math.max(element.value, 1e-12)),
         });
       }
@@ -141,7 +141,7 @@ function gatherOverloadViolations(
       violations.push({
         id: element.id,
         kind,
-        value: branchCurrent * 1000,
+        value: branchCurrent,
         limit,
       });
     }
@@ -155,7 +155,7 @@ function gatherOverloadViolations(
       violations.push({
         id: wireId,
         kind: 'wire',
-        value: current * 1000,
+        value: current,
         limit: WIRE_CURRENT_LIMIT_A,
       });
     }
