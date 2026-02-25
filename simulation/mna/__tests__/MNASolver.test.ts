@@ -58,12 +58,11 @@ describe('MNASolver — solveDC', () => {
     expect(vf).toBeLessThan(0.8);
   });
 
-  it('NPN BJT — solver runs without crashing and produces finite voltages', () => {
-    // This validates the BJT NR code path runs to completion.
-    // NOTE: The simplified Ebers-Moll model is a linearised companion model that gives
-    // approximate results in forward-active mode. Exact voltage predictions depend on
-    // the operating point. This test verifies the solver doesn't crash or diverge.
-    // Net 1 = Vcc (5V), Net 2 = collector, Net 3 = base
+  it('NPN BJT common-emitter — emitter at ground, collector pulled down', () => {
+    // Net 1 = Vcc (5V), Net 2 = collector, Net 3 = base, Net 0 = ground (emitter)
+    // With Rb=100kΩ, Rc=1kΩ, hFE=100: Ib≈43µA, Ic≈4.3mA → Vc≈0.7V (saturation)
+    // Previously BROKEN: netE=toRow(0)=-1 triggered early `continue`, BJT was skipped,
+    // Vc floated to Vcc. Now fixed — emitter-at-ground is the standard NPN topology.
     const netlist: Netlist = {
       elements: [
         { id: 'vcc', kind: 'vsource', netA: 1, netB: 0, value: 5 },
@@ -83,6 +82,11 @@ describe('MNASolver — solveDC', () => {
     }
     // Vcc should remain at 5V (enforced by vsource)
     expect(result!.voltages[1]).toBeCloseTo(5, 2);
+    // Collector must be pulled well below Vcc — transistor is conducting
+    expect(result!.voltages[2]).toBeLessThan(4.5);
+    // Base should be forward-biased (Vbe ≈ 0.6-0.7V above ground)
+    expect(result!.voltages[3]).toBeGreaterThan(0.4);
+    expect(result!.voltages[3]).toBeLessThan(1.0);
   });
 
   it('RC transient — capacitor charges monotonically toward supply voltage', () => {

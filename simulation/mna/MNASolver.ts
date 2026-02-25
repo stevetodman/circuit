@@ -146,6 +146,7 @@ export function solveDC(
   const VzFwd = new Float64Array(zeners.length).fill(0.65);
   const VzRev = new Float64Array(zeners.length).fill(0.65);
   const Vbe = new Float64Array(bjts.length).fill(0.65);
+  const Vbc = new Float64Array(bjts.length).fill(0);
   const opVNext = new Float64Array(opamps.length).fill(0);
   const mosfetOn = new Float32Array(mosfets.length);
   const inductorCurrentsOut: Record<string, number> = {};
@@ -240,7 +241,7 @@ export function solveDC(
       const netB = toRow(el.netB);
       const netE = el.netC != null ? toRow(el.netC) : -1;
       const netC = toRow(el.netA);
-      if (netB < 0 || netE < 0 || netC < 0) continue;
+      if (netB < 0 || netC < 0) continue;   // emitter at ground (netE=-1) is valid — stamp2 handles -1
       // Use previous-iteration estimate (Vbe[ti]) — x is not yet available
       const vbe = Vbe[ti];
       const expV = Math.exp(vbe / VT);
@@ -256,6 +257,15 @@ export function solveDC(
         if (netE >= 0) G[netC * n + netE] -= hFE * g;
         b[netC] -= hFE * ieq;
       }
+
+      // B-C reverse diode (anti-saturation: prevents Vce collapse in saturation)
+      const IS_rev = IS * 0.01;
+      const vbc = Vbc[ti];
+      const expBC = Math.exp(vbc / VT);
+      const gR = (IS_rev / VT) * expBC;
+      const iBC = IS_rev * (expBC - 1);
+      const ieqBC = iBC - gR * vbc;
+      stamp2(G, b, n, netB, netC, gR, -ieqBC, ieqBC);
     }
 
     // ── Stamp MOSFETs (voltage-controlled switches) ──────────────────────────
@@ -350,9 +360,13 @@ export function solveDC(
       const el = bjts[ti];
       const vB = el.netB > 0 ? r[el.netB] : 0;
       const vE = el.netC != null && el.netC > 0 ? r[el.netC] : 0;
+      const vColl = el.netA > 0 ? r[el.netA] : 0;
       const newVbe = Math.max(-5.0, Math.min(0.7, vB - vE));
+      const newVbc = Math.max(-5.0, Math.min(0.65, vB - vColl));
       if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) iterConverged = false;
+      if (Math.abs(newVbc - Vbc[ti]) > NR_TOL) iterConverged = false;
       Vbe[ti] = newVbe;
+      Vbc[ti] = newVbc;
     }
     for (let mi = 0; mi < mosfets.length; mi++) {
       const el = mosfets[mi];
