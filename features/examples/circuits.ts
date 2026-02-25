@@ -358,8 +358,8 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   },
   {
     id: 'ohms-law-demo',
-    name: 'Battery + Current-Limiting Resistor',
-    description: 'Same topology as the first LED circuit with a different resistor value',
+    name: 'LED + 470Ω Safety Resistor',
+    description: '9V battery, 470Ω resistor, and red LED — conservative resistor for longer LED life',
     components: [
       {
         id: 'example-ohms-law-battery',
@@ -439,7 +439,7 @@ export const EXAMPLE_CIRCUITS: ExampleCircuit[] = [
   {
     id: 'led-resistor',
     name: 'Battery + Current-Limiting Resistor',
-    description: 'Same as the Ohm\'s law demo, using the current autoLoadId in module definitions',
+    description: '9V battery, 470Ω resistor, and red LED — the standard LED circuit for beginners',
     components: [
       {
         id: 'example-led-resistor-battery',

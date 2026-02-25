@@ -74,9 +74,9 @@ export default function ExampleLoader() {
       </button>
       {expanded && (
         <div className="mt-2 grid gap-2">
-          {EXAMPLE_CIRCUITS.map((example) => (
+          {EXAMPLE_CIRCUITS.map((example, i) => (
             <button
-              key={example.name}
+              key={`${example.name}-${i}`}
               type="button"
               onClick={() => handleSelect(example)}
               className="rounded-md border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.14] cursor-pointer transition-colors p-2.5 text-left"
