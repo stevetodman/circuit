@@ -23,8 +23,9 @@ import {
   SAB_VOLTAGE_OFFSET, SAB_CURRENT_OFFSET, SAB_TIMESTAMP_OFFSET, SAB_DIGITAL_OFFSET,
 } from '../../types/circuit';
 
-const DT_MS = 1;
-let currentIntervalMs = DT_MS; // default 1ms = 1×
+let currentDtMs = 1;           // adaptive timestep (ms) — set on each UPDATE_NETLIST
+let ticksPerInterval = 1;      // solver steps per setInterval callback (≥1 for sub-ms dt)
+let currentIntervalMs = 1;     // setInterval period (ms)
 const MOTOR_KE = 0.01;
 const OVERLOAD_THROTTLE_MS = 1_000;
 const RESISTOR_POWER_LIMIT_W = 0.25;
@@ -209,6 +210,19 @@ function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+/** τ-based adaptive timestep: dt = min(1, τ/10) clamped to [0.01, 1] ms */
+function computeAdaptiveDt(netlist: Netlist): number {
+  let minR = Infinity;
+  let minC = Infinity;
+  for (const el of netlist.elements) {
+    if (el.kind === 'resistor' && el.value > 0) minR = Math.min(minR, el.value);
+    if (el.kind === 'capacitor' && el.value > 0) minC = Math.min(minC, el.value);
+  }
+  if (!isFinite(minR) || !isFinite(minC)) return 1; // no RC → keep 1ms default
+  const tau_ms = minR * minC * 1000; // τ in ms
+  return Math.max(0.01, Math.min(1, tau_ms / 10)); // clamp: 10µs – 1ms
+}
+
 function pinNet(
   nodes: Record<string, CircuitNode>,
   comp: PlacedComponent,
@@ -368,27 +382,37 @@ function publishOverload(result: SolveResult | null): void {
 
 function tick(): void {
   if (!currentNetlist || !voltageView) return;
-  // P1-12: advance cumulative sim time rather than using wall clock
-  simTimeMs += DT_MS;
 
-  if (netlistNeedsTransientLoop) {
-    const result = solveDC(
-      currentNetlist,
-      DT_MS / 1000,
-      prevVoltages ?? undefined,
-      prevInductorCurrents,
-      motorState,
-    );
-    if (!result) {
-      publishOverload(null);
-      return;
+  let lastResult: SolveResult | null = null;
+
+  for (let t = 0; t < ticksPerInterval; t++) {
+    // P1-12: advance cumulative sim time rather than using wall clock
+    simTimeMs += currentDtMs;
+
+    if (netlistNeedsTransientLoop) {
+      const result = solveDC(
+        currentNetlist,
+        currentDtMs / 1000,
+        prevVoltages ?? undefined,
+        prevInductorCurrents,
+        motorState,
+      );
+      if (!result) {
+        publishOverload(null);
+        return;
+      }
+      updateMotorState(result.voltages, currentNetlist);
+      prevVoltages = result.voltages;
+      prevInductorCurrents = result.inductorCurrents ?? {};
+      lastResult = result;
     }
-    updateMotorState(result.voltages, currentNetlist);
-    prevVoltages = result.voltages;
-    prevInductorCurrents = result.inductorCurrents ?? {};
-    writeVoltages(result.voltages);
-    writeBranchCurrents(result.branchCurrents);
-    publishOverload(result);
+  }
+
+  // Write final state to SAB (once per interval, not per sub-tick)
+  if (netlistNeedsTransientLoop && lastResult) {
+    writeVoltages(lastResult.voltages);
+    writeBranchCurrents(lastResult.branchCurrents);
+    publishOverload(lastResult);
   } else if (prevVoltages) {
     writeVoltages(prevVoltages);
   }
@@ -415,7 +439,7 @@ function stopLoop() {
 self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | ResumeMsg>) => {
   const msg = e.data;
   if (msg.type === 'SET_SPEED') {
-    currentIntervalMs = DT_MS / msg.speed;
+    currentIntervalMs = Math.max(1, Math.round(1 / msg.speed));
     if (intervalId !== null) {
       clearInterval(intervalId);
       intervalId = setInterval(tick, currentIntervalMs);
@@ -445,7 +469,7 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | Re
   try {
     astableState          = new Map();
     monoState             = new Map();
-    simTimeMs             = 0; // P1-12: reset cumulative time on new netlist
+    // simTimeMs is intentionally NOT reset here — time should be continuous across netlist updates
     lastOverloadPostMs    = 0;
     currentNetlist        = buildNetlist(msg.nodes, msg.components, msg.wires);
 
@@ -463,6 +487,10 @@ self.onmessage = (e: MessageEvent<UpdateNetlistMsg | SetSpeedMsg | PauseMsg | Re
     netlistNeedsTransientLoop = currentNetlist.elements.some((el) =>
       el.kind === 'capacitor' || el.kind === 'inductor' || el.kind === 'motor',
     );
+
+    // Adaptive timestep: match dt to smallest RC time constant
+    currentDtMs = computeAdaptiveDt(currentNetlist);
+    ticksPerInterval = Math.max(1, Math.round(1 / currentDtMs));
     timer555Components    = loadTimerModels(msg.nodes, msg.components);
 
     const result  = solveDC(currentNetlist, undefined, undefined, undefined, motorState);

@@ -146,6 +146,7 @@ export function solveDC(
   const VzFwd = new Float64Array(zeners.length).fill(0.65);
   const VzRev = new Float64Array(zeners.length).fill(0.65);
   const Vbe = new Float64Array(bjts.length).fill(0.65);
+  const Vbc = new Float64Array(bjts.length).fill(0);
   const opVNext = new Float64Array(opamps.length).fill(0);
   const mosfetOn = new Float32Array(mosfets.length);
   const inductorCurrentsOut: Record<string, number> = {};
@@ -234,27 +235,50 @@ export function solveDC(
       stamp2(G, b, n, toRow(el.netB), toRow(el.netA), GeqR, -IeqR, IeqR);
     }
 
-    // ── Stamp BJTs (simplified Ebers-Moll linearised around Vbe[ti]) ─────────
+    // ── Stamp BJTs (Ebers-Moll transport model, βR=1) ─────────────────────────
+    // IC = hFE*gF*Vbe - 2*gR*Vbc  (forward gain minus reverse transport)
+    // IB = gF*Vbe + gR*Vbc         (forward + reverse junction currents)
     for (let ti = 0; ti < bjts.length; ti++) {
       const el = bjts[ti];
       const netB = toRow(el.netB);
       const netE = el.netC != null ? toRow(el.netC) : -1;
       const netC = toRow(el.netA);
-      if (netB < 0 || netE < 0 || netC < 0) continue;
-      // Use previous-iteration estimate (Vbe[ti]) — x is not yet available
+      if (netB < 0 || netC < 0) continue;   // emitter at ground (netE=-1) is valid — stamp2 handles -1
+      const hFE = Number.isFinite(el.value) ? Math.max(1, el.value) : 100;
+
+      // Forward B-E diode (Shockley linearized)
       const vbe = Vbe[ti];
-      const expV = Math.exp(vbe / VT);
-      const g = (IS / VT) * expV;
-      const ibe = IS * (expV - 1);
-      const ieq = ibe - g * vbe;
-      const hFE = Number.isFinite(el.value) ? Math.max(0, el.value) : 100;
+      const expF = Math.exp(vbe / VT);
+      const gF = (IS / VT) * expF;
+      const iF = IS * (expF - 1);
+      const ieqF = iF - gF * vbe;
 
-      stamp2(G, b, n, netB, netE, g, -ieq, ieq);
+      // B-E junction current at base and emitter
+      stamp2(G, b, n, netB, netE, gF, -ieqF, ieqF);
 
+      // Forward collector current source: IC_fwd = hFE * IB_fwd
       if (netC >= 0) {
-        if (netB >= 0) G[netC * n + netB] += hFE * g;
-        if (netE >= 0) G[netC * n + netE] -= hFE * g;
-        b[netC] -= hFE * ieq;
+        if (netB >= 0) G[netC * n + netB] += hFE * gF;
+        if (netE >= 0) G[netC * n + netE] -= hFE * gF;
+        b[netC] -= hFE * ieqF;
+      }
+
+      // Reverse B-C diode (full IS, βR=1 → αR=0.5 → 1/αR=2)
+      const vbc = Vbc[ti];
+      const expR = Math.exp(vbc / VT);
+      const gR = (IS / VT) * expR;
+      const iR = IS * (expR - 1);
+      const ieqR = iR - gR * vbc;
+
+      // B-C junction current at base (IB_reverse = IR)
+      stamp2(G, b, n, netB, netC, gR, -ieqR, ieqR);
+
+      // Amplified reverse transport at collector: -(1/αR)*IR = -2*IR
+      // Combined with stamp2's +gR at [C,C], total = 2*gR at [C,C] and -2*gR at [C,B]
+      if (netC >= 0) {
+        if (netB >= 0) G[netC * n + netB] -= gR;
+        G[netC * n + netC] += gR;
+        b[netC] += ieqR;
       }
     }
 
@@ -350,9 +374,13 @@ export function solveDC(
       const el = bjts[ti];
       const vB = el.netB > 0 ? r[el.netB] : 0;
       const vE = el.netC != null && el.netC > 0 ? r[el.netC] : 0;
+      const vColl = el.netA > 0 ? r[el.netA] : 0;
       const newVbe = Math.max(-5.0, Math.min(0.7, vB - vE));
+      const newVbc = Math.max(-5.0, Math.min(0.65, vB - vColl));
       if (Math.abs(newVbe - Vbe[ti]) > NR_TOL) iterConverged = false;
+      if (Math.abs(newVbc - Vbc[ti]) > NR_TOL) iterConverged = false;
       Vbe[ti] = newVbe;
+      Vbc[ti] = newVbc;
     }
     for (let mi = 0; mi < mosfets.length; mi++) {
       const el = mosfets[mi];

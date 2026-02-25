@@ -78,6 +78,13 @@ const SECTIONS = [
   },
 ];
 
+const SIM_ACCURACY_NOTES = [
+  'Capacitors: Backward Euler, 1 ms fixed timestep. RC circuits with τ < 1 ms may be inaccurate.',
+  'BJTs: simplified Ebers-Moll (no Early effect, no temperature model).',
+  '555 timer: behavioral frequency model — waveform shape is approximate.',
+  'For precision analysis, use the SPICE export with LTspice.',
+];
+
 export default function HelpOverlay() {
   const { showHelp, toggleHelp } = useUIStore(useShallow((s) => ({ showHelp: s.showHelp, toggleHelp: s.toggleHelp })));
   const [query, setQuery] = useState('');
@@ -146,6 +153,18 @@ export default function HelpOverlay() {
         })}
         {noMatches && (
           <p className="text-white/30 text-xs text-center py-4">No matches for &quot;{query}&quot;</p>
+        )}
+        {!q && (
+          <div className="mt-4 border-t border-white/[0.08] pt-4">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-2">Simulation Accuracy</p>
+            <ul className="space-y-1">
+              {SIM_ACCURACY_NOTES.map((note) => (
+                <li key={note} className="text-[11px] text-white/35 leading-snug pl-2 border-l border-white/10">
+                  {note}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>
