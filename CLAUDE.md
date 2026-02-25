@@ -11,7 +11,18 @@ pnpm lint         # ESLint
 npx tsc --noEmit  # type-check only
 ```
 
-No test suite. Verify changes with `pnpm build` and manual browser smoke test.
+pnpm test          # Vitest unit tests (MNA solver, netlist builder, net analysis)
+```
+
+Test files live in `__tests__/` directories adjacent to the code they test:
+- `simulation/mna/__tests__/MNASolver.test.ts` — solver core (divider, diode NR, BJT, RC transient, singular matrix, Gmin)
+- `simulation/mna/__tests__/SPICEValidation.test.ts` — 11 analytically-verifiable reference circuits
+- `simulation/mna/__tests__/NetlistBuilder.test.ts` — component-to-netlist mapping
+- `store/__tests__/netAnalysis.test.ts` — BFS net assignment
+
+Also verify with `pnpm build` and manual browser smoke test.
+
+```bash
 
 ## Architecture
 
@@ -25,7 +36,7 @@ Main Thread (React + R3F)
   │     LED.tsx useFrame()   — reads voltages[netId] from SAB → sets emissiveIntensity
   │     Wire.tsx useFrame()  — reads branchCurrents[idx] from SAB → current flow pulse
   ├── analog.worker.ts       — MNA solver; on UPDATE_NETLIST runs DC solve then starts
-  │                             1ms setInterval transient loop for capacitors/555 timer
+  │                             adaptive-dt setInterval transient loop (τ/10, 10µs–1ms)
   └── arduino.worker.ts      — avr8js CPU loop at 16 MHz; GPIO ↔ SAB digitalStates
 ```
 
@@ -50,7 +61,7 @@ The SAB timestamp at `[end-8]` is written in **seconds** (not milliseconds). The
 Custom MNA (Modified Nodal Analysis) solver in `simulation/mna/MNASolver.ts`:
 - Builds G·x = b matrix from `NetlistElement[]`
 - Gaussian elimination with partial pivoting
-- Newton-Raphson loop (60 iter, 1e-9 tol) for diodes (Shockley) and BJTs (Ebers-Moll); voltage-clamped ±2V per step
+- Newton-Raphson loop (60 iter, 1e-9 tol) for diodes (Shockley) and BJTs (Ebers-Moll transport, βR=1); voltage-clamped ±2V per step
 - Zener diode stamped as `kind: 'zener'` — bidirectional Shockley model: forward (Vf=0.7 V) + reverse breakdown (Vz from component value)
 - Backward Euler companion model for capacitors (when `dt` is provided)
 - Inductor DC mode: Geq = 1e9 S (near-short) avoids singularity with zero reactance
@@ -370,8 +381,8 @@ types/
 
 ## Known Limitations / Future Work
 
-- BJT simulation uses simplified Ebers-Moll (no Early effect, no temperature model).
-- Capacitors use backward Euler (first-order accuracy); no RK4 or variable timestep.
+- BJT simulation uses Ebers-Moll transport model (βR=1, no Early effect, no temperature model).
+- Capacitors use backward Euler (first-order accuracy) with adaptive timestep (dt = τ/10, clamped 10µs–1ms); no RK4.
 - 555 timer is a behavioral model (frequency only) — no threshold/comparator detail.
 - Motor and tactile switch are placed but electrically modelled as resistors only.
 - Arduino ADC: `analogRead()` feeds SAB net voltages into `AVRADC` — fully implemented.
